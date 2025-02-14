@@ -89,6 +89,14 @@
     group: "{{ oracle_group }}"
   tags: rac-db-create
 
+- name: rac-db-create | Set CV_ASSUME_DISTID to OEL7 when installing on RHEL8  # MOS Note 3017836.1
+  set_fact:
+    cv_distid: "{{ 'OEL7' if ansible_os_family == 'RedHat'
+                           and (ansible_distribution_major_version | int) >= 8
+                           and (oracle_ver_base | float) <= 19.3
+                           else '' }}"
+  tags: rac-db-create
+
 - name: rac-db-create | Create DBCA response file
   become: true
   become_user: root
@@ -105,6 +113,8 @@
     - name: rac-db-create | Run DBCA
       become: true
       become_user: "{{ oracle_user }}"
+      environment:
+        CV_ASSUME_DISTID: "{{ cv_distid }}"
       shell: |
         set -o pipefail
         export PATH={{ oracle_home }}/bin:${PATH}:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin
