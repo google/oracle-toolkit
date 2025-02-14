@@ -50,5 +50,5 @@ fi
 --backup-dest "+RECO" --ora-swlib-path /u01/oracle_install --ora-version 19 --ora-swlib-type gcs \
 --ora-asm-disks /etc/files_needed_for_tk/nonrac-asm.json \
 --ora-data-mounts /etc/files_needed_for_tk/nonrac-datamounts.json --cluster-type NONE \
---ora-data-diskgroup DATA --ora-reco-diskgroup RECO --ora-db-name orcl \
+--ora-data-destination DATA --ora-reco-destination RECO --ora-db-name orcl \
 --ora-db-container false --instance-ip-addr 10.100.1.1 --instance-hostname g278813163-s366

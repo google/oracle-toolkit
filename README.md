@@ -66,8 +66,8 @@ Supports usage with:
    --ora-swlib-type gcs \
    --ora-asm-disks db1_asm.json \
    --ora-data-mounts db1_mounts.json \
-   --ora-data-diskgroup DATA \
-   --ora-reco-diskgroup RECO \
+   --ora-data-destination DATA \
+   --ora-reco-destination RECO \
    --ora-db-name orcl \
    --instance-ip-addr 172.16.1.1
    ```

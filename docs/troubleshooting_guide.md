@@ -384,8 +384,8 @@ Thu Jan 21 22:40:34 UTC 2021
 --ora-data-mounts data_mounts_config.json \
 --cluster-type RAC \
 --cluster-config cluster_config.json \
---ora-data-diskgroup DATA \
---ora-reco-diskgroup RECO \
+--ora-data-destination DATA \
+--ora-reco-destination RECO \
 --ora-db-name orcl \
 --ora-db-container false >> ~/git-clone-holder/oracle-toolkit/logs/sydney-1.out \
 -- -vvvv 2>&1   <-----------------------------------------------------------------------------

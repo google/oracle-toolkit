@@ -154,11 +154,11 @@ ORA_DISK_MGMT_PARAM="ASMLIB|UDEV"
 ORA_ROLE_SEPARATION="${ORA_ROLE_SEPARATION:-TRUE}"
 ORA_ROLE_SEPARATION_PARAM="^(TRUE|FALSE)$"
 
-ORA_DATA_DISKGROUP="${ORA_DATA_DISKGROUP:-DATA}"
-ORA_DATA_DISKGROUP_PARAM="^[a-zA-Z0-9]+$"
+ORA_DATA_DESTINATION="${ORA_DATA_DESTINATION:-DATA}"
+ORA_DATA_DESTINATION_PARAM="^(\/|\+)?[a-zA-Z0-9]+$"
 
-ORA_RECO_DISKGROUP="${ORA_RECO_DISKGROUP:-RECO}"
-ORA_RECO_DISKGROUP_PARAM="^[a-zA-Z0-9]+$"
+ORA_RECO_DESTINATION="${ORA_RECO_DESTINATION:-RECO}"
+ORA_RECO_DESTINATION_PARAM="^(\/|\+)?[a-zA-Z0-9]+$"
 
 ORA_ASM_DISKS="${ORA_ASM_DISKS:-asm_disk_config.json}"
 ORA_ASM_DISKS_PARAM="^.*$"
@@ -179,7 +179,7 @@ CLUSTER_CONFIG_JSON="${CLUSTER_CONFIG_JSON}"
 CLUSTER_CONFIG_JSON_PARAM="^\[.+cluster_name.+\]$"
 
 BACKUP_DEST="${BACKUP_DEST}"
-BACKUP_DEST_PARAM="^(\/|\+).*$"
+BACKUP_DEST_PARAM="^(\/|\+)?.*$"
 
 BACKUP_REDUNDANCY="${BACKUP_REDUNDANCY:-2}"
 BACKUP_REDUNDANCY_PARAM="^[0-9]+$"
@@ -244,7 +244,8 @@ export ANSIBLE_DISPLAY_SKIPPED_HOSTS=false
 GETOPT_MANDATORY="ora-swlib-bucket:"
 GETOPT_OPTIONAL="backup-dest:,ora-version:,no-patch,ora-edition:,cluster-type:,cluster-config:,cluster-config-json:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-staging:,ora-db-name:,ora-db-domain:,ora-db-charset:,ora-disk-mgmt:,ora-role-separation:"
-GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-data-diskgroup:,ora-reco-diskgroup:,ora-asm-disks:,ora-asm-disks-json:,ora-data-mounts:,ora-data-mounts-json:,ora-listener-port:,ora-listener-name:"
+GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-data-destination:,ora-data-diskgroup:,ora-reco-destination:,ora-reco-diskgroup:"
+GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-asm-disks:,ora-asm-disks-json:,ora-data-mounts:,ora-data-mounts-json:,ora-listener-port:,ora-listener-name:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-db-ncharset:,ora-db-container:,ora-db-type:,ora-pdb-name-prefix:,ora-pdb-count:,ora-redo-log-size:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,backup-redundancy:,archive-redundancy:,archive-online-days:,backup-level0-days:,backup-level1-days:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,backup-start-hour:,backup-start-min:,archive-backup-min:,backup-script-location:,backup-log-location:"
@@ -259,7 +260,7 @@ VALIDATE=0
 options="$(getopt --longoptions "$GETOPT_LONG" --options "$GETOPT_SHORT" -- "$@")"
 
 [ $? -eq 0 ] || {
-    echo "Invalid options provided: $@" >&2
+  echo "Invalid options provided: $@" >&2
   exit 1
 }
 
@@ -342,12 +343,12 @@ while true; do
     ORA_ROLE_SEPARATION="$2"
     shift
     ;;
-  --ora-data-diskgroup)
-    ORA_DATA_DISKGROUP="$2"
+  --ora-data-destination | --ora-data-diskgroup)
+    ORA_DATA_DESTINATION="$2"
     shift
     ;;
-  --ora-reco-diskgroup)
-    ORA_RECO_DISKGROUP="$2"
+  --ora-reco-destination | --ora-reco-diskgroup)
+    ORA_RECO_DESTINATION="$2"
     shift
     ;;
   --ora-asm-disks)
@@ -602,12 +603,12 @@ shopt -s nocasematch
   echo "Incorrect parameter provided for ora-role-separation: $ORA_ROLE_SEPARATION"
   exit 1
 }
-[[ ! "$ORA_DATA_DISKGROUP" =~ $ORA_DATA_DISKGROUP_PARAM ]] && {
-  echo "Incorrect parameter provided for ora-data-diskgroup: $ORA_DATA_DISKGROUP"
+[[ ! "$ORA_DATA_DESTINATION" =~ $ORA_DATA_DESTINATION_PARAM ]] && {
+  echo "Incorrect parameter provided for ora-data-destination: $ORA_DATA_DESTINATION"
   exit 1
 }
-[[ ! "$ORA_RECO_DISKGROUP" =~ $ORA_RECO_DISKGROUP_PARAM ]] && {
-  echo "Incorrect parameter provided for ora-reco-diskgroup: $ORA_RECO_DISKGROUP"
+[[ ! "$ORA_RECO_DESTINATION" =~ $ORA_RECO_DESTINATION_PARAM ]] && {
+  echo "Incorrect parameter provided for ora-reco-destination: $ORA_RECO_DESTINATION"
   exit 1
 }
 [[ ! "$ORA_ASM_DISKS" =~ $ORA_ASM_DISKS_PARAM ]] && {
@@ -745,8 +746,8 @@ if [ "${ORA_EDITION}" = "FREE" ]; then
   if [[ ! "${ORA_VERSION}" =~ ^23\. ]]; then
     ORA_VERSION="23.0.0.0.0"
   fi
-  [[ ! "${ORA_DATA_DISKGROUP}" =~ ^(/([^/]+))*/?$ ]] && ORA_DATA_DISKGROUP="/u02/oradata" || true
-  [[ ! "${ORA_RECO_DISKGROUP}" =~ ^(/([^/]+))*/?$ ]] && ORA_RECO_DISKGROUP="/opt/oracle/fast_recovery_area" || true
+  [[ ! "${ORA_DATA_DESTINATION}" =~ ^(/([^/]+))*/?$ ]] && ORA_DATA_DESTINATION="/u02/oradata" || true
+  [[ ! "${ORA_RECO_DESTINATION}" =~ ^(/([^/]+))*/?$ ]] && ORA_RECO_DESTINATION="/opt/oracle/fast_recovery_area" || true
   if (( ORA_PDB_COUNT > 16 )); then
     echo "WARNING: Maximum number of PDBs for this edition is 16: Reducing from ${ORA_PDB_COUNT} to 16"
     ORA_PDB_COUNT=16
@@ -921,7 +922,7 @@ export CLUSTER_CONFIG_JSON
 export COMPATIBLE_RDBMS
 export INSTANCE_IP_ADDR
 export NTP_PREF
-export ORA_DATA_DISKGROUP
+export ORA_DATA_DESTINATION
 export ORA_DB_CHARSET
 export ORA_DB_CONTAINER
 export ORA_DB_DOMAIN
@@ -934,7 +935,7 @@ export ORA_LISTENER_NAME
 export ORA_LISTENER_PORT
 export ORA_PDB_COUNT
 export ORA_PDB_NAME_PREFIX
-export ORA_RECO_DISKGROUP
+export ORA_RECO_DESTINATION
 export ORA_ASM_DISKS
 export ORA_ASM_DISKS_JSON
 export ORA_DATA_MOUNTS

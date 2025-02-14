@@ -76,8 +76,8 @@ grid_dirs:
   - { name: "/home/{{ grid_user }}/.ansible/tmp", owner: "{{ grid_user }}", group: "{{ oracle_group }}", mode: "ug=rwx,o=rx" }
 
 fs_dirs:
-  - { name: "{{ data_diskgroup }}", owner: "{{ oracle_user }}", group: "{{ oracle_group }}", mode: "u=rwx,g=rx,o=" }
-  - { name: "{{ reco_diskgroup }}", owner: "{{ oracle_user }}", group: "{{ oracle_group }}", mode: "u=rwx,g=rx,o=" }
+  - { name: "{{ data_destination }}", owner: "{{ oracle_user }}", group: "{{ oracle_group }}", mode: "u=rwx,g=rx,o=" }
+  - { name: "{{ reco_destination }}", owner: "{{ oracle_user }}", group: "{{ oracle_group }}", mode: "u=rwx,g=rx,o=" }
 
 pwgen_file: pwgen.sh
 pwgen_path: /usr/local/bin

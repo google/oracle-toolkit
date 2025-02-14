@@ -125,9 +125,9 @@ Initial steps similar to those of the Single Instance installation.
    `./install-oracle.sh --help`
 
 1. Create the cluster configuration. You have two options:
-   1. Edit the `cluster_config.json` JSON file template that is provided with the toolkit, 
+   1. Edit the `cluster_config.json` JSON file template that is provided with the toolkit,
 and then specify its path using the `--cluster-config` parameter
-   1. Pass the cluster configuration JSON as an argument to the `--cluster-config-json` parameter   
+   1. Pass the cluster configuration JSON as an argument to the `--cluster-config-json` parameter
 
 1. Install the database:
 
@@ -1179,7 +1179,7 @@ When you run the toolkit, specify the path to the configuration file by using
 either the `--ora-data-mounts` command line option or the
 `ORA_DATA_MOUNTS` environment variable. The file path can be relative or
 fully qualified. The file name defaults to `data_mounts_config.json`.
-Alternatively, pass the file content directly as JSON using `--ora-data-mounts-json` parameter. 
+Alternatively, pass the file content directly as JSON using `--ora-data-mounts-json` parameter.
 If both are present, `--ora-data-mounts-json` takes precedence.
 
 The following example shows a properly formatted JSON data mount configuration file:
@@ -1215,7 +1215,7 @@ When you run the toolkit, specify the path to the configuration file by using
 either the `--ora-asm-disks` command line option or the `ORA_ASM_DISKS`
 environment variable. The file path can be relative or fully qualified. The file
 name defaults to `ask_disk_config.json`. Alternatively, pass the file content directly
-as a JSON using `--ora-asm-disks-json` parameter. If both are present, 
+as a JSON using `--ora-asm-disks-json` parameter. If both are present,
 `--ora-asm-disks-json` takes precedence.
 
 The following example shows a properly formatted JSON ASM disk group configuration file:
@@ -1644,24 +1644,24 @@ false</td>
 "grid" instead of the OS user "oracle".</td>
 </tr>
 <tr>
-<td>Data disk group name</td>
+<td>Data file destination (ASM disk group or file system location)</td>
 <td><p><pre>
-ORA_DATA_DISKGROUP
---ora-data-diskgroup
+ORA_DATA_DESTINATION
+--ora-data-destination
 </pre></p></td>
 <td>user defined<br>
 DATA</td>
-<td>Default disk group for DB files for initial database.</td>
+<td>Default location for DB files for initial database.</td>
 </tr>
 <tr>
-<td>Reco disk group name</td>
+<td>Recovery area destination (ASM disk group or file system location)</td>
 <td><p><pre>
-ORA_RECO_DISKGROUP
---ora-reco-diskgroup
+ORA_RECO_DESTINATION
+--ora-reco-destination
 </pre></p></td>
 <td>user defined<br>
 RECO</td>
-<td>Default disk group for FRA files for initial database.</td>
+<td>Default location for FRA files for initial database.</td>
 </tr>
 <tr>
 <td>ASM disk group configuration</td>
@@ -1681,7 +1681,7 @@ ORA_ASM_DISKS_JSON
 --ora-asm-disks-json
 </pre></p></td>
 <td>user defined<br></td>
-<td>ASM disk groups definition in a valid JSON format. 
+<td>ASM disk groups definition in a valid JSON format.
 See <a href="#asm-disk-group-configuration">ASM disk group configuration</a>.</td>
 </tr>
 </tbody>
@@ -1850,7 +1850,7 @@ Use the file to specify the RAC SCAN listener name, port, IPs, nodes, etc.</td>
 --cluster-config-json
 </pre></p></td>
 <td>user defined</td>
-<td>Cluster configuration JSON. Use it to specify the RAC SCAN listener name, port, IPs, nodes, etc. 
+<td>Cluster configuration JSON. Use it to specify the RAC SCAN listener name, port, IPs, nodes, etc.
 on the CLI instead of the CLUSTER_CONFIG file.
 </td>
 </tr>
@@ -1862,14 +1862,22 @@ on the CLI instead of the CLUSTER_CONFIG file.
 <table>
 <thead>
 <tr>
-<th>RMAN backup destination</th>
-<th><p><pre>
+<th>Attribute</th>
+<th>Parameters</th>
+<th>Parameter Values</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RMAN backup destination</td>
+<td><p><pre>
 BACKUP_DEST
 --backup-dest
-</pre></p></th>
-<th>user defined - no default<br>
-Example: +RECO</th>
-<th>Disk group name or NFS file share location. Can include formatting options,
+</pre></p></td>
+<td>user defined - no default<br>
+Example: +RECO</td>
+<td>Disk group name or NFS file share location. Can include formatting options,
 such as "/u02/db_backups/ORCL_%I_%T_%s_%p.bak", for example.<br>
 <br>
 When writing to a non-ASM disk group location, include a valid RMAN format
@@ -1878,10 +1886,8 @@ shown above.<br>
 <br>
 If you are writing to a local file system, the
 directory does not have to exist, but initial backups will fail if the
-destination is not available or writeable.</th>
+destination is not available or writeable.</td>
 </tr>
-</thead>
-<tbody>
 <tr>
 <td>RMAN full DB backup redundancy</td>
 <td><p><pre>
@@ -2196,7 +2202,7 @@ INSTANCE_SSH_EXTRA_ARGS=''\''-o StrictHostKeyChecking=no -o UserKnownHostsFile=/
 INSTANCE_SSH_KEY='~/.ssh/id_rsa'
 INSTANCE_SSH_USER=goryunov
 ORA_ASM_DISKS=asm_disk_config.json
-ORA_DATA_DISKGROUP=DATA
+ORA_DATA_DESTINATION=DATA
 ORA_DATA_MOUNTS=data_mounts_config.json
 ORA_DB_CHARSET=AL32UTF8
 ORA_DB_CONTAINER=TRUE
@@ -2210,7 +2216,7 @@ ORA_LISTENER_NAME=LISTENER
 ORA_LISTENER_PORT=1521
 ORA_PDB_COUNT=1
 ORA_PDB_NAME_PREFIX=PDB
-ORA_RECO_DISKGROUP=RECO
+ORA_RECO_DESTINATION=RECO
 ORA_REDO_LOG_SIZE=100MB
 ORA_RELEASE=latest
 ORA_ROLE_SEPARATION=TRUE
@@ -2289,7 +2295,7 @@ INSTANCE_SSH_EXTRA_ARGS=''\''-o StrictHostKeyChecking=no -o UserKnownHostsFile=/
 INSTANCE_SSH_KEY='~/.ssh/id_rsa'
 INSTANCE_SSH_USER=goryunov
 ORA_ASM_DISKS=asm_disk_config.json
-ORA_DATA_DISKGROUP=DATA
+ORA_DATA_DESTINATION=DATA
 ORA_DATA_MOUNTS=data_mounts_config.json
 ORA_DB_CHARSET=AL32UTF8
 ORA_DB_CONTAINER=false
@@ -2303,7 +2309,7 @@ ORA_LISTENER_NAME=LISTENER
 ORA_LISTENER_PORT=1521
 ORA_PDB_COUNT=1
 ORA_PDB_NAME_PREFIX=PDB
-ORA_RECO_DISKGROUP=RECO
+ORA_RECO_DESTINATION=RECO
 ORA_REDO_LOG_SIZE=100MB
 ORA_RELEASE=latest
 ORA_ROLE_SEPARATION=TRUE
@@ -2433,20 +2439,19 @@ ORA_VERSION
 <br>
 Defaults to the latest release.</td>
 </tr>
-<tr>
-<td>Data disk group name</td>
+<td>Data file destination</td>
 <td><p><pre>
-ORA_DATA_DISKGROUP
---ora-data-diskgroup
+ORA_DATA_DESTINATION
+--ora-data-destination
 </pre></p></td>
 <td>user defined file system location</td>
 <td>Must be an existing Linux file system location – ASM disk groups are incompatible with the free edition.</td>
 </tr>
 <tr>
-<td>Reco disk group name</td>
+<td>Recovery area destination</td>
 <td><p><pre>
-ORA_RECO_DISKGROUP
---ora-reco-diskgroup
+ORA_RECO_DESTINATION
+--ora-reco-destination
 </pre></p></td>
 <td>user defined file system location</td>
 <td>Must be an existing Linux file system location – ASM disk groups are incompatible with the free edition.</td>
@@ -2629,7 +2634,7 @@ INSTANCE_SSH_EXTRA_ARGS=''\''-o ServerAliveInterval=60 -o ServerAliveCountMax=3 
 INSTANCE_SSH_KEY='~/.ssh/id_rsa'
 INSTANCE_SSH_USER=pane
 ORA_ASM_DISKS=asm_disk_config.json
-ORA_DATA_DISKGROUP=/u02/oradata
+ORA_DATA_DESTINATION=/u02/oradata
 ORA_DATA_MOUNTS=data_mounts_config.json
 ORA_DB_CHARSET=AL32UTF8
 ORA_DB_CONTAINER=TRUE
@@ -2643,7 +2648,7 @@ ORA_LISTENER_NAME=LISTENER
 ORA_LISTENER_PORT=1521
 ORA_PDB_COUNT=2
 ORA_PDB_NAME_PREFIX=FREEPDB
-ORA_RECO_DISKGROUP=/opt/oracle/fast_recovery_area
+ORA_RECO_DESTINATION=/opt/oracle/fast_recovery_area
 ORA_REDO_LOG_SIZE=100MB
 ORA_RELEASE=latest
 ORA_ROLE_SEPARATION=FALSE
@@ -2941,7 +2946,7 @@ is the default behavior:
   --ora-data-mounts data_mounts_config.json \
   --cluster-type RAC \
   --cluster-config cluster_config.json \
-  --ora-reco-diskgroup DATA \
+  --ora-reco-destination DATA \
   --ora-db-name ORCL
 ```
 
@@ -3020,7 +3025,7 @@ The following example shows the specification of the YAML file by using the
   --ora-data-mounts data_mounts_config.json \
   --cluster-type RAC \
   --cluster-config cluster_config.json \
-  --ora-reco-diskgroup DATA \
+  --ora-reco-destination DATA \
   --ora-db-name ORCL \
   -- "--extra-vars @patches.yaml"
 ```

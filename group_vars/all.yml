@@ -32,11 +32,11 @@ data_mounts_definition_file: "{{ lookup('env','ORA_DATA_MOUNTS')|default('data_m
 data_mounts_input: "{{ lookup('file',data_mounts_definition_file,errors='ignore') }}"
 oracle_user_data_mounts: "{{ data_mounts_input | default(oracle_user_data_mounts_default,true) }}"
 asm_disks_default:
-  - diskgroup: "{{ data_diskgroup }}"
+  - diskgroup: "{{ data_destination }}"
     disks:
       - name: DATA1
         blk_device: /dev/BOGUS
-  - diskgroup: "{{ reco_diskgroup }}"
+  - diskgroup: "{{ reco_destination }}"
     disks:
       - name: RECO1
         blk_device: /dev/BOGUS
@@ -79,8 +79,8 @@ ncharset: "{{ lookup('env','ORA_DB_NCHARSET')|default('AL16UTF16',true) }}"
 # ASM and storage related variables:
 asm_disk_management: "{{ lookup('env','ORA_DISK_MGMT')|lower|default('udev',true) }}"
 role_separation: "{{ lookup('env','ORA_ROLE_SEPARATION')|lower|default('true',true) }}"
-data_diskgroup: "{{ lookup('env','ORA_DATA_DISKGROUP')|default('DATA',true) }}"
-reco_diskgroup: "{{ lookup('env','ORA_RECO_DISKGROUP')|default('RECO',true) }}"
+data_destination: "{{ lookup('env','ORA_DATA_DESTINATION')|default('DATA',true) }}"
+reco_destination: "{{ lookup('env','ORA_RECO_DESTINATION')|default('RECO',true) }}"
 use_omf: true  # Used for file system storage (currently applicable only for Free Edition)
 
 # Listener related variables:

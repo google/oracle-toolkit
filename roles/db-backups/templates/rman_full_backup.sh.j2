@@ -11,7 +11,7 @@ start_ts="$($ts)"                        # Start timestamp
 log_dir="{{ logs_dir }}"                 # A directory for the logs
 conn_str="{% if oracle_ver == "11.2.0.4.0" %}/{% else %}/ AS SYSBACKUP{% endif %}" # Oracle connection string
 backup_dest="{{ backup_dest }}"          # Backup destination path
-fra_dest="{{ reco_diskgroup }}"          # Fast recovery area location
+fra_dest="{{ reco_destination }}"        # Fast recovery area location
 export NLS_DATE_FORMAT="YYYY-MM-DD HH24:MI:SS"
 #
 if [[ $# -ne 4 ]]; then
