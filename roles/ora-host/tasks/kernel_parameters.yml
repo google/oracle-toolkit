@@ -34,14 +34,14 @@
 - name: kernel_parameters | Update the shmall sysctl value (if less than "ram_pct_used" the size of physical memory)
   sysctl:
     name: "kernel.shmall"
-    value: "{{ (ansible_memtotal_mb * 256 * (ram_pct_used | int) / 100) | round(0,'ceil') | int }}"  # (MB->bytes)/pagesize: 1024*1024/4096=256
+    value: "{{ (ansible_memtotal_mb * 256 * (ram_pct_used | int) / 100) | round(0, 'ceil') | int }}"  # (MB->bytes)/pagesize: 1024*1024/4096=256
     state: present
     sysctl_set: true
     reload: true
     ignoreerrors: true
   vars:
     current_shmall: "{{ (sysctl_settings | selectattr('parameter', 'equalto', 'kernel.shmall') | map(attribute='value') | first) | default('0') }}"
-    calculated_shmall: "{{ (ansible_memtotal_mb * 256 * (ram_pct_used | int) / 100) | round(0,'ceil') }}"
+    calculated_shmall: "{{ (ansible_memtotal_mb * 256 * (ram_pct_used | int) / 100) | round(0, 'ceil') }}"
   when: current_shmall | int < calculated_shmall | int or current_shmall | int > (ansible_memtotal_mb * 256)  # Must cast to int at this stage for Ansible 2.9
 
 - name: kernel_parameters | Update other sysctl values

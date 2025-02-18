@@ -132,7 +132,7 @@ sysctl_param_values:
   - parameter: "kernel.sem"
     value: "250 32000 100 128"
   - parameter: "kernel.shmmax"
-    value: "{{ (ansible_memtotal_mb * 524288) | round(0,'ceil') | int }}"  # (MB->Bytes)/2: 1024*1024/2 = 52488
+    value: "{{ (ansible_memtotal_mb * 524288) | round(0, 'ceil') | int }}"  # (MB->Bytes)/2: 1024*1024/2 = 52488
   - parameter: "kernel.shmmni"
     value: 4096
   - parameter: "kernel.panic_on_oops"

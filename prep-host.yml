@@ -34,7 +34,6 @@
     - { role: base-provision, tags: base-provision }
     - { role: host-storage, tags: host-storage }
     - { role: ora-host, tags: ora-host }
-    - { role: hugepages, tags: hugepages }
 
 - hosts: dbasm[0]
   become: false
