@@ -199,6 +199,18 @@
       - "{{ install_rac_gi.stdout_lines }}"
   tags: rac-gi,rac-gi-install
 
+- name: rac-gi-install | Fix up asmcmd in 12.2 (MOS note 2748316.1)
+  become: yes
+  become_user: "{{ grid_user }}"
+  register: fixup_asmcmd
+  shell: "make -f ins_rdbms.mk client_sharedlib libasmclntsh12.ohso libasmperl12.ohso ORACLE_HOME={{ grid_home }}"
+  args:
+    chdir: "{{ grid_home }}/rdbms/lib"
+  environment:
+    ORACLE_HOME: "{{ grid_home }}"
+  when: oracle_ver == '12.2.0.1.0'
+  tags: rac-gi,rac-gi-install
+
 - name: rac-gi-install | Run script orainstRoot.sh
   become: true
   become_user: root

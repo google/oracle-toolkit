@@ -43,13 +43,19 @@
     state: absent
   tags: ntp
 
+- name: Gather installed packages
+  ansible.builtin.package_facts:
+  tags: os_packages
+
 - name: Disable avahi daemon
   systemd:
     name: "{{ item }}"
     enabled: false
     state: stopped
-  when: cluster_name is defined
-  ignore_errors: true
+  when:
+    - cluster_name is defined
+    - "'avahi' in ansible_facts.packages"
+  ignore_errors: yes
   with_items:
     - avahi-daemon.socket
     - avahi-daemon.service
@@ -57,7 +63,7 @@
 
 - name: Install required base OS packages
   package:
-    name: "{{ packages }}"
+    name: "{{ required_packages }}"
     state: present
     lock_timeout: "{{ pkg_mgr_lock_timeout }}"
   when: install_os_packages
