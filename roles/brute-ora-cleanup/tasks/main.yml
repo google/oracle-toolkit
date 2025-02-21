@@ -54,10 +54,6 @@
 
 - name: Free Edition cleanup steps
   block:
-    - include_role:
-        name: common
-        tasks_from: populate-vars.yml
-
     - name: Stat Free Edition script
       stat:
         path: "/etc/init.d/oracle-free-{{ free_edition_name }}"
