@@ -181,6 +181,9 @@ CLUSTER_CONFIG_JSON_PARAM="^\[.+cluster_name.+\]$"
 BACKUP_DEST="${BACKUP_DEST}"
 BACKUP_DEST_PARAM="^(\/|\+)?.*$"
 
+GCS_BACKUP_CONFIG="${GCS_BACKUP_CONFIG}"
+GCS_BACKUP_CONFIG_PARAM="^[a-zA-Z0-9]+$"
+
 BACKUP_REDUNDANCY="${BACKUP_REDUNDANCY:-2}"
 BACKUP_REDUNDANCY_PARAM="^[0-9]+$"
 
@@ -242,7 +245,7 @@ COMPATIBLE_RDBMS_PARAM="^[0-9][0-9]\.[0-9].*"
 export ANSIBLE_DISPLAY_SKIPPED_HOSTS=false
 ###
 GETOPT_MANDATORY="ora-swlib-bucket:"
-GETOPT_OPTIONAL="backup-dest:,ora-version:,no-patch,ora-edition:,cluster-type:,cluster-config:,cluster-config-json:"
+GETOPT_OPTIONAL="gcs-backup-config:,backup-dest:,ora-version:,no-patch,ora-edition:,cluster-type:,cluster-config:,cluster-config-json:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-staging:,ora-db-name:,ora-db-domain:,ora-db-charset:,ora-disk-mgmt:,ora-role-separation:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-data-destination:,ora-data-diskgroup:,ora-reco-destination:,ora-reco-diskgroup:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-asm-disks:,ora-asm-disks-json:,ora-data-mounts:,ora-data-mounts-json:,ora-listener-port:,ora-listener-name:"
@@ -405,6 +408,10 @@ while true; do
     ;;
   --backup-dest)
     BACKUP_DEST="$2"
+    shift
+    ;;
+  --gcs-backup-config)
+    GCS_BACKUP_CONFIG="$2"
     shift
     ;;
   --backup-redundancy)
@@ -667,6 +674,10 @@ shopt -s nocasematch
   echo "Incorrect parameter provided for backup-dest: $BACKUP_DEST"
   exit 1
 }
+[[ ! "$GCS_BACKUP_CONFIG" =~ $GCS_BACKUP_CONFIG_PARAM ]] && {
+  echo "Incorrect parameter provided for gcs-backup-config: $GCS_BACKUP_CONFIG"
+  exit 1
+}
 [[ ! "$BACKUP_REDUNDANCY" =~ $BACKUP_REDUNDANCY_PARAM ]] && {
   echo "Incorrect parameter provided for backup-redundancy: $BACKUP_REDUNDANCY"
   exit 1
@@ -910,6 +921,7 @@ export ARCHIVE_BACKUP_MIN
 export ARCHIVE_ONLINE_DAYS
 export ARCHIVE_REDUNDANCY
 export BACKUP_DEST
+export GCS_BACKUP_CONFIG
 export BACKUP_LEVEL0_DAYS
 export BACKUP_LEVEL1_DAYS
 export BACKUP_LOG_LOCATION
@@ -954,7 +966,7 @@ export PRIMARY_IP_ADDR
 export SWAP_BLK_DEVICE
 
 echo -e "Running with parameters from command line or environment variables:\n"
-set | grep -E '^(ORA_|BACKUP_|ARCHIVE_|INSTANCE_|PB_|ANSIBLE_|CLUSTER|PRIMARY)' | grep -v '_PARAM='
+set | grep -E '^(ORA_|BACKUP_|GCS_|ARCHIVE_|INSTANCE_|PB_|ANSIBLE_|CLUSTER|PRIMARY)' | grep -v '_PARAM='
 echo
 
 ANSIBLE_PARAMS="-i ${INVENTORY_FILE} ${ANSIBLE_PARAMS}"

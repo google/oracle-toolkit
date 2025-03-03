@@ -1,0 +1,151 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- name: gcsfuse | gcsfuse install
+  include_tasks: gcsfuse.yml
+
+- name: gcsfuse enable resource manager API | Enable resource manager API auto creation of bucket
+  shell:
+    cmd: "gcloud services enable cloudresourcemanager.googleapis.com || true"
+  register: services_cloudresourcemanager
+  changed_when: not services_cloudresourcemanager.failed
+
+- name: gcsfuse extract project number | GCE instance project number value
+  shell:
+    cmd: "gcloud projects describe $(gcloud config get-value project) --format=\"value(projectNumber)\""
+  register: gce_project_number
+  changed_when: not gce_project_number.failed
+
+- name: gcsfuse project number results | GCE instance project number value results
+  debug:
+    var: gce_project_number.stdout
+    verbosity: 1
+
+- name: gcsfuse extract instance_id number | GCE instance_id value
+  shell:
+    cmd: "curl -s http://metadata.google.internal/computeMetadata/v1/instance/id -H Metadata-Flavor:Google"
+  register: gce_instance_id
+  changed_when: not gce_instance_id.failed
+
+- name: gcsfuse instance_id results | GCE instance instance_id value results
+  debug:
+    var: gce_instance_id.stdout
+    verbosity: 1
+
+- name: gcsfuse service account verification | GCE gcsfuse service account verification
+  shell:
+    cmd: "gcloud iam service-accounts list --format json|egrep -i gcsfuse-{{ gce_instance_id.stdout }}|egrep -i email |awk -F'\"' '{print $4}'"
+  register: gcsfuse_backup_service_account_verification
+  failed_when: gcsfuse_backup_service_account_verification.rc not in [0, 1]
+  changed_when: false
+  check_mode: false
+
+- name: gcsfuse create service account | GCE gcsfuse service account
+  shell:
+    cmd: "gcloud iam service-accounts create gcsfuse-{{ gce_instance_id.stdout }}"
+  register: gcsfuse_backup_service_account
+  when:
+    - gcsfuse_backup_service_account_verification.stdout | length == 0
+  changed_when: not gcsfuse_backup_service_account.failed
+
+- name: gcsfuse wait for service account propagation
+  pause:
+    seconds: 15
+  when: not ansible_check_mode
+
+- name: gcsfuse service account verification | GCE gcsfuse service account verification
+  shell:
+    cmd: "gcloud iam service-accounts list --format json|egrep -i gcsfuse-{{ gce_instance_id.stdout }}|egrep -i email |awk -F'\"' '{print $4}'"
+  register: gcsfuse_backup_service_account_verification
+  failed_when: gcsfuse_backup_service_account_verification.rc not in [0, 1]
+  changed_when: false
+  check_mode: false
+
+- name: gcsfuse service account verification results | GCE gcsfuse service account results
+  debug:
+    var: gcsfuse_backup_service_account_verification.stdout
+    verbosity: 1
+
+- name: gcsfuse service account keys verification | GCE gcsfuse service account keys verification
+  shell:
+    cmd: "gcloud iam service-accounts keys list  --managed-by=user --iam-account={{ gcsfuse_backup_service_account_verification.stdout }}"
+  register: gcsfuse_backup_service_account_keys_verification
+  failed_when: gcsfuse_backup_service_account_keys_verification.stderr != "Listed 0 items."
+  changed_when: false
+  check_mode: false
+
+- name: gcsfuse create temp directory| GCE gcsfuse create temp directory
+  become: true
+  file:
+    path: "{{ gcsfuse_backup_temp_path }}/{{ gcsfuse_backup_temp_prefix }}{{ gce_instance_id.stdout }}"
+    state: directory
+    mode: 0760
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
+
+- name: gcsfuse create bucket mount directory| GCE gcsfuse create bucket mount directory
+  become: true
+  file:
+    path: "{{ gcsfuse_backup_mount_path }}/{{ gcsfuse_backup_mount_prefix }}{{ gce_instance_id.stdout }}"
+    state: directory
+    mode: 0760
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
+
+- name: gcsfuse create bucket| GCE gcsfuse create bucket
+  shell:
+    cmd: "gcloud storage buckets create gs://{{ gcsfuse_bucket_prefix }}-{{ gce_instance_id.stdout }} --pap"
+  register: gcsfuse_create_bucket
+
+- name: gcsfuse wait for gcsbucket propagation
+  pause:
+    seconds: 15
+  when: not ansible_check_mode
+
+- name: gcsfuse set bucket service account iam policy| GCE set bucket service account iam policy
+  shell:
+    cmd: "gcloud storage buckets add-iam-policy-binding gs://{{ gcsfuse_bucket_prefix }}-{{ gce_instance_id.stdout }}/ --member=\"serviceAccount:{{ gcsfuse_backup_service_account_verification.stdout }}\" --role=roles/storage.legacyBucketOwner"
+  register: gcsfuse_service_account_iam
+  changed_when: not gcsfuse_service_account_iam.failed
+
+- name: gcsfuse wait for gcsbucket iam-policy propagation
+  pause:
+    seconds: 15
+  when: not ansible_check_mode
+
+- name: gcsfuse create service account key | GCE gcsfuse service account key
+  shell:
+    cmd: "gcloud iam service-accounts keys create {{ gcsfuse_backup_temp_path }}/{{ gcsfuse_backup_temp_prefix }}{{ gce_instance_id.stdout }}/{{ gce_instance_id.stdout }}.json --iam-account={{ gcsfuse_backup_service_account_verification.stdout }}"
+  register: gcsfuse_backup_service_account_json_key
+  when: gcsfuse_backup_service_account_keys_verification.stderr == "Listed 0 items."
+  changed_when: not gcsfuse_backup_service_account_json_key.failed
+
+- name: gcsfuse wait for service account keys propagation
+  pause:
+    seconds: 15
+  when: not ansible_check_mode
+
+- name: gcsfuse mount bucket  GCE gcsfuse mount directory
+  mount:
+    path: "{{ gcsfuse_backup_mount_path }}/{{ gcsfuse_backup_mount_prefix }}{{ gce_instance_id.stdout }}"
+    src: "{{ gcsfuse_bucket_prefix }}-{{ gce_instance_id.stdout }}"
+    fstype: gcsfuse
+    opts: temp_dir={{ gcsfuse_backup_temp_path }}/{{ gcsfuse_backup_temp_prefix }}{{ gce_instance_id.stdout }},rw,dir_mode=777,uid={{ oracle_user }},gid={{ oracle_group }},noexec,nodev,allow_other,key_file={{ gcsfuse_backup_temp_path }}/{{ gcsfuse_backup_temp_prefix }}{{ gce_instance_id.stdout }}/{{ gce_instance_id.stdout }}.json
+    state: mounted
+  when: gcsfuse_backup_service_account_verification is defined
+
+- name: gcsfuse set backup directory | GCE gcsfuse service account key
+  set_fact:
+    backup_dest: "{{ gcsfuse_backup_mount_path }}/{{ gcsfuse_backup_mount_prefix }}{{ gce_instance_id.stdout }}"

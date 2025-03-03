@@ -1,4 +1,4 @@
-# Copyright 2020 Google LLC
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,24 +13,6 @@
 # limitations under the License.
 
 ---
-scripts_dir: "/home/{{ oracle_user }}/scripts"
-logs_dir: "/home/{{ oracle_user }}/logs"
+- name: gcsfuse | gcsfuse install
+  include_tasks: gcsfuse.yml
 
-rman_db_bu_redundancy: 2
-rman_arch_redundancy: 2
-rman_archs_online_days: 7
-
-full_bu_level0_day: "0"
-full_bu_level1_days: "1-6"
-full_bu_start_hour: "01"
-full_bu_start_min: "00"
-arch_bu_start_min: "30"
-
-gcsfuse_backup_temp_path: "/mnt"
-gcsfuse_backup_temp_prefix: "gcsfusetmp"
-gcsfuse_backup_mount_path: "/mnt"
-gcsfuse_backup_mount_prefix: "gcsfuse"
-gcsfuse_bucket_prefix: "fusebackup"
-
-# backup_mount_src: ""
-# backup_mount_path: ""

@@ -1889,6 +1889,17 @@ directory does not have to exist, but initial backups will fail if the
 destination is not available or writeable.</td>
 </tr>
 <tr>
+<td>GCS backup configuration</td>
+<td><p><pre>
+GCS_BACKUP_CONFIG
+--gcs-backup-config
+</pre></p></td>
+<td>user defined - no default<br>
+Example: auto</td>
+<td>The auto is the only option currently available. The auto option creates a new gcs bucket identified by the gce instance_id, 
+it creates the service account and service account keys.<br>
+</tr>
+<tr>
 <td>RMAN full DB backup redundancy</td>
 <td><p><pre>
 BACKUP_REDUNDANCY
