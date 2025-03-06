@@ -46,7 +46,7 @@ fi
 
 # run the install script
 ./install-oracle.sh --ora-swlib-bucket gs://bmaas-testing-oracle-software \
---instance-ssh-user ansible1 --instance-ssh-key /etc/files_needed_for_tk/id_rsa_bms_tk_key \
+--instance-ssh-user ansible1 --instance-ssh-key /etc/files_needed_for_tk/id_rsa_oracle_tk_key \
 --backup-dest "+RECO" --ora-swlib-path /u01/oracle_install --ora-version 19 --ora-swlib-type gcs \
 --ora-asm-disks /etc/files_needed_for_tk/nonrac-asm.json \
 --ora-data-mounts /etc/files_needed_for_tk/nonrac-datamounts.json --cluster-type NONE \

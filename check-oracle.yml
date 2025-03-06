@@ -1,0 +1,122 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+# check-oracle.yml
+- name: "ORAchk: uninstall, install or run"
+  hosts: all
+  become: true
+  gather_facts: false
+  vars_files:
+    - check-oracle-vars.yml
+
+  tasks:
+
+    - name: Uninstall AHF
+      shell: yes 'Y' | /opt/oracle.ahf/bin/ahfctl uninstall
+      when: (uninstall_ahf | bool)
+      ignore_errors: true
+      failed_when: ahf_uninstall_result.rc != 0 and ahf_uninstall_result.rc is defined
+      register: ahf_uninstall_result
+
+    - block:
+        - name: Create AHF directory
+          file:
+            path: "{{ ahf_extract_path }}"
+            state: directory
+            mode: "0700"
+
+        - name: Create ORAchk directory
+          file:
+            path: "{{ orachk_script_dir }}"
+            state: directory
+            mode: "0700"
+
+        - name: Copy AHF file from Google Storage
+          shell: gsutil cp {{ ORA_SWLIB_AHF_FILENAME }} {{ ahf_extract_path }}
+          args:
+            creates: "{{ ahf_extract_path }}/{{ ORA_SWLIB_AHF_FILENAME | basename }}"
+
+        - name: Unzip AHF file
+          unarchive:
+            src: "{{ ahf_extract_path }}/{{ ORA_SWLIB_AHF_FILENAME | basename }}"
+            dest: "{{ ahf_extract_path }}"
+            remote_src: true
+
+        - name: Verify AHF setup signature
+          shell: openssl dgst -sha256 -verify ./oracle-tfa.pub -signature ./ahf_setup.dat ./ahf_setup
+          args:
+            chdir: "{{ ahf_extract_path }}"
+
+        - name: Ensure perl is installed
+          package:
+            name: perl
+            state: present
+
+        - name: Run AHF setup
+          shell: yes 'Y' | ./ahf_setup -extract -notfasetup
+          args:
+            chdir: "{{ ahf_extract_path }}"
+      when: ( not ( uninstall_ahf | bool ) ) and ( not ( run_orachk | bool ) )
+
+    - block:
+        - name: Copy orachk.sh file to target system
+          copy:
+            src: "./orachk.sh"
+            dest: "{{ orachk_script_dir }}/orachk.sh"
+            owner: root
+            group: root
+            mode: '0644'
+
+        - name: Copy run-orachk.sh to target system
+          copy:
+            src: "./run-orachk.sh"
+            dest: "{{ orachk_script_dir }}/run-orachk.sh"
+            owner: root
+            group: root
+            mode: '0700'
+
+        - name: Run ORAchk
+          shell: ./run-orachk.sh
+          environment:
+            ORACLE_SID: "{{ ORACLE_SID }}"
+          args:
+            chdir: "{{ orachk_script_dir }}"
+
+        - name: Read the remote file /tmp/orachk-zipfile.txt
+          command: cat "{{ orachk_rpt_filename }}"
+          register: orachk_file_info
+
+        - name: Fetch the file named in /tmp/orachk-zipfile.txt
+          fetch:
+            src: "{{ orachk_file_info.stdout }}"
+            dest: /tmp/
+            flat: true
+          register: fetch_result
+
+        # See what was actually returned by the fetch task
+        # this will be useful if the ansible version changes
+        # - name: Debug the entire fetch_result
+        # debug:
+        # var: fetch_result
+
+        # Only display the path if it exists in fetch_result.files
+        - name: Display local path of fetched file
+          debug:
+            msg: "Fetched file is saved locally at: {{ fetch_result.files[0].dest }}"
+          when: fetch_result.files is defined and (fetch_result.files | length) > 0
+
+        - name: Display local path of fetched file
+          debug:
+            msg: "Fetched file is saved locally at: {{ fetch_result.dest }}"
+      when: ( not ( uninstall_ahf | bool ) ) and ( run_orachk | bool )
