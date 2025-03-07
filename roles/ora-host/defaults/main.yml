@@ -21,9 +21,6 @@ firewall_service: "{% if ansible_distribution_major_version | int == 6 %}iptable
 package_repository_files:
   - "redhat.repo"
   - "rh-cloud.repo"
-  - "oracle-linux-ol7.repo"
-  - "oracle-linux-ol8.repo"
-  - "oracle-linux-ol9.repo"
 
 oracle_required_rpms:
   - bc
