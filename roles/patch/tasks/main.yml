@@ -39,6 +39,24 @@
   become: true
   become_user: root
 
+- name: Clean up old files in OPatch directory (MOS Doc ID 2283767.1, case 3a)
+  block:
+    - name: (GI) Remove existing OPatch directory
+      file:
+        path: "{{ grid_home }}/OPatch"
+        state: absent
+    
+    - name: (GI) Create empty OPatch directory
+      file:
+        path: "{{ grid_home }}/OPatch"
+        state: directory
+        mode: '0755'
+        owner: "{{ grid_user }}"
+        group: "{{ oracle_group }}"
+  become: true
+  become_user: root
+  tags: update-opatch-gi
+
 - name: (GI) Update OPatch
   unarchive:
     src: "{{ swlib_path }}/{{ item.patchfile }}"
