@@ -33,6 +33,11 @@
     - backup_mount_src is defined
     - backup_mount_path is defined
 
+- name: gcs backup location | gcs backup
+  include_tasks: gcsauto.yml
+  when:
+    - lookup('env', 'GCS_BACKUP_CONFIG') is defined
+
 - name: Copy backup scripts to target server
   become: true
   become_user: "{{ oracle_user }}"

@@ -18,7 +18,7 @@ echo "$0 $@"
 echo
 
 GETOPT_MANDATORY="ora-version:,inventory-file:,yes-i-am-sure"
-GETOPT_OPTIONAL="ora-edition:,ora-role-separation:,ora-disk-mgmt:,ora-swlib-path:,ora-staging:,ora-asm-disks:"
+GETOPT_OPTIONAL="ora-edition:,ora-role-separation:,ora-disk-mgmt:,ora-swlib-path:,ora-staging:,ora-asm-disks:,remove-autogcs-bucket:"
 GETOPT_OPTIONAL="${GETOPT_OPTIONAL},ora-asm-disks-json:,ora-data-mounts:,ora-data-mounts-json:,help"
 GETOPT_LONG="${GETOPT_MANDATORY},${GETOPT_OPTIONAL}"
 GETOPT_SHORT="yh"
@@ -56,6 +56,10 @@ ORA_DATA_MOUNTS_PARAM="^.+\.json$"
 
 ORA_DATA_MOUNTS_JSON="${ORA_DATA_MOUNTS_JSON}"
 ORA_DATA_MOUNTS_JSON_PARAM="^\[.+purpose.+\]$"
+
+REMOVE_AUTOGCS_BUCKET="${REMOVE_AUTOGCS_BUCKET}"
+REMOVE_AUTOGCS_BUCKET_PARAM="^delete_bucket_and_data$"
+
 
 options="$(getopt --longoptions "$GETOPT_LONG" --options "$GETOPT_SHORT" -- "$@")"
 
@@ -121,6 +125,10 @@ while true; do
         ;;
     --ora-data-mounts-json)
         ORA_DATA_MOUNTS_JSON="$2"
+        shift
+        ;;
+    --remove-autogcs-bucket)
+        REMOVE_AUTOGCS_BUCKET="$2"
         shift
         ;;
     --help | -h)
@@ -206,6 +214,10 @@ fi
     echo "Incorrect parameter provided for ora-data-mounts-json: $ORA_DATA_MOUNTS_JSON"
     exit 1
 }
+[[ ! "$REMOVE_AUTOGCS_BUCKET" =~ $REMOVE_AUTOGCS_BUCKET_PARAM ]] && {
+    echo "Incorrect parameter provided for remove-autogcs-bucket: $REMOVE_AUTOGCS_BUCKET"
+    exit 1
+}
 
 ORA_STAGING=${ORA_STAGING%/}
 ORA_SWLIB_PATH=${ORA_SWLIB_PATH%/}
@@ -220,6 +232,7 @@ export ORA_DATA_MOUNTS
 export ORA_DATA_MOUNTS_JSON
 export ORA_STAGING
 export ORA_SWLIB_PATH
+export REMOVE_AUTOGCS_BUCKET
 
 echo -e "Running with parameters from command line or environment variables:\n"
 set | grep -E '^(ORA_|INVENTORY_)' | grep -v '_PARAM='
