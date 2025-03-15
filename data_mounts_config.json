@@ -1,10 +1,10 @@
 [
-  {
-    "purpose": "software",
-    "blk_device": "replace_with_block_device_like_/dev/mapper/db-sw",
-    "name": "u01",
-    "fstype": "xfs",
-    "mount_point": "/u01",
-    "mount_opts": "nofail"
-  }
-]
+	{
+	  "purpose": "software",
+	  "blk_device": "replace_with_block_device_like_/dev/mapper/db-sw",
+	  "name": "u01",
+	  "fstype": "xfs",
+	  "mount_point": "/u01",
+	  "mount_opts": "nofail"
+	}
+  ]

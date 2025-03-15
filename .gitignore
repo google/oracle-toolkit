@@ -1,7 +1,7 @@
 .ansible_cache
 .ansible_vault_pass
 .ansible-lint*
-.terraform
+.terraform*
 .vault_pass.txt
 .yamllint
 *.encrypted
@@ -27,5 +27,6 @@ inventory_files/
 logs/
 secrets.yml
 secrets/
+terraform/*sh-key*
 vars/
 vault_password_file
