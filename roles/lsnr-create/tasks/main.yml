@@ -55,6 +55,38 @@
   when: create_listener
   tags: lsnr-create
 
+- name: Check if srvctl is available
+  become: true
+  shell: "which srvctl || echo 'NOT_FOUND'"
+  register: srvctl_check
+  failed_when: false
+  changed_when: false
+  when:
+    - create_listener | bool
+    - lsnr_port_check.stdout == "0"
+    - lsnr_name_check.stdout == "0"
+  tags: lsnr-create
+
+- name: Check grid home existence
+  stat:
+    path: "{{ grid_home | default('/u01/app/grid') }}/bin/srvctl"
+  register: grid_home_check
+  failed_when: false
+  when:
+    - create_listener | bool
+    - lsnr_port_check.stdout == "0"
+    - lsnr_name_check.stdout == "0"
+  tags: lsnr-create
+
+- name: Display srvctl status
+  debug:
+    msg: "{{ 'srvctl available: ' + srvctl_check.stdout if (srvctl_check is defined and srvctl_check.stdout != 'NOT_FOUND') else 'Warning: srvctl command not found. Grid Infrastructure may not be installed or properly configured.' }}"
+  when:
+    - create_listener | bool
+    - lsnr_port_check.stdout == "0"
+    - lsnr_name_check.stdout == "0"
+  tags: lsnr-create
+
 - name: Create listener via srvctl
   become: true
   become_user: "{{ grid_user }}"
@@ -70,6 +102,8 @@
     - lsnr_port_check.stdout == "0"
     - lsnr_name_check.stdout == "0"
     - not free_edition
+    - srvctl_check.stdout != "NOT_FOUND" 
+    - grid_home_check.stat.exists | default(false)
   tags: lsnr-create
 
 - name: Listener creation output
@@ -81,7 +115,43 @@
   when: lsnr_output.cmd is defined
   tags: lsnr-create
 
-- name: Create listener via netca
+- name: Initialize flag for grid unavailability
+  set_fact:
+    grid_unavailable: false
+  when: 
+    - create_listener | bool
+    - lsnr_port_check.stdout == "0"
+    - lsnr_name_check.stdout == "0"
+  tags: lsnr-create
+
+- name: Set grid unavailability flag if srvctl is not found
+  set_fact:
+    grid_unavailable: true
+  when: 
+    - create_listener | bool
+    - lsnr_port_check.stdout == "0"
+    - lsnr_name_check.stdout == "0"
+    - srvctl_check is defined 
+    - srvctl_check.stdout == "NOT_FOUND"
+  tags: lsnr-create
+
+- name: Set grid unavailability flag if grid_home does not exist
+  set_fact:
+    grid_unavailable: true
+  when: 
+    - create_listener | bool
+    - lsnr_port_check.stdout == "0"
+    - lsnr_name_check.stdout == "0"
+    - grid_home_check is defined 
+    - not grid_home_check.stat.exists
+  tags: lsnr-create
+
+- name: Set flag for fallback to RDBMS home listener
+  set_fact:
+    use_rdbms_home_for_listener: "{{ create_listener | bool and lsnr_port_check.stdout == '0' and lsnr_name_check.stdout == '0' and grid_unavailable and not (free_edition | bool) }}"
+  tags: lsnr-create
+
+- name: Create listener via netca for free edition
   become: true
   become_user: "{{ oracle_user }}"
   shell: |
@@ -103,6 +173,70 @@
     - lsnr_port_check.stdout == "0"
     - lsnr_name_check.stdout == "0"
     - free_edition
+  tags: lsnr-create
+
+- name: Create network/admin directory for listener
+  file:
+    path: "{{ oracle_home }}/network/admin"
+    state: directory
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
+    mode: '0755'
+  when: use_rdbms_home_for_listener | bool
+  tags: lsnr-create
+
+- name: Check if listener.ora already exists
+  stat:
+    path: "{{ oracle_home }}/network/admin/listener.ora"
+  register: listener_ora_stat
+  when: use_rdbms_home_for_listener | bool
+  tags: lsnr-create
+
+- name: Get hostname for listener configuration
+  shell: hostname -f 2>/dev/null || hostname
+  register: hostname_output
+  changed_when: false
+  when: 
+    - use_rdbms_home_for_listener | bool
+    - not listener_ora_stat.stat.exists | default(false)
+  tags: lsnr-create
+
+- name: Create listener.ora template for RDBMS home
+  template:
+    src: listener.ora.j2
+    dest: "{{ oracle_home }}/network/admin/listener.ora"
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
+    mode: '0644'
+  vars:
+    listener_host: "{{ hostname_output.stdout }}"
+  when: 
+    - use_rdbms_home_for_listener | bool
+    - not listener_ora_stat.stat.exists | default(false)
+  tags: lsnr-create
+
+- name: Start listener with RDBMS home
+  become: true
+  become_user: "{{ oracle_user }}"
+  shell: |
+    export ORACLE_HOME={{ oracle_home }}
+    export PATH=$ORACLE_HOME/bin:$PATH
+    
+    # Start the listener
+    lsnrctl start {{ listener_name }}
+    
+    # Check listener status
+    lsnrctl status {{ listener_name }}
+  register: rdbms_listener_output
+  when: use_rdbms_home_for_listener | bool
+  tags: lsnr-create
+  
+- name: Display RDBMS listener creation output
+  debug:
+    msg:
+      - "{{ rdbms_listener_output.cmd }}"
+      - "{{ rdbms_listener_output.stdout_lines }}"
+  when: rdbms_listener_output.cmd is defined
   tags: lsnr-create
 
 - name: Listener creation output from netca

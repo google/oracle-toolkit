@@ -1,0 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+- Make sure you write clean, concise and efficient ansible code. It should not just work, it shoudl be properly written.
+- We are running this on my local machine, but it will be executed on a remote VM inthe Google CLoud, so do not execute things here.
+- Make sure not to duplicate code.
+- Do not change the fremaeworks or approach to solving issues dramatcially.

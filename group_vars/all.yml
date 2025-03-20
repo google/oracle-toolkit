@@ -112,9 +112,13 @@ arch_bu_start_min: "{{ lookup('env','ARCHIVE_BACKUP_MIN')|default('30',true) }}"
 # DB configuration related variables:
 db_config_type: "{% if lookup('env','CLUSTER_TYPE')|default('NONE', true) in ('NONE', 'DG') %}SI{% elif lookup('env','CLUSTER_TYPE') == 'RAC' %}RAC{% endif %}"
 instance_num: 1
-memory_pct: 45
-sga_target: "{{ (ansible_memory_mb.real.total*memory_pct)//100 }}M"
-pga_aggtar: 150M
+
+# Memory settings with environment variable overrides
+memory_pct: "{{ lookup('env', 'MEMORY_PERCENT') | default('45', true) | int }}"
+sga_target_default: "{{ ((ansible_memory_mb.real.total | int) * (memory_pct | int)) // 100 }}M"
+sga_target: "{{ lookup('env', 'SGA_TARGET') | default(sga_target_default, true) }}"
+pga_aggtar_default: "150M"
+pga_aggtar: "{{ lookup('env', 'PGA_AGGREGATE_TARGET') | default(pga_aggtar_default, true) }}"
 oracle_user: oracle
 oracle_group: oinstall
 grid_user: "{% if role_separation|bool %}grid{% else %}{{ oracle_user }}{% endif %}"

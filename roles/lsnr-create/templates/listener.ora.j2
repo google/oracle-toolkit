@@ -1,0 +1,20 @@
+# Listener configuration file created by Oracle Toolkit
+# Created at {{ ansible_date_time.date }} {{ ansible_date_time.time }}
+
+{{ listener_name }} =
+  (DESCRIPTION_LIST =
+    (DESCRIPTION =
+      (ADDRESS = (PROTOCOL = TCP)(HOST = {{ listener_host }})(PORT = {{ listener_port }}))
+    )
+  )
+
+SID_LIST_{{ listener_name }} =
+  (SID_LIST =
+    (SID_DESC =
+      (GLOBAL_DBNAME = {{ db_name }}{% if db_domain is defined and db_domain|length > 0 %}.{{ db_domain }}{% endif %})
+      (ORACLE_HOME = {{ oracle_home }})
+      (SID_NAME = {{ db_name }})
+    )
+  )
+
+LOGGING_{{ listener_name }} = ON
