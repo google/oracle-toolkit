@@ -1857,6 +1857,41 @@ on the CLI instead of the CLUSTER_CONFIG file.
 </tbody>
 </table>
 
+
+#### gcsfuse backup 
+
+You can use Cloud Storage buckets for  Oracle rman scripts to write and store backups. 
+
+
+
+#### Cloud Storage bucket
+
+- A [Cloud Storage](https://cloud.google.com/storage/docs/introduction) bucket.
+- [Cloud Storage FUSE](https://cloud.google.com/storage/docs/gcs-fuse), an open
+  source [FUSE](http://fuse.sourceforge.net/) adapter that allows you to mount
+  Cloud Storage buckets as file systems on Linux or macOS systems.
+- Review bakcup [Cloud Storage bucket options](https://cloud.google.com/storage).
+
+  
+To use a Cloud Storage bucket for your backups, you need to follow the steps below:
+
+- Identify the Compute Engine instance service account. Go to:
+  - [Compute Engine VM instances](https://console.cloud.google.com/compute/instances)
+  - Select the Oracle Server to configure
+  - Identify Service account, for example: abcdefg-compute@developer.gserviceaccount.com
+  - Access the Cloud Storage bucket [Cloud Storage](https://console.cloud.google.com/storage/browser)
+  - Select the bucket that will store the backups, click on the three dots on the far right of the bucket selected and click Edit access.
+  - Click on Add Principal and add the identified Compute Engine VM instance service account from the Oracle Server to configure.
+  - In the Role drop down select Storage Legacy Bucket Owner and save.
+  
+#### Cloud Storage FUSE
+
+- With Cloud Storage FUSE, you can use the auth service account of the  Compute Engine instance to access and mount the Cloud Storage bucket. 
+- Follow the steps above on Cloud Storage bucket.
+- You can verify the auth service account by running the command as the Example below:
+  - ```bash gcloud compute ssh gce_vm_instance_name --command="sudo su -c 'gcloud auth list'"```
+  - You should see the same account in the auth list as the one used in the  Cloud Storage bucket configuration steps. 
+
 #### Backup configuration parameters
 
 <table>
@@ -1886,8 +1921,41 @@ shown above.<br>
 <br>
 If you are writing to a local file system, the
 directory does not have to exist, but initial backups will fail if the
-destination is not available or writeable.</td>
+destination is not available or writeable.
+<br>
+If you are writing to a gcsfuse bucket, the /gcsfuse must be used as parameter.</td>
 </tr>
+<tr>
+<td>GCS backup configuration</td>
+<td><p><pre>
+GCS_BACKUP_CONFIG
+--gcs-backup-config
+</pre></p></td>
+<td>user defined - no default<br>
+Example: manual</td>
+<td>The manual option requires all the steps from Cloud Storage Bucket and Cloud Storage Fuse for a successful configuration. The manual option requires the options --gcs-backup-bucket and --gcs-backup-service-account parameters.<br>
+</tr>
+<tr>
+<td>GCS backup bucket</td>
+<td><p><pre>
+GCS_BACKUP_BUCKET
+--gcs-backup-bucket
+</pre></p></td>
+<td>user defined - no default<br>
+Example:  gs://[cloud-storage-bucket-name] </td>
+<td>The bucket name expected as  gs://[cloud-storage-bucket-name].<br>
+</tr>
+<tr>
+<td>GCS backup service account</td>
+<td><p><pre>
+GCS_BACKUP_SERVICE_ACCOUNT
+--gcs-backup-service-account
+</pre></p></td>
+<td>user defined - no default<br>
+Example:  abcdefg-compute@developer.gserviceaccount.com </td>
+<td>The service account configured to access the gcs bucket by the gce vm instance.<br>
+</tr>
+
 <tr>
 <td>RMAN full DB backup redundancy</td>
 <td><p><pre>
@@ -2009,6 +2077,8 @@ requirements for this directory is minimal.</td>
 </tr>
 </tbody>
 </table>
+
+
 
 #### Additional operational parameters
 

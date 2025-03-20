@@ -33,6 +33,10 @@
     - backup_mount_src is defined
     - backup_mount_path is defined
 
+- name: gcs backup location | gcs backup
+  include_tasks: gcsmanual.yml
+  when: gcsfuse_backup_config == "manual"
+
 - name: Copy backup scripts to target server
   become: true
   become_user: "{{ oracle_user }}"
