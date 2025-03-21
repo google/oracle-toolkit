@@ -24,18 +24,13 @@ variable "fs_disks" {
   default     = []
 }
 
-variable "instance_count" {
-  description = "Number of instances to be created."
-  type        = number
-}
-
 variable "instance_name" {
-  description = "The name for the Instance."
+  description = "The name for the VM instance."
   type        = string
 }
 
 variable "machine_type" {
-  description = "The machine type to be used for the instance (e.g., n1-standard-2)."
+  description = "The machine type to be used for the instance (e.g., n4-standard-2)."
   type        = string
 }
 
@@ -143,10 +138,10 @@ variable "ora_version" {
 
 variable "oracle_release" {
   type        = string
-  default     = ""
+  default     = "latest"
   description = "Oracle release update version (patchlevel)."
   validation {
-    condition     = var.oracle_release == "" || can(regex("^\\d+(\\.\\d+)*$", var.oracle_release))
+    condition     = var.oracle_release == "" || var.oracle_release == "latest" || can(regex("^\\d+(\\.\\d+)*$", var.oracle_release))
     error_message = "Invalid Oracle release version. It should be in the format '19.10', '21.3.0.0', etc."
   }
 }
@@ -190,6 +185,7 @@ variable "source_image_project" {
 variable "subnetwork" {
   description = "The name of the GCP subnetwork to which the instance will be attached."
   type        = string
+  default     = "default"
 }
 
 variable "zone" {

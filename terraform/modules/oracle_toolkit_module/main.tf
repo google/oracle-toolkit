@@ -126,7 +126,6 @@ module "compute_instance" {
   zone                = var.zone
   subnetwork          = var.subnetwork
   subnetwork_project  = local.project_id
-  num_instances       = var.instance_count
   hostname            = var.instance_name
   instance_template   = module.instance_template.self_link
   deletion_protection = false

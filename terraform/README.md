@@ -58,6 +58,7 @@ Additionally, you will need:
 - A **Google Cloud project** with billing enabled
 - A **Service Account** with appropriate IAM roles for Compute Engine and Storage management
 - The following **IAM roles** added to the **Service Account** running **Terraform**:`roles/compute.instanceAdmin`, `roles/storage.objectAdmin`
+- A writeable [cloud storage bucket](https://cloud.google.com/storage/docs/creating-buckets) to store terraform state in
 
 ---
 
@@ -101,11 +102,11 @@ gcloud config set project PROJECT_ID
 
 2. Review and Edit Terraform Backend Configuration
 
-   Edit `terraform/backend.tf` to define your backend settings for your state file prefix and storage bucket.
+   Copy `terraform/backend.tf.example` to `terraform/backend.tf` and define your backend settings for your state file prefix and storage bucket.
 
 3. Review and Edit Terraform Module Configuration
 
-   Edit `terraform/main.tf` to define your deployment settings. Add however many ASM disks you require in the `asm_disks` and `fs_disks` sections.
+   Copy `terraform/main.tf.example` to `terraform/main.tf` and define your deployment settings. Add as many ASM disks you require in the `asm_disks` and `fs_disks` sections.
 
 > **NOTE** There is no need to supply the toolkit script parameters `--instance-ip-addr`, `--instance-ssh-user`, and `--instance-ssh-key` - these are automatically added by the Terraform commands.
 

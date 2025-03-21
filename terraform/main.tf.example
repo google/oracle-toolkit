@@ -29,12 +29,11 @@ module "oracle_toolkit" {
 
   # Instance settings
   instance_name        = "INSTANCE_NAME"  # example: oracle-rhel8-example
-  instance_count       = "INSTANCE_COUNT" # example: 1
   source_image_family  = "IMAGE_FAMILY"   # example: rhel-8
   source_image_project = "IMAGE_PROJECT"  # example: rhel-cloud
-  machine_type         = "MACHINE_TYPE"   # example: n2-standard-4
+  machine_type         = "MACHINE_TYPE"   # example: n4-standard-4
   os_disk_size         = "OS_DISK_SIZE"   # example: 100
-  os_disk_type         = "OS_DISK_TYPE"   # example: pd-balanced
+  os_disk_type         = "OS_DISK_TYPE"   # example: hyperdisk-balanced
 
   # Disk settings
   # By default, the list below will create 1 disk for filesystem, 2 disks for ASM and 1 disk for swap, the minimum required for a basic Oracle installation.
@@ -47,7 +46,7 @@ module "oracle_toolkit" {
       boot         = false
       device_name  = "oracle-u01"
       disk_size_gb = 50
-      disk_type    = "pd-balanced"
+      disk_type    = "hyperdisk-balanced"
       disk_labels  = { purpose = "software" } # Do not modify this label
     }
   ]
@@ -56,17 +55,17 @@ module "oracle_toolkit" {
     {
       auto_delete  = true
       boot         = false
-      device_name  = "oracle-asm-1"
+      device_name  = "oracle-data-1"
       disk_size_gb = 50
-      disk_type    = "pd-balanced"
+      disk_type    = "hyperdisk-balanced"
       disk_labels  = { diskgroup = "data", purpose = "asm" }
     },
     {
       auto_delete  = true
       boot         = false
-      device_name  = "oracle-asm-2"
+      device_name  = "oracle-reco-2"
       disk_size_gb = 50
-      disk_type    = "pd-balanced"
+      disk_type    = "hyperdisk-balanced"
       disk_labels  = { diskgroup = "reco", purpose = "asm" }
     },
     # Attributes other than disk_size_gb and disk_type should NOT be modified for the swap disk
@@ -75,7 +74,7 @@ module "oracle_toolkit" {
       boot         = false
       device_name  = "swap"
       disk_size_gb = 50
-      disk_type    = "pd-balanced"
+      disk_type    = "hyperdisk-balanced"
       disk_labels  = { purpose = "swap" }
     }
   ]
@@ -87,13 +86,13 @@ module "oracle_toolkit" {
   ora_version      = "ORA_VERSION" # example: "19"
   ora_backup_dest  = "BACKUP_DEST" # example: "+RECO"
   # Optional
-  ora_db_name       = "DB_NAME"            # example: "test"
-  ora_db_container  = "CONTAINER"          # example: false
-  ntp_pref          = "NTP_PREF"           # example: "169.254.169.254"
-  oracle_release    = "ORA_RELEASE"        # example: "19.7.0.0.200414"
-  ora_edition       = "ORA_EDITION"        # example: "EE"
-  ora_listener_port = "ORA_LISTERNER_PORT" # example: 1521 
-  ora_redo_log_size = "ORA_LOG_SIZE"       # example: "100MB"
+  ora_db_name       = "DB_NAME"     # example: "test"
+  ora_db_container  = false         # example: false
+  ntp_pref          = "169.254.169.254" # example: "169.254.169.254"
+  oracle_release    = "latest"      # example: "19.7.0.0.200414"
+  ora_edition       = "EE"          # example: "EE"
+  ora_listener_port = "1521"        # example: 1521 
+  ora_redo_log_size = "100mb"       # example: "100MB"
 
   ##############################################################################
   ## OPTIONAL SETTINGS
