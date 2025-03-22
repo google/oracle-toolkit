@@ -1,0 +1,92 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- name: gcsfuse extract instance_id number | GCE instance_id value
+  shell:
+    cmd: "curl -s http://metadata.google.internal/computeMetadata/v1/instance/id -H Metadata-Flavor:Google"
+  register: gce_instance_id
+  changed_when: not gce_instance_id.failed
+
+- name: gcsfuse instance_id results | GCE instance instance_id value results
+  debug:
+    var: gce_instance_id.stdout
+    verbosity: 1
+
+- name: gcsfuse service account verification | GCE gcsfuse service account verification
+  shell:
+    cmd: "gcloud iam service-accounts list --format json|egrep -i gcsfuse-{{ gce_instance_id.stdout }}|egrep -i email |awk -F'\"' '{print $4}'"
+  register: gcsfuse_backup_service_account_verification
+  failed_when: gcsfuse_backup_service_account_verification.rc not in [0, 1]
+  changed_when: false
+
+- name: gcsfuse service account verification results | GCE gcsfuse service account results
+  debug:
+    var: gcsfuse_backup_service_account_verification.stdout
+    verbosity: 1
+
+- name: Lazy unmount gcsfuse bucket
+  shell:
+    cmd: "umount -f -l '{{ gcsfuse_backup_mount_path }}/{{ gcsfuse_backup_mount_prefix }}{{ gce_instance_id.stdout }}'"
+  ignore_errors: true
+
+- name: gcsfuse remove bucket files| GCE gcsfuse remove bucket files
+  shell:
+    cmd: "gcloud storage rm -r gs://{{ gcsfuse_bucket_prefix }}-{{ gce_instance_id.stdout }}"
+  ignore_errors: true
+
+- name: gcsfuse remove bucket| GCE gcsfuse remove bucket
+  shell:
+    cmd: "gcloud storage buckets delete gs://{{ gcsfuse_bucket_prefix }}-{{ gce_instance_id.stdout }}"
+  ignore_errors: true
+
+- name: gcsfuse service account verification | GCE gcsfuse service account verification
+  shell:
+    cmd: "gcloud iam service-accounts list --format json|egrep -i gcsfuse-{{ gce_instance_id.stdout }}|egrep -i email |awk -F'\"' '{print $4}'"
+  register: gcsfuse_backup_service_account_verification
+  failed_when: gcsfuse_backup_service_account_verification.rc != 0 and gcsfuse_backup_service_account_verification.rc != 1
+  changed_when: false
+
+- name: gcsfuse delete service account | GCE gcsfuse delete service account
+  shell:
+    cmd: "gcloud iam service-accounts delete {{ gcsfuse_backup_service_account_verification.stdout }}"
+  ignore_errors: true
+  register: gcsfuse_backup_service_account_delete
+  when: gcsfuse_backup_service_account_verification.stdout | length == 0
+
+- name: gcsfuse wait for delete propagation
+  pause:
+    seconds: 15
+  when: not ansible_check_mode
+
+- name: Remove gcsfuse service account keys
+  become: true
+  become_user: root
+  file:
+    path: "{{ gcsfuse_backup_temp_path }}/{{ gcsfuse_backup_temp_prefix }}{{ gce_instance_id.stdout }}/{{ gce_instance_id.stdout }}.json"
+    state: absent
+
+- name: gcsfuse remove temp directory| GCE gcsfuse remove temp directory
+  become: true
+  become_user: root
+  file:
+    path: "{{ gcsfuse_backup_temp_path }}/{{ gcsfuse_backup_temp_prefix }}{{ gce_instance_id.stdout }}"
+    state: absent
+
+- name: gcsfuse remove bucket mount directory| GCE gcsfuse remove bucket mount directory
+  become: true
+  become_user: root
+  file:
+    path: "{{ gcsfuse_backup_mount_path }}/{{ gcsfuse_backup_mount_prefix }}{{ gce_instance_id.stdout }}"
+    state: absent

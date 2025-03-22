@@ -24,3 +24,10 @@
         success_msg: "Ansible version is {{ ansible_version.full }}, continuing"
   roles:
     - brute-ora-cleanup
+  post_tasks: 
+    - name: Remove gcs auto bucket
+      include_role:
+        name: db-backups
+        tasks_from: gcsautorm.yml
+      when: lookup('env', 'REMOVE_AUTOGCS_BUCKET') == 'delete_bucket_and_data'
+
