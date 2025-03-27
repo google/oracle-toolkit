@@ -952,6 +952,7 @@ export ORA_RELEASE
 export PB_LIST
 export PRIMARY_IP_ADDR
 export SWAP_BLK_DEVICE
+export CALLING_SCRIPT="install-oracle.sh"
 
 echo -e "Running with parameters from command line or environment variables:\n"
 set | grep -E '^(ORA_|BACKUP_|ARCHIVE_|INSTANCE_|PB_|ANSIBLE_|CLUSTER|PRIMARY)' | grep -v '_PARAM='
