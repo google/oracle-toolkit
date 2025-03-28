@@ -140,3 +140,36 @@ firsttime_connect_user: "customeradmin"
 control_node_key_file: "~/.ssh/id_rsa_oracle_toolkit"
 proxy_setup: "{{ lookup('env','ORA_PROXY_SETUP')|lower|default('false',true) }}"
 u01_lun: "{{ lookup('env','ORA_U01_LUN')|lower|default('',true) }}"
+
+#  Validations
+minimum_ansible_version: 2.9
+os_family_supported: "RedHat"
+os_min_supported_version: "{% if free_edition %}8{% else %}7.3{% endif %}"
+os_supported_architecture: "x86_64"
+os_minimum_memory_mb: 2560
+
+control_node_checks:
+  - check_result: "{{ true if ansible_version.full is version(minimum_ansible_version, '>=') else false }}"
+    check_test: "ansible_version.full is version_compare('{{ minimum_ansible_version }}', '>=')"
+    finding: "Ansible 2.9 or higher is required but wasn't detected: install Ansible 2.9 or higher"
+  - check_result: "{{ lookup('pipe', ansible_playbook_python ~ ' -c \"import jmespath\" && echo true || echo false') == 'true' }}"
+    check_test: "{{ lookup('pipe', ansible_playbook_python ~ ' -c \"import jmespath\" && echo true || echo false') == 'true' }}"
+    prefix_msg: "jmespath installed "
+    finding: "Wasn't able to run 'import jmespath': install on your Ansible control node"
+
+managed_host_checks:
+  - check_result: "{{ ansible_os_family == os_family_supported }}"
+    check_test: "ansible_os_family == '{{ os_family_supported }}'"
+    finding: "Ansible fact detected OS family: {{ ansible_os_family }}"
+  - check_result: "{{ ansible_distribution in ['RedHat', 'OracleLinux', 'Rocky', 'AlmaLinux'] }}"
+    check_test: "ansible_distribution in ['RedHat', 'OracleLinux', 'Rocky', 'AlmaLinux']"
+    finding: "Ansible fact detected OS distribution: {{ ansible_distribution }}"
+  - check_result: "{{ ansible_userspace_architecture == os_supported_architecture }}"
+    check_test: "ansible_userspace_architecture == '{{ os_supported_architecture }}'"
+    finding: "Ansible fact detected hardware architecture: {{ ansible_userspace_architecture }}"
+  - check_result: "{{ true if ansible_distribution_version is version(os_min_supported_version, '>=') else false }}"
+    check_test: "ansible_distribution_version is version_compare('{{ os_min_supported_version }}', '>=')"
+    finding: "Ansible fact detected OS version: {{ ansible_distribution_version }}"
+  - check_result: "{{ ansible_memtotal_mb >= os_minimum_memory_mb }}"
+    check_test: "ansible_memtotal_mb >= {{ os_minimum_memory_mb }}"
+    finding: "Ansible fact detected target memory: {{ ansible_memtotal_mb }}"
