@@ -18,7 +18,7 @@ echo "$0 $@"
 echo
 
 GETOPT_MANDATORY="ora-version:,inventory-file:,yes-i-am-sure"
-GETOPT_OPTIONAL="ora-edition:,ora-role-separation:,ora-disk-mgmt:,ora-swlib-path:,ora-staging:,ora-asm-disks:"
+GETOPT_OPTIONAL="ora-edition:,ora-role-separation:,ora-disk-mgmt:,ora-swlib-path:,ora-staging:,ora-asm-disks:,gcs-backup-path:,gcs-backup-temp-path"
 GETOPT_OPTIONAL="${GETOPT_OPTIONAL},ora-asm-disks-json:,ora-data-mounts:,ora-data-mounts-json:,help"
 GETOPT_LONG="${GETOPT_MANDATORY},${GETOPT_OPTIONAL}"
 GETOPT_SHORT="yh"
@@ -41,6 +41,12 @@ ORA_DISK_MGMT_PARAM="ASMLIB|UDEV"
 
 ORA_SWLIB_PATH="${ORA_SWLIB_PATH:-/u01/swlib}"
 ORA_SWLIB_PATH_PARAM="^/.*"
+
+GCS_BACKUP_PATH="${GCS_BACKUP_PATH}"
+GCS_BACKUP_PATH_PARAM="^.+[^/]"
+
+GCS_BACKUP_TEMP_PATH="${GCS_BACKUP_TEMP_PATH:-/u01/gcsfusetmp}"
+GCS_BACKUP_TEMP_PATH_PARAM="^/.*"
 
 ORA_STAGING="${ORA_STAGING:-""}"
 ORA_STAGING_PARAM="^/.+$"
@@ -97,6 +103,14 @@ while true; do
         ;;
     --ora-swlib-path)
         ORA_SWLIB_PATH="$2"
+        shift
+        ;;
+    --gcs-backup-path)
+        GCS_BACKUP_PATH="$2"
+        shift
+        ;;
+    --gcs-backup-temp-path)
+        GCS_BACKUP_TEMP_PATH="$2"
         shift
         ;;
     --ora-staging)
@@ -182,6 +196,14 @@ fi
     echo "Incorrect parameter provided for ora-swlib-path: $ORA_SWLIB_PATH"
     exit 1
 }
+[[ -n "$GCS_BACKUP_PATH" && ! "$GCS_BACKUP_PATH" =~ $GCS_BACKUP_PATH_PARAM ]] && {
+  echo "Incorrect parameter provided for gcs-backup-path: $GCS_BACKUP_PATH"
+  exit 1
+}
+[[ ! "$GCS_BACKUP_TEMP_PATH" =~ $GCS_BACKUP_TEMP_PATH_PARAM ]] && {
+  echo "Incorrect parameter provided for gcs-backup-temp-path: $GCS_BACKUP_TEMP_PATH"
+  exit 1
+}
 [[ ! "$ORA_STAGING" =~ $ORA_STAGING_PARAM ]] && {
     echo "Incorrect parameter provided for ora-staging: $ORA_STAGING"
     exit 1
@@ -220,6 +242,8 @@ export ORA_DATA_MOUNTS
 export ORA_DATA_MOUNTS_JSON
 export ORA_STAGING
 export ORA_SWLIB_PATH
+export GCS_BACKUP_PATH
+export GCS_BACKUP_TEMP_PATH
 
 echo -e "Running with parameters from command line or environment variables:\n"
 set | grep -E '^(ORA_|INVENTORY_)' | grep -v '_PARAM='

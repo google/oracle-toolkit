@@ -250,6 +250,7 @@
     - "{{ grid_home }}"
     - "{{ oracle_root }}"
     - "{{ swlib_unzip_path }}"
+    - "{{ gcsfuse_backup_temp_path }}"
     - "/usr/tmp/.oracle"
     - "/var/tmp/.oracle"
     - "/tmp/.oracle"
@@ -353,6 +354,23 @@
     - "'Directory not empty' not in fstab_result.module_stdout"
   with_items: "{{ oracle_user_data_mounts }}"
   when: item.first_partition_id is defined
+
+- name: Lazy unmount gcsfuse path
+  shell: |
+    umount -f -l "{{ gcsfuse_backup_path }}"
+  ignore_errors: true
+  when: gcsfuse_backup_path is defined
+
+- name: Remove Oracle user data devices from fstab
+  mount:
+    fstype: gcsfuse
+    path: "{{ gcsfuse_backup_path }}"
+    state: absent
+  register: fstab_result
+  failed_when:
+    - fstab_result is failed
+    - "'Directory not empty' not in fstab_result.module_stdout"
+  when: gcsfuse_backup_path is defined
 
 - name: Remove magic strings from Oracle user data partitions
   become: true
