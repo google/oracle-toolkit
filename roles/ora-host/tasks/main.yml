@@ -18,7 +18,9 @@
     list: "{{ firewall_service }}"
     disablerepo: "*"
     lock_timeout: "{{ pkg_mgr_lock_timeout }}"
-  when: disable_firewall|bool and ansible_os_family == 'RedHat'
+  when:
+    - disable_firewall | bool
+    - ansible_os_family == 'RedHat'
   tags: firewall
   register: firewall
 
@@ -27,19 +29,27 @@
     name: "{{ firewall_service }}"
     state: stopped
     enabled: false
-  when: disable_firewall|bool and ansible_os_family == 'RedHat' and firewall.results
+  when:
+    - disable_firewall | bool
+    - ansible_os_family == 'RedHat'
+    - firewall.results
   tags: firewall
 
 - name: Disable selinux (permanently)
   selinux:
     state: disabled
-  when: disable_selinux and ansible_os_family == 'RedHat'
+  when:
+    - disable_selinux
+    - ansible_os_family == 'RedHat'
   tags: selinux
   register: selinux
 
 - name: Disable selinux (runtime)
   command: setenforce 0
-  when: disable_selinux and ansible_os_family == 'RedHat' and ansible_selinux.status != 'disabled'
+  when:
+    - disable_selinux
+    - ansible_os_family == 'RedHat'
+    - ansible_selinux.status != 'disabled'
   changed_when: disable_selinux_runtime.rc == 0
   failed_when: disable_selinux_runtime.rc > 0 and "SELinux is disabled" not in disable_selinux_runtime.stderr
   register: disable_selinux_runtime
@@ -59,73 +69,52 @@
     opts: rw,nosuid,nodev
     state: mounted
 
-- name: Check for existing package manager repo files
-  stat:
-    path: "/etc/yum.repos.d/{{ item }}"
-  register: repo_file_check
-  with_items: "{{ package_repository_files }}"
-  tags: os-packages
-
-- name: Build a list of detected package manager repo files
-  set_fact:
-    repo_files: "{{ repo_file_check.results | selectattr('stat.exists') | map(attribute='item') | list }}"
-  tags: os-packages
-
-- name: List all detected package manager repo files
-  debug:
-    var: repo_files
-    verbosity: 1
-  tags: os-packages
-
-- name: Install Oracle required packages (RHUI/cloud config) for RHEL7
-  package:
-    name: "{{ oracle_required_rpms + oracle_required_rpms_el7 }}"
-    state: present
-    lock_timeout: "{{ pkg_mgr_lock_timeout }}"
-    enablerepo: rhui-rhel-7-server-rhui-optional-rpms
+- name: Enterprise Linux 7 specific package manager steps
   when:
     - install_os_packages
     - ansible_distribution == 'RedHat'
-    - ansible_distribution_major_version == '7'
-    - "'rh-cloud.repo' in repo_files"
+    - ansible_distribution_major_version | int == 7
   tags: os-packages
+  block:
+    - name: Check for existing package manager repo files
+      stat:
+        path: "/etc/yum.repos.d/{{ item }}"
+      register: repo_file_check
+      with_items: "{{ package_repository_files }}"
 
-- name: Install Oracle required packages (base/non-RHUI config) for RHEL7
-  package:
-    name: "{{ oracle_required_rpms + oracle_required_rpms_el7 }}"
-    state: present
-    lock_timeout: "{{ pkg_mgr_lock_timeout }}"
-    enablerepo: rhel-7-server-optional-rpms
-  when:
-    - install_os_packages
-    - ansible_distribution == 'RedHat'
-    - ansible_distribution_major_version == '7'
-    - "'redhat.repo' in repo_files and 'rh-cloud.repo' not in repo_files"
-  tags: os-packages
+    - name: Build a list of detected package manager repo files
+      set_fact:
+        repo_files: "{{ repo_file_check.results | selectattr('stat.exists') | map(attribute='item') | list }}"
 
-- name: Install Oracle required packages for RHEL8+
+    - name: List all detected package manager repo files
+      debug:
+        var: repo_files
+        verbosity: 1
+
+    - name: Install Oracle required packages (RHUI/cloud config) for RHEL7
+      package:
+        name: "{{ oracle_required_rpms + oracle_required_rpms_el7 }}"
+        state: present
+        lock_timeout: "{{ pkg_mgr_lock_timeout }}"
+        enablerepo: rhui-rhel-7-server-rhui-optional-rpms
+      when: "'rh-cloud.repo' in repo_files"
+
+    - name: Install Oracle required packages (base/non-RHUI config) for RHEL7
+      package:
+        name: "{{ oracle_required_rpms + oracle_required_rpms_el7 }}"
+        state: present
+        lock_timeout: "{{ pkg_mgr_lock_timeout }}"
+        enablerepo: rhel-7-server-optional-rpms
+      when: "'redhat.repo' in repo_files and 'rh-cloud.repo' not in repo_files"
+
+- name: Install Oracle required packages
   package:
     name: "{{ oracle_required_rpms + vars['oracle_required_rpms_el' + ansible_distribution_major_version] }}"
     state: present
     lock_timeout: "{{ pkg_mgr_lock_timeout }}"
-  loop: "{{ repo_files }}"
   when:
     - install_os_packages
-    - ansible_distribution == 'RedHat'
-    - ansible_distribution_major_version >= '8'
-    - "'redhat.repo' in repo_files or 'rh-cloud.repo' in repo_files"
-  tags: os-packages
-
-- name: Install Oracle required packages for Oracle Linux
-  package:
-    name: "{{ oracle_required_rpms + vars['oracle_required_rpms_el' + ansible_distribution_major_version] }}"
-    state: present
-    lock_timeout: "{{ pkg_mgr_lock_timeout }}"
-  loop: "{{ repo_files }}"
-  when:
-    - install_os_packages
-    - ansible_distribution == 'OracleLinux'
-    - "('oracle-linux-ol' ~ ansible_distribution_major_version ~ '.repo') in item"
+    - not (ansible_distribution == 'RedHat' and ansible_distribution_major_version | int == 7)
   tags: os-packages
 
 - name: Add OS groups
