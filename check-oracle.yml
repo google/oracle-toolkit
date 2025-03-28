@@ -1,0 +1,268 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+# check-oracle.yml
+- name: "ORAchk: uninstall, install or run"
+  hosts: all
+  become: false
+  gather_facts: false
+  roles:
+    - role: check-oracle
+
+  tasks:
+
+    - name: Check for AHF Installation
+      stat:
+        path: "{{ AHFCTL_PATH }}"
+      register: ahfctl_script
+
+    - name: Uninstall AHF
+      become: true
+      shell: yes 'Y' | "{{ AHFCTL_PATH }}" uninstall
+      when: (uninstall_ahf | bool) and ahfctl_script.stat.exists
+      ignore_errors: true
+      failed_when: ahf_uninstall_result.rc != 0 and ahf_uninstall_result.rc is defined
+      register: ahf_uninstall_result
+
+    - block:
+        - name: Create AHF directory
+          file:
+            path: "{{ ahf_extract_path }}"
+            state: directory
+            mode: "0700"
+
+        - name: Create ORAchk directory
+          file:
+            path: "{{ orachk_script_dir }}"
+            state: directory
+            mode: "0700"
+
+        - name: Copy AHF file from Google Storage
+          vars:
+            local_ahf_path: "/tmp/{{ AHF_LOCATION | basename }}"
+          block:
+
+            # leave these here for testing
+            # this has been a problem area
+            #- name: Local AHF File
+              #debug:
+                #msg: "AHF File Source: {{ local_ahf_path }}"
+
+            #- name: Remote AHF File Dest
+              #debug:
+                #msg: "AHF File Dest: {{ ahf_extract_path }}/{{ AHF_LOCATION | basename }}"
+
+            - name: Download AHF file from Google Storage to the ansible control node.
+              local_action: 
+                module: command
+                cmd: gcloud storage cp "{{ AHF_LOCATION }}" "{{ local_ahf_path }}"
+              register: gsutil_result
+              changed_when: gsutil_result.rc == 0
+
+            - name: Check if {{ local_ahf_path }} exists
+              stat:
+                path: "{{ local_ahf_path }}"
+              register: file_status_check
+              delegate_to: localhost
+
+            - name: File Status
+              debug:
+                msg: "file exists"
+              when: file_status_check.stat.exists
+
+            - name: Fail if the file does not exist
+              fail:
+                msg: "File {{ local_ahf_path }} does not exist."
+              when: not file_status_check.stat.exists
+
+            - name: Copy AHF file to remote host if it is a zip file.
+              become: true
+              copy:
+                src: "{{ local_ahf_path }}"
+                dest: "{{ ahf_extract_path }}/{{ AHF_LOCATION | basename }}"
+              when: file_status_check.stat.exists == 0
+
+            - name: remove local AHF file.
+              file:
+                path: "{{ local_ahf_path }}"
+                state: absent
+              delegate_to: localhost
+
+        - name: Unzip AHF file
+          become: true
+          unarchive:
+            src: "{{ ahf_extract_path }}/{{ AHF_LOCATION | basename }}"
+            dest: "{{ ahf_extract_path }}"
+            remote_src: true
+
+        - name: Verify AHF setup signature
+          become: true
+          shell: openssl dgst -sha256 -verify ./oracle-tfa.pub -signature ./ahf_setup.dat ./ahf_setup
+          args:
+            chdir: "{{ ahf_extract_path }}"
+
+        - name: Ensure perl is installed
+          become: true
+          package:
+            name: perl
+            state: present
+
+        - name: Run AHF setup
+          become: true
+          shell: yes 'Y' | ./ahf_setup -extract -notfasetup
+          args:
+            chdir: "{{ ahf_extract_path }}"
+      when: ( not ( uninstall_ahf | bool ) ) and ( not ( run_orachk | bool ) )
+
+    - block:
+
+        - name: Copy login.sql file to target system
+          become: true
+          copy:
+            src: roles/check-oracle/files/login.sql
+            dest: "{{ orachk_script_dir }}/login.sql"
+            owner: root
+            group: root
+            mode: '0600'
+
+        - name: Copy orachk-quicktest.sh for expedited testing
+          become: true
+          copy:
+            src: roles/check-oracle/files/orachk-quicktest.sh
+            dest: "{{ ORACHK_BASE }}/orachk/orachk-quicktest.sh"
+            owner: root
+            group: root
+            mode: '0700'
+          when: ( expedited_testing | bool )
+
+        - name: Configure Expedited Testing
+          become: true
+          shell:  cd  "{{ ORACHK_BASE }}/orachk/" && [[ ! -r orachk.orig ]] && mv orachk orachk.orig && ln -s orachk-quicktest.sh orachk
+          when: ( expedited_testing | bool )
+
+        - name: Check for oratab
+          stat:
+            path: "{{ oratab_path }}"
+          register: oratab_exists
+
+        - name: oratab not found
+          fail: 
+            msg: "The file {{ oratab_path }} was not found on the target"
+          when: not ( oratab_exists.stat.exists | bool )
+
+        - name: Slurp oratab from remote
+          slurp:
+            src: "{{ oratab_path }}"
+          register: oratab_contents
+
+        - name: Split oratab file contents into lines
+          set_fact:
+            oratab_lines: "{{ oratab_contents.content | b64decode | split('\n') }}"
+
+        - name: Check for ORACLE_SID
+          shell: "grep ^{{ ORACLE_SID }} {{ oratab_path }}"
+          register: oratab_results
+          ignore_errors: true
+
+        - name: ORACLE_HOME Not Found
+          fail: 
+            msg: "ORACLE_HOME was not found on the target for {{ ORACLE_SID }}"
+          when: oratab_results.rc != 0
+
+        - name: Parse oratab to find Oracle Home for {{ ORACLE_SID }}
+          set_fact:
+            ORACLE_HOME: >-
+              {{
+                (oratab_lines
+                 | select('match', '^' ~ ORACLE_SID ~ ':')
+                 | list
+                 | first
+                ).split(':')[1]
+              }}
+          when: oratab_lines is defined and (oratab_lines | length) > 0
+          failed_when: oratab_lines is not defined
+
+        - name: Display ORACLE_HOME
+          debug:
+            msg: "Found ORACLE_HOME={{ ORACLE_HOME }}"
+
+        - name: Get a tmpfile name
+          set_fact:
+            TMPFILE: "{{ lookup('pipe','mktemp') }}"
+
+        - name: Run ORAchk
+          become: true
+          shell: "ORACLE_PATH={{ orachk_script_dir }} SQLPATH={{ orachk_script_dir }} {{ ORACHK_BASE }}/orachk/orachk -s -dbconfig {{ ORACLE_HOME }}%{{ ORACLE_SID }} -showpass -profile dba | tee {{ TMPFILE }}"
+          environment:
+            ORACLE_SID: "{{ ORACLE_SID }}"
+            PATH: "{{ extended_path }}"
+          args:
+            chdir: "{{ orachk_script_dir }}"
+
+        - name: Get ORAchk tmpfile status
+          stat:
+            path: "{{ TMPFILE }}"
+          register: tmpfile_location
+
+        - name: Check that ORAchk tmpfile exists
+          fail:
+            msg: "Could not find ORAchk tmpfile {{ TMPFILE }}"
+          when: not tmpfile_location.stat.exists
+
+        - name: Retrieve ORAchk zipfile name from tmpfile
+          shell: "grep UPLOAD {{ TMPFILE }} | awk '{ print $NF }'"
+          register: orachk_file_info
+
+        - name: Get a tmpfile name
+          set_fact:
+            ORACHK_RPT_FILE: "{{ orachk_file_info.stdout }}"
+
+        - name: Verify ORAchk Report File Existence
+          stat:
+            path: "{{ ORACHK_RPT_FILE }}"
+          register: orachk_rpt_location
+
+        - name: Was ORAchk report name found
+          fail:
+            msg: "Could not locate ORAchk report file {{ ORACHK_RPT_FILE }}"
+          when: not orachk_rpt_location.stat.exists
+
+        - name: Fetch the ORAchk zipfile
+          fetch:
+            src: "{{ ORACHK_RPT_FILE }}"
+            dest: /tmp/
+            flat: true
+          register: fetch_result
+
+        - name: Deconfigure Expedited Testing
+          become: true
+          shell:  cd  "{{ ORACHK_BASE }}/orachk/" && [[ -r orachk.orig ]] && rm -f orachk && mv orachk.orig orachk && rm -f orachk-quicktest.sh
+          when: ( expedited_testing | bool )
+
+        # See what was actually returned by the fetch task
+        # this will be useful if the ansible version changes
+        # - name: Debug the entire fetch_result
+        # debug:
+        # var: fetch_result
+
+        # Only display the path if it exists in fetch_result.files
+        - name: Display local path of fetched file
+          debug:
+            msg: "Fetched file is saved locally at: {{ fetch_result.files[0].dest }}"
+          when: fetch_result.files is defined and (fetch_result.files | length) > 0
+
+        - name: Display local path of fetched file
+          debug:
+            msg: "Fetched file is saved locally at: {{ fetch_result.dest }}"
+      when: ( not ( uninstall_ahf | bool ) ) and ( run_orachk | bool )
