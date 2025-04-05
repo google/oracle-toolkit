@@ -25,6 +25,12 @@
   register: check_oratab
   tags: db-create
 
+- name: Fail if database already exists
+  fail:
+    msg: "DB CREATE IS ABORTED: A database with name {{ db_name }} already exists (found in oratab or running process). Please choose a different database name or remove the existing database."
+  when: check_oratab.stdout != "0" or pmon_proc.stdout != "0"
+  tags: db-create
+
 - name: Database exists check results
   debug:
     msg: "{{ item }}"
@@ -34,8 +40,13 @@
     - "{{ check_oratab }}"
   tags: db-create
 
+# Memory validation is now done in the add-database.sh script
+# The script will fail early if there's not enough memory
+# Removing all memory validation code from Ansible to avoid duplication
+
 - name: Adjust instance memory values (not 11.2 or 12.1)
   set_fact:
+    # No need to convert units, we pass variables with their units intact
     sga_target_bytes: "{{ sga_target }}"
     pga_aggtar_bytes: "{{ pga_aggtar }}"
   when: oracle_ver not in ['11.2.0.4.0','12.1.0.2.0']
@@ -43,19 +54,39 @@
 
 - name: Adjust instance memory values (11.2 and 12.1)
   set_fact:
+    # For older Oracle versions, we need to strip the 'M' suffix for compatibility
+    # But we'll retain the numeric precision by using regex_replace instead of truncating
     sga_target_bytes: "{{ sga_target | regex_replace('M$', '') }}"
     pga_aggtar_bytes: "{{ pga_aggtar | regex_replace('M$', '') }}"
   when: oracle_ver in ['11.2.0.4.0','12.1.0.2.0']
   tags: db-create
 
+- name: Show memory settings
+  debug:
+    msg: "Using memory settings: SGA_TARGET={{ sga_target }}, PGA_AGGREGATE_TARGET={{ pga_aggtar }}, MEMORY_PERCENT={{ effective_memory_pct | default(memory_pct) }}%"
+  tags: db-create
+
+# Note: swlib_unzip_path is already defined in group_vars/all.yml
+# No need to set a default here
+
+- name: Ensure swlib directory exists
+  file:
+    path: "{{ swlib_unzip_path }}"
+    state: directory
+    owner: "{{ oracle_user | default('oracle') }}"
+    group: "{{ oracle_group | default('oinstall') }}"
+    mode: "0755"
+  become: true
+  tags: db-create
+
 - name: Create DBCA response file script
   become: true
-  become_user: "{{ oracle_user }}"
+  become_user: "{{ oracle_user | default('oracle') }}"
   template:
     src: dbca.rsp.sh.j2
     dest: "{{ swlib_unzip_path }}/dbca_{{ db_name }}.rsp.sh"
-    owner: "{{ oracle_user }}"
-    group: "{{ oracle_group }}"
+    owner: "{{ oracle_user | default('oracle') }}"
+    group: "{{ oracle_group | default('oinstall') }}"
   when:
     - pmon_proc.stdout == "0"
     - check_oratab.stdout == "0"
@@ -136,7 +167,7 @@
     msg:
       - "{{ dbca_output.cmd }}"
       - "{{ dbca_output.stdout_lines }}"
-      # verbosity: 1
+    # verbosity: 1
   when:
     - pmon_proc.stdout == "0"
     - check_oratab.stdout == "0"
@@ -145,9 +176,9 @@
 - name: Save PDBs state
   shell: |
     set -o pipefail
-    sqlplus / as sysdba << EOF
+    sqlplus / as sysdba << EOFPDB
     alter pluggable database all save state;
-    EOF
+    EOFPDB
   environment:
     ORACLE_HOME: "{{ oracle_home }}"
     ORACLE_SID: "{{ oracle_sid }}"
@@ -166,4 +197,75 @@
     daemon_reload: true
     name: "{{ systemd_service_name }}"
   when: free_edition
+  tags: db-create
+  
+- name: Create script to register database with listener
+  become: true
+  template:
+    src: register_db_listener.sh.j2
+    dest: "{{ swlib_unzip_path }}/register_db_{{ db_name }}.sh"
+    owner: "{{ oracle_user | default('oracle') }}"
+    group: "{{ oracle_group | default('oinstall') }}"
+    mode: "0755"
+  when: 
+    - dbca_output is defined
+    - dbca_output.changed | default(false)
+    - not free_edition | bool
+  tags: db-create
+
+- name: Execute script to register database with listener
+  become: true
+  become_user: "{{ oracle_user | default('oracle') }}"
+  shell: "{{ swlib_unzip_path }}/register_db_{{ db_name }}.sh"
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+    DB_NAME: "{{ db_name }}"
+    LISTENER_NAME: "{{ listener_name | default('LISTENER') }}"
+    LISTENER_PORT: "{{ listener_port | default('1521') }}"
+    PDB_PREFIX: "{{ pdb_prefix | default('PDB') }}"
+    PDB_COUNT: "{{ pdb_count | default('1') }}"
+    ORACLE_VER: "{{ oracle_ver }}"
+    DB_CONTAINER: "{{ db_container_flag | default(container_db) | default('FALSE') | upper }}"
+  register: register_script_result
+  failed_when: 
+    - register_script_result.rc != 0
+    - "'WARNING:' not in register_script_result.stdout"
+  when: 
+    - dbca_output is defined
+    - dbca_output.changed | default(false)
+    - not free_edition | bool
+  tags: db-create
+
+- name: Display registration script output
+  debug:
+    msg: "{{ register_script_result.stdout_lines | default([]) }}"
+  when:
+    - register_script_result is defined
+    - register_script_result.stdout_lines is defined
+  tags: db-create
+
+- name: Remove registration script
+  file:
+    path: "{{ swlib_unzip_path }}/register_db_{{ db_name }}.sh"
+    state: absent
+  when: 
+    - dbca_output is defined
+    - dbca_output.changed | default(false)
+    - not free_edition | bool
+  tags: db-create
+
+- name: Configure control file autobackup format
+  become: true
+  become_user: "{{ oracle_user }}"
+  shell: |
+    export ORACLE_HOME={{ oracle_home }}
+    export PATH=$ORACLE_HOME/bin:$PATH
+    $ORACLE_HOME/bin/sqlplus / as sysdba << EOF
+    CONFIGURE CONTROLFILE AUTOBACKUP FORMAT FOR DEVICE TYPE DISK TO '+RECO/SWINGBENCH/%F';
+    EOF
+  when:
+    - oracle_ver != '11.2.0.4.0'
+    - pdb_prefix is defined
   tags: db-create
