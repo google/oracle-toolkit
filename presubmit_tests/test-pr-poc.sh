@@ -21,10 +21,12 @@
 # using sydney for initial testing
 # Keep permissions at 100755 to allow tests to run
 
-oracle_host_name=g370069685-s001
-oracle_host_ip=172.16.128.1
+node1_ip=172.16.128.1
+node2_ip=172.16.128.2
+
 install -d -m 0700 ~/.ssh
-ssh-keyscan "${oracle_host_ip}" > ~/.ssh/known_hosts
+ssh-keyscan "${node1_ip}" > ~/.ssh/known_hosts
+ssh-keyscan "${node2_ip}" > ~/.ssh/known_hosts
 
 # install pre-reqs
 pip install jmespath
@@ -34,10 +36,10 @@ yum --disablerepo=* --enablerepo=google-cloud-sdk -y install google-cloud-sdk
 # run the cleanup script
 pwd
 ./cleanup-oracle.sh --ora-version 19 \
---inventory-file /etc/files_needed_for_tk/nonrac-inv \
+--inventory-file /etc/files_needed_for_tk/rac-inventory \
 --yes-i-am-sure --ora-disk-mgmt udev --ora-swlib-path /u01/oracle_install \
---ora-asm-disks /etc/files_needed_for_tk/nonrac-asm.json \
---ora-data-mounts /etc/files_needed_for_tk/nonrac-datamounts.json
+--ora-asm-disks /etc/files_needed_for_tk/rac-asm.json \
+--ora-data-mounts /etc/files_needed_for_tk/rac-data-mounts.json
 
 # As noted in the design doc comment (internal): https://docs.google.com/document/d/1mv2nV0Cv6EKv-ZTScv59JdyqvmNfYeMojqFJdJVhdmk/edit?pli=1&disco=AAAAUN1OWrw
 # fail the prowjob if the cleanup does not succeed
@@ -50,7 +52,7 @@ fi
 ./install-oracle.sh --ora-swlib-bucket gs://bmaas-testing-oracle-software \
 --instance-ssh-user ansible --instance-ssh-key /etc/files_needed_for_tk/id_rsa_bms_tk_key \
 --backup-dest "+RECO" --ora-swlib-path /u01/oracle_install --ora-version 19 --ora-swlib-type gcs \
---ora-asm-disks /etc/files_needed_for_tk/nonrac-asm.json \
---ora-data-mounts /etc/files_needed_for_tk/nonrac-datamounts.json --cluster-type NONE \
---ora-data-destination DATA --ora-reco-destination RECO --ora-db-name orcl \
---ora-db-container false --instance-ip-addr "${oracle_host_ip}" --instance-hostname "${oracle_host_name}"
+--ora-asm-disks /etc/files_needed_for_tk/rac-asm.json \
+--ora-data-mounts /etc/files_needed_for_tk/rac-data-mounts.json --cluster-type RAC \
+--cluster-config /etc/files_needed_for_tk/rac-config.json --ora-data-destination DATA \
+--ora-reco-destination RECO --ora-db-name orcl --ora-db-container false 
