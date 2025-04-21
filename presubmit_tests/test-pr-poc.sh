@@ -28,10 +28,18 @@ install -d -m 0700 ~/.ssh
 ssh-keyscan "${node1_ip}" > ~/.ssh/known_hosts
 ssh-keyscan "${node2_ip}" > ~/.ssh/known_hosts
 
+sed -i \
+  -e '/^baseurl=/s/^/#/' \
+  -e '/^mirrorlist=/s/^/#/' \
+  -e '$a baseurl=http://vault.centos.org/8-stream/AppStream/x86_64/os/' \
+  /etc/yum.repos.d/CentOS-Stream-AppStream.repo
+
 # install pre-reqs
 pip install jmespath
 cp /etc/files_needed_for_tk/google-cloud-sdk.repo /etc/yum.repos.d/google-cloud-sdk.repo
 yum --disablerepo=* --enablerepo=google-cloud-sdk -y install google-cloud-sdk
+# jq is required for RAC installation
+yum --disablerepo=* --enablerepo=appstream -y install jq
 
 # run the cleanup script
 pwd
