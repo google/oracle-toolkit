@@ -150,6 +150,8 @@ and then specify its path using the `--cluster-config` parameter
 
 ## Command quick reference for DR deployments
 
+> **NOTE:** For additional background and further details on implementing Oracle Database Disaster Recovery (DR) using this toolkit, see the complementary document [Oracle Toolkit for Google Cloud - Disaster Recovery Configurations](disaster-recovery-configurations.md).
+
 The primary database must exist before you can create a standby database.
 
 When you create the primary database, omit the `--cluster-type` option or set it to `NONE`. To create the primary database, see [Single Instance Deployments section](#command-quick-reference-for-single-instance-deployments).
@@ -1339,9 +1341,9 @@ After installation is complete, you can adjust any of the attributes of the
 backup scheme. You can also replace any and all parts of the initial backup
 scheme or the backup script with your own scripts or backup tools.
 
-#### gcsfuse backup 
+#### gcsfuse backup
 
-You can use Cloud Storage buckets for Oracle rman scripts to write and store backups. 
+You can use Cloud Storage buckets for Oracle rman scripts to write and store backups.
 
 
 
@@ -1353,7 +1355,7 @@ You can use Cloud Storage buckets for Oracle rman scripts to write and store bac
   Cloud Storage buckets as file systems on Linux or macOS systems.
 - Review backup [Cloud Storage bucket options](https://cloud.google.com/storage).
 
-  
+
 To use a Cloud Storage bucket for your backups, you need to follow the steps below:
 
 - Identify the Compute Engine instance service account. Go to:
@@ -1364,14 +1366,14 @@ To use a Cloud Storage bucket for your backups, you need to follow the steps bel
   - Select the bucket that will store the backups, click on the three dots on the far right of the bucket selected and click Edit access.
   - Click on Add Principal and add the identified Compute Engine VM instance service account from the Oracle Server to configure.
   - In the Role drop down select Storage Legacy Bucket Owner and save.
-  
+
 #### Cloud Storage FUSE
 
-- With Cloud Storage FUSE, you can use the auth service account of the  Compute Engine instance to access and mount the Cloud Storage bucket. 
+- With Cloud Storage FUSE, you can use the auth service account of the  Compute Engine instance to access and mount the Cloud Storage bucket.
 - Follow the steps above on Cloud Storage bucket.
 - You can verify the auth service account by running the command as the Example below:
   - ```gcloud compute ssh gce_vm_instance_name --command="sudo su -c 'gcloud auth list'"```
-  - You should see the same account in the auth list as the one used in the  Cloud Storage bucket configuration steps. 
+  - You should see the same account in the auth list as the one used in the  Cloud Storage bucket configuration steps.
 
 
 ### Parameters
@@ -2789,7 +2791,7 @@ ok: [db-23ai-free]
 
 ### Validate the Oracle installation with ORAchk
 
-The orachk utility can be used to validate the Oracle installation. 
+The orachk utility can be used to validate the Oracle installation.
 
 ORAchk will check for known problems with the Oracle installation and configuration, and provide recommendations for resolving any issues that are found.
 
