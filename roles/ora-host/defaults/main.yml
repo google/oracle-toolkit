@@ -105,7 +105,7 @@ oracle_required_rpms_el9:
 #   - If memory_pct is set and is less than 50 percent, then use 50 percent
 #   - If memory_pct is set and is 50 percent or more, then use memory_pct
 #   - If memory_pct is not defined, use 65 percent
-ram_pct_used: "{{ (50 if memory_pct is defined and memory_pct < 50 else memory_pct) if memory_pct is defined else 65 }}"
+ram_pct_used: "{{ (50 if memory_pct is defined and (memory_pct | int) < 50 else (memory_pct | int)) if memory_pct is defined else 65 }}"
 
 # Kernel parameters to check and report on pre-adjustment values when verbosity=1:
 sysctl_params:
