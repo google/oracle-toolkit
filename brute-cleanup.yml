@@ -13,14 +13,26 @@
 # limitations under the License.
 
 ---
+- name: Playbook pre_tasks
+  hosts: dbasm
+  gather_facts: false
+  pre_tasks:
+    - name: Check environment readiness
+      include_role:
+        name: common
+        tasks_from: readiness_checks.yml
+      vars:
+        control_node_checks: true
+        managed_host_checks: true
+        become_user_check: root
+      tags: readiness_checks
+    - name: Determine specific release
+      include_role:
+        name: common
+        tasks_from: populate-vars.yml
+
 - hosts: dbasm
   become: true
   become_user: root
-  pre_tasks:
-    - name: Verify that Ansible on control node meets the version requirements
-      assert:
-        that: "ansible_version.full is version_compare('2.8', '>=')"
-        fail_msg: "You must update Ansible to at least 2.8 to use these playbooks"
-        success_msg: "Ansible version is {{ ansible_version.full }}, continuing"
   roles:
     - brute-ora-cleanup
