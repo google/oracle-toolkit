@@ -46,7 +46,7 @@ if [[ $? -ne 0 ]]; then
 fi
 
 ./install-oracle.sh --ora-swlib-bucket gs://bmaas-testing-oracle-software \
---instance-ssh-user ansible --instance-ssh-key /etc/files_needed_for_tk/id_rsa_bms_tk_key \
+--instance-ssh-user ansible --instance-ssh-key /etc/files_needed_for_tk/ansible_private_ssh_key \
 --backup-dest "+RECO" --ora-swlib-path /u01/oracle_install --ora-version 19 --ora-swlib-type gcs \
 --ora-asm-disks /etc/files_needed_for_tk/rac-asm.json \
 --ora-data-mounts /etc/files_needed_for_tk/rac-data-mounts.json --cluster-type RAC \
