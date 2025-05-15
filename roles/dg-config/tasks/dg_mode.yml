@@ -1,0 +1,170 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- name: DG Mode | Capture the current Data Guard protection mode
+  shell: |
+    set -o pipefail
+    {{ oracle_home }}/bin/dgmgrl -silent / "show configuration" | grep "Protection Mode" | awk -F" " '{ print $3 }'
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  become: true
+  become_user: "{{ oracle_user }}"
+  changed_when: false
+  register: current_dg_mode
+  tags: dg-mode,dg-create
+
+- name: DG Mode | Validate whether the desired protection mode change is possible
+  assert:
+    that:
+      - not (current_dg_mode.stdout | upper == "MAXPERFORMANCE" and data_guard_protection_mode | upper == "MAXIMUM PROTECTION")
+    quiet: true
+    fail_msg: "ERROR: Cannot change from MAXIMUM PERFORMANCE directly to MAXIMUM PROTECTION - must change to MAXIMUM AVAILABILITY first"
+  tags: dg-mode,dg-create
+
+- name: DG Mode | Capture the current redo transport mode
+  shell: |
+    set -o pipefail
+    {{ oracle_home }}/bin/dgmgrl -silent / "show database {{ item }} 'LogXptMode'" | grep "LogXptMode" | awk -F" " '{ print $3 }' | sed "s/'//g"
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  become: true
+  become_user: "{{ oracle_user }}"
+  changed_when: false
+  register: db_logxpt_mode
+  with_items:
+    - "{{ db_name }}"
+    - "{{ standby_name }}"
+  tags: dg-mode,dg-create
+
+- name: DG Mode | Change the redo transport mode to {{ log_transport_mode }}
+  shell: |
+    set -o pipefail
+    {{ oracle_home }}/bin/dgmgrl / <<EOF
+    edit database {{ item.db_name }} set property 'LogXptMode'='{{ log_transport_mode }}';
+    EOF
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  when: item.current_transfer_mode | upper != log_transport_mode
+  become: true
+  become_user: "{{ oracle_user }}"
+  with_items: "{{ db_logxpt_mode | json_query('results[*].{db_name:item,current_transfer_mode:stdout}') }}"
+  tags: dg-mode,dg-create
+
+- name: DG Mode | Change the Data Guard protection mode
+  shell: |
+    set -o pipefail
+    {{ oracle_home }}/bin/dgmgrl / <<EOF
+    edit configuration set protection mode as {{ data_guard_protection_mode | replace(' ', '') | replace('imum', '') | upper }};
+    EOF
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  when: current_dg_mode.stdout | upper != data_guard_protection_mode | replace(' ', '') | replace('imum', '') | upper
+  become: true
+  become_user: "{{ oracle_user }}"
+  tags: dg-mode,dg-create
+
+- name: DG Mode | Capture current apply mode
+  shell: |
+    set -o pipefail
+    {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+    SET heading OFF
+    SET termout OFF
+    SELECT recovery_mode FROM v\$archive_dest_status WHERE dest_id=2;
+    EOF
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  delegate_to: primary1
+  become: true
+  become_user: "{{ oracle_user }}"
+  changed_when: false
+  register: current_apply_mode
+  tags: dg-mode,dg-create
+
+- name: DG Mode | Show current apply mode
+  debug:
+    var: current_apply_mode.stdout
+    verbosity: 1
+  tags: dg-mode,dg-create
+
+- name: DG Mode | Enable Real-Time Apply
+  shell: |
+    set -o pipefail
+    {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+    ALTER DATABASE RECOVER MANAGED STANDBY DATABASE DISCONNECT;
+    EOF
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  when:
+    - real_time_apply
+    - not "'REAL TIME APPLY' in current_apply_mode.stdout"
+  become: true
+  become_user: "{{ oracle_user }}"
+  tags: dg-mode,dg-create
+
+- name: DG Mode | Disable Real-Time Apply
+  shell: |
+    set -o pipefail
+    {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+    ALTER DATABASE RECOVER MANAGED STANDBY DATABASE CANCEL;
+    ALTER DATABASE RECOVER MANAGED STANDBY DATABASE USING ARCHIVED LOGFILE DISCONNECT;
+    EOF
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  when:
+    - not real_time_apply
+    - "'REAL TIME APPLY' in current_apply_mode.stdout"
+  become: true
+  become_user: "{{ oracle_user }}"
+  tags: dg-mode,dg-create
+
+- name: DG Mode | Capture the current Data Guard configuration
+  shell: |
+    set -o pipefail
+    {{ oracle_home }}/bin/dgmgrl / <<EOF
+    show configuration verbose
+    show database verbose {{ db_name | lower }};
+    show database verbose {{ standby_name | lower }};
+    validate database {{ standby_name }};
+    show database {{ standby_name }} statusreport;
+    EOF
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  become: true
+  become_user: "{{ oracle_user }}"
+  changed_when: false
+  register: dg_verification
+  tags: dg-mode,dg-create
+
+- name: DG Mode | Show output from inconsistency checks
+  debug:
+    var: dg_verification.stdout_lines
+    verbosity: 0
+  tags: dg-mode,dg-create

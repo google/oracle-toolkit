@@ -60,3 +60,9 @@
         tasks_from: main
       when: cluster_type == "DG"
       tags: dg-create
+
+    - include_role:
+        name: dg-config
+        tasks_from: dg_mode
+      when: cluster_type == "DG"
+      tags: dg-create,dg-mode
