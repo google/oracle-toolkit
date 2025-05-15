@@ -193,6 +193,12 @@ GCS_BACKUP_BUCKET_PARAM="^.+[^/]"
 GCS_BACKUP_TEMP_PATH="${GCS_BACKUP_TEMP_PATH:-/u01/gcsfusetmp}"
 GCS_BACKUP_TEMP_PATH_PARAM="^/.*"
 
+NFS_BACKUP_CONFIG="${NFS_BACKUP_CONFIG}"
+NFS_BACKUP_CONFIG_PARAM="^(vers=3|vers=4)$"
+
+NFS_BACKUP_MOUNT="${NFS_BACKUP_MOUNT}"
+NFS_BACKUP_MOUNT_PARAM="^[[:alnum:][:punct:]]*:[[:alnum:][:punct:]]*$"
+
 ARCHIVE_REDUNDANCY="${ARCHIVE_REDUNDANCY:-2}"
 ARCHIVE_REDUNDANCY_PARAM="^[0-9]+$"
 
@@ -251,7 +257,7 @@ COMPATIBLE_RDBMS_PARAM="^[0-9][0-9]\.[0-9].*"
 export ANSIBLE_DISPLAY_SKIPPED_HOSTS=false
 ###
 GETOPT_MANDATORY="ora-swlib-bucket:"
-GETOPT_OPTIONAL="gcs-backup-config:,gcs-backup-bucket:,gcs-backup-temp-path:,backup-dest:,ora-version:,no-patch,ora-edition:,cluster-type:,cluster-config:,cluster-config-json:"
+GETOPT_OPTIONAL="gcs-backup-config:,gcs-backup-bucket:,gcs-backup-temp-path:,nfs-backup-config:,nfs-backup-mount:,backup-dest:,ora-version:,no-patch,ora-edition:,cluster-type:,cluster-config:,cluster-config-json:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-staging:,ora-db-name:,ora-db-domain:,ora-db-charset:,ora-disk-mgmt:,ora-role-separation:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-data-destination:,ora-data-diskgroup:,ora-reco-destination:,ora-reco-diskgroup:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-asm-disks:,ora-asm-disks-json:,ora-data-mounts:,ora-data-mounts-json:,ora-listener-port:,ora-listener-name:"
@@ -426,6 +432,14 @@ while true; do
     ;;
   --gcs-backup-temp-path)
     GCS_BACKUP_TEMP_PATH="$2"
+    shift
+    ;;
+  --nfs-backup-config)
+    NFS_BACKUP_CONFIG="$2"
+    shift
+    ;;
+  --nfs-backup-mount)
+    NFS_BACKUP_MOUNT="$2"
     shift
     ;;
   --backup-redundancy)
@@ -700,6 +714,14 @@ shopt -s nocasematch
   echo "Incorrect parameter provided for gcs-backup-temp-path: $GCS_BACKUP_TEMP_PATH"
   exit 1
 }
+[[ -n "$NFS_BACKUP_CONFIG" && ! "$NFS_BACKUP_CONFIG" =~ $NFS_BACKUP_CONFIG_PARAM ]] && [[ "${!BACKUP_DEST:0:1}" == "/" ]] && {
+  echo "Incorrect parameter provided for nfs-backup-config: $NFS_BACKUP_CONFIG"
+  exit 1
+}
+[[ -n "$NFS_BACKUP_MOUNT" && ! "$NFS_BACKUP_MOUNT" =~ $NFS_BACKUP_MOUNT_PARAM && -n "$NFS_BACKUP_CONFIG" ]] && {
+  echo "Incorrect parameter provided for nfs-backup-mount: $NFS_BACKUP_MOUNT"
+  exit 1
+}
 [[ ! "$BACKUP_REDUNDANCY" =~ $BACKUP_REDUNDANCY_PARAM ]] && {
   echo "Incorrect parameter provided for backup-redundancy: $BACKUP_REDUNDANCY"
   exit 1
@@ -954,6 +976,8 @@ export BACKUP_DEST
 export GCS_BACKUP_CONFIG
 export GCS_BACKUP_BUCKET
 export GCS_BACKUP_TEMP_PATH
+export NFS_BACKUP_CONFIG
+export NFS_BACKUP_MOUNT
 export BACKUP_LEVEL0_DAYS
 export BACKUP_LEVEL1_DAYS
 export BACKUP_LOG_LOCATION
