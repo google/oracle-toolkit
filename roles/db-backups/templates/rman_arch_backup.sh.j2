@@ -9,10 +9,10 @@ arch_redundancy=${2}                     # Archivelog redundancy
 arch_day_online=${3}                     # Number of days to keep
 ts="date +%Y-%m-%d_%H-%M-%S"             # Timestamp format
 start_ts="$($ts)"                        # Start timestamp
-log_dir="{{ logs_dir }}"                 # A directory for the logs
+log_dir="{{ logs_dir }}/${ora_inst_name}" # A directory for the logs - per database
 type="ARCH"                              # Type is archivelog backup
 conn_str="{% if oracle_ver == "11.2.0.4.0" %}/{% else %}/ AS SYSBACKUP{% endif %}" # Oracle connection string
-backup_dest="{{ backup_dest }}"          # Backup destination path
+backup_dest="{{ backup_dest }}/${ora_inst_name}" # Per-database backup destination path
 fra_dest="{{ reco_destination }}"        # Fast recovery area location
 export NLS_DATE_FORMAT="YYYY-MM-DD HH24:MI:SS"
 #
@@ -35,18 +35,22 @@ fi
 if [[ "${fra_dest:0:1}" != "/" && "${fra_dest:0:1}" != "+" ]]; then
   fra_dest="+${fra_dest}"
 fi
+# Standardize the backup destination format
 if [[ "${backup_dest:0:1}" == "/" ]]; then
-  # Filesystem destination
-  autobackup_format="${backup_dest}/${ora_inst_name}_%F"
-  channel_format="${backup_dest}/${ora_inst_name}_${type}_level_${rman_level}_%U"
+  # Filesystem destination - no prefix needed
+  backup_dest_final="${backup_dest}"
 else
-  # ASM destination, no need for format specifiers; Add the ASM "+" sign (if not already added)
+  # ASM destination - add "+" prefix if not already present
   if [[ "${backup_dest:0:1}" != "+" ]]; then
-    backup_dest="+${backup_dest}"
+    backup_dest_final="+${backup_dest}"
+  else
+    backup_dest_final="${backup_dest}"
   fi
-  autobackup_format="${backup_dest}"
-  channel_format="${backup_dest}"
 fi
+
+# Always use proper format specifiers for both filesystem and ASM destinations
+autobackup_format="${backup_dest_final}/${ora_inst_name}_%F"
+channel_format="${backup_dest_final}/${ora_inst_name}_${type}_%U"
 #
 # We can now build the output file and log file names
 #
@@ -84,11 +88,11 @@ EOF
 # Success or error output with the name of the logfile
 #
 then
-  printf "\n\t%s\n" "INFO -- $($ts) -- ${type} Level ${rman_level} of instance ${ora_inst_name} has been completed successfully."
+  printf "\n\t%s\n" "INFO -- $($ts) -- ${type} backup of instance ${ora_inst_name} has been completed successfully."
   printf "\t%s\n\n" "INFO -- $($ts) -- logfile used by this session: ${logfile}"
   ret_code=0
 else
-  printf "\n\t%s\n\n" "ERROR -- $($ts) --  ${type} Level ${rman_level} of instance ${ora_inst_name} had errors, please have a look at the logfile: ${logfile}"
+  printf "\n\t%s\n\n" "ERROR -- $($ts) --  ${type} backup of instance ${ora_inst_name} had errors, please have a look at the logfile: ${logfile}"
   ret_code=123
 fi
 exit ${ret_code}

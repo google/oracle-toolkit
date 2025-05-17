@@ -1,0 +1,38 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+# Include tasks for common operations
+- name: Include variable population tasks
+  include_tasks: populate-vars.yml
+  tags: always
+
+- name: Include Oracle Home validation
+  include_tasks: validate-oracle-home.yml
+  tags: always
+
+- name: Include ASM disks population
+  include_tasks: populate-asm-disks.yml
+  when: asm_disks is defined
+  tags: asm
+
+- name: Include swap partition ID population
+  include_tasks: populate-swap-partition-id.yml
+  when: swap_blk_device is defined
+  tags: swap
+
+- name: Include user data mounts population
+  include_tasks: populate-user-data-mounts.yml
+  when: data_mounts is defined
+  tags: data-mounts

@@ -1,0 +1,182 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+# Get Oracle Home from the --ora-db-home-dir parameter or auto-detect
+- name: Determine the calling script 
+  set_fact:
+    calling_script: "{{ lookup('env', 'CALLING_SCRIPT') | default('unknown', true) }}"
+  tags: always
+
+- name: Check for Oracle homes in /etc/oratab
+  shell: |
+    if [ -f /etc/oratab ]; then
+      grep -v "^#" /etc/oratab | grep -v "^$" | grep -v "^+ASM" | 
+        awk -F: '{print $2}' | 
+        xargs -I{} bash -c 'HOME="{}"; if [ -x "$HOME/bin/oracle" ]; then echo "$HOME"; fi' | head -1
+    fi
+  register: oratab_first_valid_home
+  failed_when: false
+  changed_when: false
+  when: 
+    - lookup('env', 'ORA_DB_HOME_DIR') is not defined or lookup('env', 'ORA_DB_HOME_DIR')|length == 0
+    - calling_script == 'add-database.sh'
+  tags: always
+
+- name: Set Oracle Home from /etc/oratab if available and parameter not provided
+  set_fact:
+    oracle_home: "{{ oratab_first_valid_home.stdout }}"
+  when: 
+    - lookup('env', 'ORA_DB_HOME_DIR') is not defined or lookup('env', 'ORA_DB_HOME_DIR')|length == 0
+    - calling_script == 'add-database.sh'
+    - oratab_first_valid_home.stdout is defined
+    - oratab_first_valid_home.stdout|length > 0
+  tags: always
+
+- name: Verify Oracle Home parameter was provided for add-database.sh if no valid homes in oratab
+  fail:
+    msg: |
+      The --ora-db-home-dir parameter is required when using add-database.sh.
+      Please specify the path to an existing Oracle Database home.
+      Example: --ora-db-home-dir=/u01/app/oracle/product/21.3.0/dbhome_1
+  when:
+    - (lookup('env', 'ORA_DB_HOME_DIR') is not defined or lookup('env', 'ORA_DB_HOME_DIR')|length == 0)
+    - (oratab_first_valid_home.stdout is not defined or oratab_first_valid_home.stdout|length == 0)
+    - calling_script == 'add-database.sh' or lookup('env', 'ORACLE_HOME_REQUIRED') | default('false') | bool
+  tags: always
+
+- name: Set Oracle Home from parameter if provided
+  set_fact:
+    oracle_home: "{{ lookup('env', 'ORA_DB_HOME_DIR') }}"
+  when: lookup('env', 'ORA_DB_HOME_DIR') is defined and lookup('env', 'ORA_DB_HOME_DIR')|length > 0
+  tags: always
+
+- name: Set default Oracle Home path according to best practices (when not provided)
+  set_fact:
+    oracle_home: "{{ oracle_root }}/{{ oracle_user }}/product/{{ oracle_ver_base }}/{{ home_name }}"
+  when: 
+    - lookup('env', 'ORA_DB_HOME_DIR') is not defined or lookup('env', 'ORA_DB_HOME_DIR')|length == 0
+    - calling_script != 'add-database.sh' and (lookup('env', 'ORACLE_HOME_REQUIRED') | default('false') | bool == false)
+  tags: always
+
+# Basic validation of Oracle home only when required (for add-database.sh)
+- name: Check if Oracle home exists (with .0 suffix)
+  stat:
+    path: "{{ oracle_home }}/bin/oracle"
+  register: oracle_binary
+  failed_when: false
+  when: calling_script != "install-oracle.sh"
+  tags: always
+
+- name: Check if Oracle home exists (without .0 suffix)
+  stat:
+    path: "{{ oracle_home | regex_replace('\\.[0-9]+(?=/dbhome)', '') }}/bin/oracle"
+  register: oracle_binary_alt
+  failed_when: false
+  when: 
+    - calling_script != "install-oracle.sh"
+    - not oracle_binary.stat.exists | default(false) | bool
+    - oracle_home is match('.*\\.[0-9]+/dbhome.*')
+  tags: always
+  
+- name: Update Oracle home path if alternative path exists
+  set_fact:
+    oracle_home: "{{ oracle_home | regex_replace('\\.[0-9]+(?=/dbhome)', '') }}"
+  when:
+    - not oracle_binary.stat.exists | default(false) | bool
+    - oracle_binary_alt.stat is defined
+    - oracle_binary_alt.stat.exists | default(false) | bool
+  tags: always
+  
+- name: Check oratab entries for valid homes
+  shell: |
+    ORATAB_HOMES=""
+    if [ -f /etc/oratab ]; then
+      ORATAB_HOMES=$(grep -v "^#" /etc/oratab | grep -v "^$" | grep -v "^+ASM" | 
+        awk -F: '{print $2 " (SID: " $1 ")"}' | 
+        xargs -I{} bash -c 'HOME=$(echo "{}" | cut -d" " -f1); if [ -x "$HOME/bin/oracle" ]; then echo "  - {}"; fi')
+    fi
+    
+    if [ -n "$ORATAB_HOMES" ]; then
+      echo "Available Oracle Database homes in /etc/oratab:"
+      echo "$ORATAB_HOMES"
+    else
+      echo "No valid Oracle Database homes found in /etc/oratab."
+    fi
+  register: oratab_homes_list
+  failed_when: false
+  changed_when: false
+  when: 
+    - calling_script != "install-oracle.sh"
+    - not oracle_binary.stat.exists is defined or not oracle_binary.stat.exists
+  tags: always
+
+- name: Detect Oracle version from specified Oracle home
+  block:
+    - name: Get version from installed Oracle binary
+      shell: |
+        ORACLE_HOME_PATH="{{ oracle_home }}"
+        if [ -x "${ORACLE_HOME_PATH}/bin/oracle" ]; then
+          VERSION=$(strings ${ORACLE_HOME_PATH}/bin/oracle | grep -E "^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+" | head -1)
+          if [ -n "$VERSION" ]; then
+            echo "$VERSION"
+          else
+            # Try alternative method using inventory
+            if [ -f /etc/oraInst.loc ]; then
+              INVENTORY_LOC=$(cat /etc/oraInst.loc | grep inventory_loc | cut -d= -f2)
+              if [ -f "${INVENTORY_LOC}/ContentsXML/inventory.xml" ]; then
+                grep -A 10 -B 2 "$(basename ${ORACLE_HOME_PATH})" "${INVENTORY_LOC}/ContentsXML/inventory.xml" | 
+                  grep -o "VER=\"[^\"]*\"" | head -1 | cut -d= -f2 | tr -d '"'
+              fi
+            fi
+          fi
+        fi
+      register: detected_oracle_ver
+      failed_when: false
+      changed_when: false
+      
+    - name: Display detected Oracle version if found
+      debug:
+        msg: "Detected Oracle version: {{ detected_oracle_ver.stdout }}"
+      when: detected_oracle_ver.stdout | length > 0
+      
+    - name: Update oracle_ver based on detected version if needed
+      set_fact:
+        oracle_ver: "{{ detected_oracle_ver.stdout }}"
+        oracle_ver_base: "{{ detected_oracle_ver.stdout | regex_replace('^([0-9]+\\.[0-9]+).*', '\\1') }}"
+      when: 
+        - detected_oracle_ver.stdout is defined
+        - detected_oracle_ver.stdout | length > 0
+        - detected_oracle_ver.stdout is regex("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$")
+  when: 
+    - calling_script != "install-oracle.sh"
+    - oracle_binary.stat is defined
+    - oracle_binary.stat.exists | default(false) | bool
+  tags: always
+
+- name: Fail if Oracle binary not found (only for add-database.sh)
+  fail:
+    msg: |
+      Oracle binary not found at {{ oracle_home }}/bin/oracle. 
+      
+      {{ oratab_homes_list.stdout | default('No information available about existing Oracle homes.') }}
+      
+      The --ora-db-home-dir parameter must point to a valid Oracle Database home with a functioning Oracle binary.
+      This should be the path to the Oracle Database software installation, not the Grid Infrastructure home.
+  when:
+    - calling_script == "add-database.sh"
+    - oracle_binary.stat is defined
+    - not oracle_binary.stat.exists | default(false) | bool
+    - oracle_binary_alt is not defined or not oracle_binary_alt.stat.exists | default(false) | bool
+  tags: always

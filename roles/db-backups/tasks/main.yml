@@ -24,7 +24,19 @@
     mode: u=wrx,go=
   with_items:
     - "{{ scripts_dir }}"
-    - "{{ logs_dir }}"
+    - "{{ logs_dir }}/{{ oracle_sid }}"
+  tags: db-backups,add-backups
+
+- name: Create backup destination directory if it's a filesystem path
+  become: true
+  become_user: "{{ oracle_user }}"
+  file:
+    path: "{{ backup_dest }}/{{ oracle_sid }}"
+    state: directory
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
+    mode: u=wrx,go=
+  when: backup_dest is defined and backup_dest[0] == '/' and backup_dest != ''
   tags: db-backups,add-backups
 
 - name: backup location | nfs mount

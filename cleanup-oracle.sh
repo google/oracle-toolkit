@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Set calling script name for validation tasks
+export CALLING_SCRIPT="cleanup-oracle.sh"
+
 echo Command used:
 echo "$0 $@"
 echo

@@ -23,7 +23,85 @@
         that: "ansible_version.full is version_compare('2.8', '>=')"
         fail_msg: "You must update Ansible to at least 2.8 to use these playbooks"
         success_msg: "Ansible version is {{ ansible_version.full }}, continuing"
+       
+    - name: Ensure swlib directory exists
+      file:
+        path: "{{ swlib_unzip_path }}"
+        state: directory
+        owner: "{{ oracle_user | default('oracle') }}"
+        group: "{{ oracle_group | default('oinstall') }}"
+        mode: "0755"
+      become: true
+      tags: always
+        
+    # Include common role for Oracle Home validation
+    - name: Include common tasks
+      include_role:
+        name: common
+        tasks_from: validate-oracle-home
+      tags: always
+      
+    # Memory settings are now handled centrally in group_vars/all.yml
+    - name: Display memory settings
+      debug:
+        msg: "Using memory settings: SGA_TARGET={{ sga_target }}, PGA_AGGREGATE_TARGET={{ pga_aggtar }}, MEMORY_PERCENT={{ memory_pct }}%"
+      tags: always
+      
+    # Retrieve create_listener variable value
+    - name: Check if listener creation is required
+      set_fact:
+        create_listener: "{{ lookup('env', 'CREATE_LISTENER')|lower|default('false') }}"
+      tags: always
+    
+    # Set container_db from environment if provided
+    - name: Set container_db from environment
+      set_fact:
+        db_container_flag: "{{ lookup('env', 'DB_CONTAINER_FLAG')|lower|default('false') }}"
+      tags: always
+      
   tasks:
+    - name: Check for listener service on configured port
+      shell: |
+        netstat -lntp | grep -w {{ listener_port | default('1521') }} || true
+      become: true
+      register: listener_check
+      changed_when: false
+      failed_when: false
+      tags: lsnr-check
+    
+    - name: Check listener status with lsnrctl
+      become: true
+      become_user: "{{ oracle_user }}"
+      shell: |
+        export ORACLE_HOME={{ oracle_home }}
+        export PATH=$ORACLE_HOME/bin:$PATH
+        lsnrctl status | grep -i "listening on" || echo "NO_LISTENER"
+      register: lsnrctl_check
+      changed_when: false
+      failed_when: false
+      tags: lsnr-check
+      
+    - name: Check if listener exists
+      set_fact:
+        listener_exists: "{{ listener_check.stdout != '' or lsnrctl_check.stdout != 'NO_LISTENER' }}"
+      tags: lsnr-check
+
+    - name: Display listener status
+      debug:
+        msg: >
+          {% if listener_exists %}
+          Listener appears to be running. New database will register with existing listener.
+          {% else %}
+          No listener detected. Will create one automatically.
+          {% endif %}
+      tags: lsnr-check
+      
+    # Set create_listener to true if listener doesn't exist
+    - name: Set listener creation flag
+      set_fact:
+        create_listener: "{{ not listener_exists }}"
+      tags: lsnr-check
+      
     - include_role:
         name: lsnr-create
       when: create_listener | bool
@@ -60,3 +138,31 @@
         tasks_from: main
       when: cluster_type == "DG"
       tags: dg-create
+
+    - name: Configure control file autobackup format
+      shell: |
+        export ORACLE_HOME={{ oracle_home }}
+        export PATH=$ORACLE_HOME/bin:$PATH
+        
+        # Standardize the recovery destination format for control file autobackup
+        if [[ "{{ reco_destination }}" == "/"* ]]; then
+          # Filesystem path - no prefix needed
+          RECO_DEST_FINAL="{{ reco_destination }}"
+        else
+          # ASM destination - add + if not already present
+          if [[ "{{ reco_destination }}" == "+"* ]]; then
+            RECO_DEST_FINAL="{{ reco_destination }}"
+          else
+            RECO_DEST_FINAL="+{{ reco_destination }}"
+          fi
+        fi
+        
+        # Always ensure %F format specifier is included for both filesystem and ASM
+        AUTOBACKUP_FORMAT="${RECO_DEST_FINAL}/{{ oracle_sid }}/%F"
+        
+        $ORACLE_HOME/bin/sqlplus / as sysdba <<EOF
+        CONFIGURE CONTROLFILE AUTOBACKUP FORMAT FOR DEVICE TYPE DISK TO '${AUTOBACKUP_FORMAT}';
+        EOF
+      environment:
+        ORACLE_HOME: "{{ oracle_home }}"
+        PATH: "{{ oracle_home }}/bin:{{ ansible_env.PATH }}"

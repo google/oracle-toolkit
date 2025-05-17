@@ -32,5 +32,8 @@ else
   sed -i '/^\#\{0,\} \{0,\}storageType \{0,\}=/I             s~\#\{0,\} \{0,\}storageType \{0,\}=.*~storageType=ASM~I'                                              "${response_file}"
   sed -i '/^\#\{0,\} \{0,\}diskGroupName \{0,\}=/I           s~\#\{0,\} \{0,\}diskGroupName \{0,\}=.*~diskGroupName='{{ data_destination }}'~I'                     "${response_file}"
   sed -i '/^\#\{0,\} \{0,\}recoveryGroupName \{0,\}=/I       s~\#\{0,\} \{0,\}recoveryGroupName \{0,\}=.*~recoveryGroupName='{{ reco_destination }}'~I'             "${response_file}"
-  sed -i '/^\#\{0,\} \{0,\}initParams \{0,\}=/I              s~\#\{0,\} \{0,\}initParams \{0,\}=.*~initParams=pga_aggregate_target='{{ pga_aggtar_bytes }}',sga_target='{{ sga_target_bytes }}',streams_pool_size=64M,use_large_pages=ONLY,db_domain='{{ db_domain }}',diagnostic_dest='{{ oracle_base }}'~I' "${response_file}"
+  
+  # Ensure consistent memory unit handling - SGA and PGA values should always have proper units
+  # This ensures proper data type conversion by explicitly handling the units
+  sed -i '/^\#\{0,\} \{0,\}initParams \{0,\}=/I              s~\#\{0,\} \{0,\}initParams \{0,\}=.*~initParams=pga_aggregate_target={{ pga_aggtar }},sga_target={{ sga_target }},streams_pool_size=64M,use_large_pages=ONLY,db_domain='{{ db_domain }}',diagnostic_dest='{{ oracle_base }}'~I' "${response_file}"
 fi

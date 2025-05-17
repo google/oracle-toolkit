@@ -243,7 +243,9 @@
         ORACLE_SID: "{{ oracle_sid }}"
         ORACLE_HOME: "{{ oracle_home }}"
         PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
-      when: oracle_ver != '11.2.0.4.0'
+      when: 
+        - oracle_ver != '11.2.0.4.0'
+        - lookup('env', 'SKIP_DATAPATCH') | default('false') | lower != 'true'
       register: datapatch_output
       ignore_errors: true
       become: true
@@ -252,7 +254,10 @@
     - name: rac-db-create | Show datapatch results
       debug:
         var: datapatch_output.stdout_lines
-      when: oracle_ver != '11.2.0.4.0'
+      when: 
+        - oracle_ver != '11.2.0.4.0'
+        - lookup('env', 'SKIP_DATAPATCH') | default('false') | lower != 'true'
+        - datapatch_output is defined
 
     - name: rac-db-create | Set cluster_database to true
       shell: |

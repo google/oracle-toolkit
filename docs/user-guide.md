@@ -12,6 +12,7 @@ published: True
   - [Command quick reference for RAC deployments](#command-quick-reference-for-rac-deployments)
   - [Command quick reference for DR deployments](#command-quick-reference-for-dr-deployments)
   - [Command quick reference for Oracle Database Free Edition deployments](#command-quick-reference-for-oracle-database-free-edition-deployments)
+  - [Command quick reference for adding databases to existing installations](#command-quick-reference-for-adding-databases-to-existing-installations)
   - [Overview](#overview)
     - [Software Stack](#software-stack)
     - [Requirements and Prerequisites](#requirements-and-prerequisites)
@@ -45,6 +46,11 @@ published: True
       - [Additional operational parameters](#additional-operational-parameters)
       - [Using tags to run or skip specific parts of the toolkit](#using-tags-to-run-or-skip-specific-parts-of-the-toolkit)
   - [Example Toolkit Execution](#example-toolkit-execution)
+  - [Adding More Databases](#adding-additional-databases)
+    - [Oracle Home Existence Checks](#oracle-home-existence-checks)
+    - [Database Existence Checks](#database-existence-checks)
+    - [Memory Configuration](#memory-configuration)
+    - [Example Add-Database Script Execution](#example-add-database-script-execution)
   - [Oracle Database Free Edition Specific Details and Changes](#oracle-database-free-edition-specific-details-and-changes)
     - [Free Edition Version Details](#free-edition-version-details)
     - [Sample Invocations for Oracle Database Free Edition](#sample-invocations-for-oracle-database-free-edition)
@@ -104,6 +110,18 @@ getting started with this toolkit.
    --ora-swlib-path /u02/swlib/ \
    --ora-swlib-type gcs \
    --instance-ip-addr ${INSTANCE_IP_ADDR}
+   ```
+
+1. Add a new database to an existing Oracle installation:
+
+   ```bash
+   ./add-database.sh \
+   --instance-ip-addr ${INSTANCE_IP_ADDR} \
+   --ora-db-name NEW_DB \
+   --ora-db-home-dir /u01/app/oracle/product/19.0.0/dbhome_1 \
+   --memory-percent 45 \
+   --backup-dest "+RECO" \
+   --ora-pdb-count 2
    ```
 
 ## Command quick reference for RAC deployments
@@ -2181,6 +2199,55 @@ instance is created.</td>
 <td>Run with the Ansible debugging flag enabled.  With debugging
 enabled, passwords appear in logfiles.</td>
 </tr>
+<tr>
+<td>Oracle home directory (Required)</td>
+<td><p><pre>
+ORA_DB_HOME_DIR
+--ora-db-home-dir
+</pre></p></td>
+<td>Required parameter - no default</td>
+<td>Absolute path to an existing Oracle home directory. 
+Required parameter for add-database.sh script.</td>
+</tr>
+<tr>
+<td>Skip listener configuration</td>
+<td><p><pre>
+--skip-listener-config
+</pre></p></td>
+<td></td>
+<td>Skip listener configuration when adding a new database.
+Only available in add-database.sh script.</td>
+</tr>
+<tr>
+<td>SGA target setting</td>
+<td><p><pre>
+SGA_TARGET
+--sga-target
+</pre></p></td>
+<td>user defined value with suffix M/G or percentage%</td>
+<td>Explicit SGA target value or percentage of system memory.
+Only available in add-database.sh script.</td>
+</tr>
+<tr>
+<td>PGA aggregate target setting</td>
+<td><p><pre>
+PGA_AGGREGATE_TARGET
+--pga-aggregate-target
+</pre></p></td>
+<td>user defined value with suffix M/G or percentage%</td>
+<td>Explicit PGA aggregate target value or percentage of system memory.
+Only available in add-database.sh script.</td>
+</tr>
+<tr>
+<td>Memory percentage</td>
+<td><p><pre>
+MEMORY_PERCENT
+--memory-percent
+</pre></p></td>
+<td>user defined integer (1-100)</td>
+<td>Percentage of system memory to allocate to database SGA.
+Only available in add-database.sh script.</td>
+</tr>
 </tbody>
 </table>
 
@@ -2445,6 +2512,226 @@ parameter is specified.
 ```bash
 $ ./install-oracle.sh --ora-version=7.3.4 --ora-swlib-bucket gs://oracle-software --backup-dest +RECO
 Incorrect parameter provided for ora-version: 7.3.4
+```
+
+## Adding More Databases to Existing Oracle Installations
+
+The `add-database.sh` script allows you to create and configure additional databases on servers where Oracle software has already been installed. This is useful for creating multiple databases that utilize the same Oracle home directory or for adding databases after the initial setup.
+
+### Key Features
+
+- Create multiple databases on a single Oracle installation
+- Configure container databases with pluggable databases (PDBs)
+- Set up memory parameters (SGA, PGA) for optimal performance
+- Configure backup and recovery destinations
+- Customize database character sets and other database parameters
+
+### Command Syntax
+
+```bash
+./add-database.sh --instance-ip-addr <server_ip> --ora-db-home-dir <oracle_home_path> [optional parameters]
+```
+
+### Required Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `--instance-ip-addr` | IP address of the target Oracle server |
+| `--ora-db-home-dir` | Absolute path to an existing Oracle home directory |
+
+### Common Optional Parameters
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `--ora-db-name` | Name of the database to create | ORCL |
+| `--backup-dest` | Backup destination location | (required) |
+| `--ora-reco-destination` | Recovery area destination | RECO |
+
+### Memory Configuration Options
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `--sga-target` | Specific SGA memory allocation | (calculated) |
+| `--pga-aggregate-target` | Specific PGA memory allocation | 150M |
+| `--memory-percent` | Percentage of system memory to allocate | 45 |
+
+### Container Database Options
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `--ora-db-container` | Create as container database (TRUE/FALSE) | FALSE |
+| `--ora-pdb-name-prefix` | Prefix for PDB names | PDB |
+| `--ora-pdb-count` | Number of PDBs to create | 1 |
+
+### Listener Configuration
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `--skip-listener-config` | Skip listener configuration | (not set) |
+| `--ora-listener-port` | Listener port number | 1521 |
+| `--ora-listener-name` | Listener name | LISTENER |
+
+### Example Usage Scenarios
+
+1. **Adding a database with explicit memory settings:**
+
+   ```bash
+   ./add-database.sh \
+   --instance-ip-addr ${INSTANCE_IP_ADDR} \
+   --ora-db-name SALES \
+   --ora-db-home-dir /u01/app/oracle/product/19.0.0/dbhome_1 \
+   --sga-target 4G \
+   --pga-aggregate-target 1G \
+   --backup-dest "+RECO"
+   ```
+
+2. **Adding a container database with multiple PDBs:**
+
+   ```bash
+   ./add-database.sh \
+   --instance-ip-addr ${INSTANCE_IP_ADDR} \
+   --ora-db-name FINANCE \
+   --ora-db-home-dir /u01/app/oracle/product/19.0.0/dbhome_1 \
+   --memory-percent 30 \
+   --ora-db-container TRUE \
+   --ora-pdb-name-prefix FIN \
+   --ora-pdb-count 3 \
+   --backup-dest "+RECO"
+   ```
+
+3. **Adding a database with filesystem backup and recovery areas:**
+
+   ```bash
+   ./add-database.sh \
+   --instance-ip-addr ${INSTANCE_IP_ADDR} \
+   --ora-db-name HR \
+   --ora-db-home-dir /u01/app/oracle/product/19.0.0/dbhome_1 \
+   --backup-dest "/u02/backups" \
+   --ora-reco-destination "/u03/recovery"
+   ```
+
+4. **Adding a database and reusing an existing listener:**
+
+   ```bash
+   ./add-database.sh \
+   --instance-ip-addr ${INSTANCE_IP_ADDR} \
+   --ora-db-name REPORTING \
+   --ora-db-home-dir /u01/app/oracle/product/19.0.0/dbhome_1 \
+   --skip-listener-config \
+   --backup-dest "+RECO"
+   ```
+
+To see all available options, run:
+
+```bash
+./add-database.sh --help
+```
+
+### Notes
+
+- The `--backup-dest` parameter is required and can be either an ASM disk group (e.g., "+RECO") or a filesystem path.
+- If using a filesystem path for `--ora-reco-destination`, ensure the oracle user has write permissions to the specified directory.
+- When specifying memory settings, you can either set explicit values with `--sga-target` and `--pga-aggregate-target` or use `--memory-percent` to allocate a percentage of the system memory.
+- For production deployments, it's recommended to explicitly specify the Oracle home directory with `--ora-db-home-dir` rather than relying on auto-detection.
+
+### Oracle Home Existence Checks
+
+Before creating a new database, the script performs several validation checks on the specified Oracle home:
+
+1. Verifies that the Oracle home directory exists
+2. Confirms that the Oracle binaries (oracle) are present
+3. Checks if the Oracle home is registered in the inventory.xml file
+4. Detects the Oracle version from the specified home
+
+These checks help prevent errors and ensure that you're using a valid Oracle installation.
+
+### Database Existence Checks
+
+To prevent accidental overwrites of existing databases, the script performs these checks:
+
+1. Searches for running processes with the specified database name
+2. Verifies against /etc/oratab entries for existing databases
+
+If a database with the same name is found, the script will abort with a clear error message.
+
+### Memory Configuration
+
+The script provides flexible memory configuration options:
+
+1. Explicit memory settings:
+   - Use `--sga-target` to specify SGA size (e.g., "4G", "4096M")
+   - Use `--pga-aggregate-target` to specify PGA size
+
+2. Percentage-based allocation:
+   - Use `--memory-percent` to allocate a percentage of total system memory
+   - The script automatically calculates appropriate SGA and PGA values
+
+The script also implements memory validation checks to ensure your system has sufficient resources.
+
+### Example Add-Database Script Execution
+
+```bash
+$ ./add-database.sh --instance-ip-addr 10.0.0.5 --ora-db-name SALES --ora-db-home-dir /u01/app/oracle/product/19.0.0/dbhome_1 --memory-percent 45 --backup-dest "+RECO"
+
+Checking Oracle Home directory: /u01/app/oracle/product/19.0.0/dbhome_1
+
+Detected Oracle version: 19.3.0.0.0
+
+Memory settings based on 45% of total memory (32768MB):
+SGA_TARGET: 14745M
+PGA_AGGREGATE_TARGET: 3686M
+
+Inventory file for this execution: ./inventory_files/inventory_oraclehost_SALES_20240301_120145.
+
+Running with parameters from command line or environment variables:
+
+ANSIBLE_LOG_PATH=./logs/log_oraclehost_SALES_20240301_120145.log
+ARCHIVE_BACKUP_MIN=30
+ARCHIVE_ONLINE_DAYS=7
+ARCHIVE_REDUNDANCY=2
+BACKUP_DEST=+RECO
+BACKUP_LEVEL0_DAYS=0
+BACKUP_LEVEL1_DAYS=1-6
+BACKUP_LOG_LOCATION=/home/oracle/logs
+BACKUP_REDUNDANCY=2
+BACKUP_SCRIPT_LOCATION=/home/oracle/scripts
+BACKUP_START_HOUR=01
+BACKUP_START_MIN=00
+CREATE_DB=true
+CREATE_LISTENER=true
+INSTANCE_HOSTNAME=oraclehost
+INSTANCE_IP_ADDR=10.0.0.5
+INSTANCE_SSH_EXTRA_ARGS='-o ServerAliveInterval=60 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o IdentityAgent=no'
+INSTANCE_SSH_KEY=~/.ssh/id_rsa
+INSTANCE_SSH_USER=oracle-admin
+MEMORY_PERCENT=45
+ORA_DATA_DESTINATION=DATA
+ORA_DB_CHARSET=AL32UTF8
+ORA_DB_CONTAINER=TRUE
+ORA_DB_DOMAIN=
+ORA_DB_HOME_DIR=/u01/app/oracle/product/19.0.0/dbhome_1
+ORA_DB_NAME=SALES
+ORA_DB_NCHARSET=AL16UTF16
+ORA_DB_TYPE=MULTIPURPOSE
+ORA_LISTENER_NAME=LISTENER
+ORA_LISTENER_PORT=1521
+ORA_PDB_COUNT=1
+ORA_PDB_NAME_PREFIX=PDB
+ORA_RECO_DESTINATION=RECO
+ORA_REDO_LOG_SIZE=100MB
+ORA_VERSION=19.3.0.0.0
+PB_CHECK_INSTANCE=check-instance.yml
+PB_CONFIG_DB=config-db.yml
+PB_LIST=check-instance.yml config-db.yml
+PGA_AGGREGATE_TARGET=3686M
+SGA_TARGET=14745M
+
+Ansible params: -e oracle_home=/u01/app/oracle/product/19.0.0/dbhome_1 -e sga_target=14745M -e pga_aggtar=3686M -e memory_pct=45
+Found Ansible: ansible-playbook is /usr/bin/ansible-playbook
+
+Running Ansible playbook: ansible-playbook -i ./inventory_files/inventory_oraclehost_SALES_20240301_120145 -e oracle_home=/u01/app/oracle/product/19.0.0/dbhome_1 -e sga_target=14745M -e pga_aggtar=3686M -e memory_pct=45 check-instance.yml
+
+... output truncated for brevity ...
 ```
 
 ## Oracle Database Free Edition Specific Details and Changes
