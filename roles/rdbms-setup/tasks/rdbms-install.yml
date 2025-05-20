@@ -55,7 +55,7 @@
   become: true
   become_user: "{{ oracle_user }}"
   unarchive:
-    src: "{{ swlib_path }}/{{ item }}"
+    src: "{{ swlib_path }}/{{ item.name }}"
     dest: "{{ install_unzip_path }}"
     remote_src: true
   with_items:

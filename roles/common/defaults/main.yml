@@ -120,209 +120,118 @@ gi_software:
   - name: 21c_gi
     version: 21.3.0.0.0
     files:
-      - "V1011504-01.zip"
-    sha256sum:
-      - "070D4471BC067B1290BDCEE6B1C1FFF2F21329D2839301E334BCB2A3D12353A3"
-    md5sum:
-      - "s/vbdiGtgsvU9AlD7/3Rvg=="
+      - { name: "V1011504-01.zip", sha256sum: "070D4471BC067B1290BDCEE6B1C1FFF2F21329D2839301E334BCB2A3D12353A3", md5sum: "s/vbdiGtgsvU9AlD7/3Rvg==",
+          alt_name: "LINUX.X64_213000_grid_home.zip", alt_sha256sum: "070D4471BC067B1290BDCEE6B1C1FFF2F21329D2839301E334BCB2A3D12353A3", alt_md5sum: "s/vbdiGtgsvU9AlD7/3Rvg==" }
   - name: 19c_gi
     version: 19.3.0.0.0
     files:
-      - "V982068-01.zip"
-    sha256sum:
-      - "D668002664D9399CF61EB03C0D1E3687121FC890B1DDD50B35DCBE13C5307D2E"
-    md5sum:
-      - "t8TGb4AfktFPqg15HM2nIQ=="
+      - { name: "V982068-01.zip", sha256sum: "D668002664D9399CF61EB03C0D1E3687121FC890B1DDD50B35DCBE13C5307D2E", md5sum: "t8TGb4AfktFPqg15HM2nIQ==",
+          alt_name: "LINUX.X64_193000_grid_home.zip", alt_sha256sum: "D668002664D9399CF61EB03C0D1E3687121FC890B1DDD50B35DCBE13C5307D2E", alt_md5sum: "t8TGb4AfktFPqg15HM2nIQ==" }
   - name: 18c_gi
     version: 18.0.0.0.0
     files:
-      - "V978971-01.zip"
-    sha256sum:
-      - "122C1A780FE0C399818064021E3D797ED4C6B3BB68CEB2E102430FA370054CD1"
-    md5sum:
-      - "zULRN/0qLutOkR6AKcyCqQ=="
+      - { name: "V978971-01.zip", sha256sum: "122C1A780FE0C399818064021E3D797ED4C6B3BB68CEB2E102430FA370054CD1", md5sum: "zULRN/0qLutOkR6AKcyCqQ==" }
   - name: 12201_gi
     version: 12.2.0.1.0
     files:
-      - "V840012-01.zip"
-    sha256sum:
-      - "E8BF36092F7600411A63AAA79CD4F816FB96BB3CFFA66746832416DD2FF11B15"
-    md5sum:
-      - "rBsVYzTMXo+OW9f82+v/gg=="
+      - { name: "V840012-01.zip", sha256sum: "E8BF36092F7600411A63AAA79CD4F816FB96BB3CFFA66746832416DD2FF11B15", md5sum: "rBsVYzTMXo+OW9f82+v/gg==" }
   - name: 12102_gi
     version: 12.1.0.2.0
     files:
-      - "V46096-01_1of2.zip"
-      - "V46096-01_2of2.zip"
-    sha256sum:
-      - "09B4B51A60D6913B82E3353EEF179969AD0968FF8ACFB37CA891F04DF67B93F0"
-      - "C59B8ADA602048AF62AD8F3621F476BE225A782A8CE7BC55B2825E58157AC070"
-    md5sum:
-      - "15PCul25AIt5B3v/jSeiGQ=="
-      - "Dhipq7gEJ7rxj4WGWx7NXQ=="
+      - { name: "V46096-01_1of2.zip", sha256sum: "09B4B51A60D6913B82E3353EEF179969AD0968FF8ACFB37CA891F04DF67B93F0", md5sum: "15PCul25AIt5B3v/jSeiGQ==" }
+      - { name: "V46096-01_2of2.zip", sha256sum: "C59B8ADA602048AF62AD8F3621F476BE225A782A8CE7BC55B2825E58157AC070", md5sum: "Dhipq7gEJ7rxj4WGWx7NXQ==" }
   - name: 11204_gi
     version: 11.2.0.4.0
     files:
-      - "p13390677_112040_Linux-x86-64_3of7.zip"
-    sha256sum:
-      - "09C08AD3E1EE03DB1707F01C6221C7E3E75EC295316D0046CC5D82A65C7B928C"
-    md5sum:
-      - "BM7zeZHbGPgZD31KGbJpEg=="
+      - { name: "p13390677_112040_Linux-x86-64_3of7.zip", sha256sum: "09C08AD3E1EE03DB1707F01C6221C7E3E75EC295316D0046CC5D82A65C7B928C", md5sum: "BM7zeZHbGPgZD31KGbJpEg==" }
 
 rdbms_software:
   - name: 23ai_free_23_7
     version: 23.7.0.25.01
     edition: FREE
     files:
-      - "oracle-database-preinstall-23ai-1.0-2.el8.x86_64.rpm"
-      - "oracle-database-free-23ai-1.0-1.el8.x86_64.rpm"
-    sha256sum:
-      - "4578e6d1cf566e04541e0216b07a0372725726a7c339423ee560255cb918138b"
-      - "af64450e1120e56dac43a447a2e109449c7590489003d830d6a32a9168e0469d"
-    md5sum:
-      - "TmjqUT878Owv7NbXGECpTA=="
-      - "a838g/xuUjrVkzM2S5AUug=="
-
+      - { name: "oracle-database-preinstall-23ai-1.0-2.el8.x86_64.rpm", sha256sum: "4578E6D1CF566E04541E0216B07A0372725726A7C339423EE560255CB918138B", md5sum: "TmjqUT878Owv7NbXGECpTA==" }
+      - { name: "oracle-database-free-23ai-1.0-1.el8.x86_64.rpm",  sha256sum: "AF64450E1120E56DAC43A447A2E109449C7590489003D830D6A32A9168E0469D", md5sum: "a838g/xuUjrVkzM2S5AUug==" }
   - name: 23ai_free_23_6
     version: 23.6.0.24.10
     edition: FREE
     files:
-      - "oracle-database-preinstall-23ai-1.0-2.el8.x86_64.rpm"
-      - "oracle-database-free-23ai-1.0-1.el8.x86_64.rpm"
-    sha256sum:
-      - "4578e6d1cf566e04541e0216b07a0372725726a7c339423ee560255cb918138b"
-      - "03ae958784e9443c0380e4d387cb0522016c72d029ab85cf55ee124489833e0e"
-    md5sum:
-      - "TmjqUT878Owv7NbXGECpTA=="
-      - "Y70TVN1a7dV6TnNOeN1pYA=="
-
+      - { name: "oracle-database-preinstall-23ai-1.0-2.el8.x86_64.rpm", sha256sum: "4578E6D1CF566E04541E0216B07A0372725726A7C339423EE560255CB918138B", md5sum: "TmjqUT878Owv7NbXGECpTA=="}
+      - { name: "oracle-database-free-23ai-1.0-1.el8.x86_64.rpm", sha256sum: "03AE958784E9443C0380E4D387CB0522016C72D029AB85CF55EE124489833E0E", md5sum: "Y70TVN1a7dV6TnNOeN1pYA==" }
   - name: 23ai_free_23_5
     version: 23.5.0.24.07
     edition: FREE
     files:
-      - "oracle-database-preinstall-23ai-1.0-2.el8.x86_64.rpm"
-      - "oracle-database-free-23ai-1.0-1.el8.x86_64.rpm"
-    sha256sum:
-      - "4578e6d1cf566e04541e0216b07a0372725726a7c339423ee560255cb918138b"
-      - "80c1ceae3b158cffe71fa4cfa8e4f540161659f79f777bcf48935f79031c054c"
-    md5sum:
-      - "TmjqUT878Owv7NbXGECpTA=="
-      - "cWcZFOhqt4Bnwt4rft6wpw=="
-
+      - { name: "oracle-database-preinstall-23ai-1.0-2.el8.x86_64.rpm", sha256sum: "4578E6D1CF566E04541E0216B07A0372725726A7C339423EE560255CB918138B", md5sum: "TmjqUT878Owv7NbXGECpTA==" }
+      - { name: "oracle-database-free-23ai-1.0-1.el8.x86_64.rpm", sha256sum: "80C1CEAE3B158CFFE71FA4CFA8E4F540161659F79F777BCF48935F79031C054C", md5sum: "cWcZFOhqt4Bnwt4rft6wpw==" }
   - name: 23ai_free_23_4
     version: 23.4.0.24.05
     edition: FREE
     files:
-      - "oracle-database-preinstall-23ai-1.0-2.el8.x86_64.rpm"
-      - "oracle-database-free-23ai-1.0-1.el8.x86_64.rpm"
-    sha256sum:
-      - "4578e6d1cf566e04541e0216b07a0372725726a7c339423ee560255cb918138b"
-      - "e6cccec7f101325c233f374c2aa86f77d62123edd3125450d79404c3eec30b65"
-    md5sum:
-      - "TmjqUT878Owv7NbXGECpTA=="
-      - "nZiDvGPHVa8iDkR110gB8A=="
-
+      - { name: "oracle-database-preinstall-23ai-1.0-2.el8.x86_64.rpm", sha256sum: "4578E6D1CF566E04541E0216B07A0372725726A7C339423EE560255CB918138B", md5sum: "TmjqUT878Owv7NbXGECpTA==" }
+      - { name: "oracle-database-free-23ai-1.0-1.el8.x86_64.rpm", sha256sum: "E6CCCEC7F101325C233F374C2AA86F77D62123EDD3125450D79404C3EEC30B65", md5sum: "nZiDvGPHVa8iDkR110gB8A==" }
   - name: 23c_free_23_3
     version: 23.3.0.23.09
     edition: FREE
     files:
-      - "oracle-database-preinstall-23c-1.0-1.el8.x86_64.rpm"
-      - "oracle-database-free-23c-1.0-1.el8.x86_64.rpm"
-    sha256sum:
-      - "f41059c22a610a2180cc6286179a7da148bfe14b0d88211f006c9998ce03ba0e"
-      - "1319bcd7cb706cb727501cbd98abf3f3980a4fdabeb613a1abffc756925c7374"
-    md5sum:
-      - "lVoplyvF66eUXign+DuZ8Q=="
-      - "k+q8twMOziARmih9mF79ow=="
-
+      - { name: "oracle-database-preinstall-23c-1.0-1.el8.x86_64.rpm", sha256sum: "F41059C22A610A2180CC6286179A7DA148BFE14B0D88211F006C9998CE03BA0E", md5sum: "lVoplyvF66eUXign+DuZ8Q==" }
+      - { name: "oracle-database-free-23c-1.0-1.el8.x86_64.rpm", sha256sum: "1319BCD7CB706CB727501CBD98ABF3F3980A4FDABEB613A1ABFFC756925C7374", md5sum: "k+q8twMOziARmih9mF79ow==" }
   - name: 23c_free_23_2
     version: 23.2.0.0.0
     edition: FREE
     files:
-      - "oracle-database-preinstall-23c-1.0-1.el8.x86_64.rpm"
-      - "oracle-database-free-23c-1.0-1.el8.x86_64.rpm"
-    sha256sum:
-      - "f41059c22a610a2180cc6286179a7da148bfe14b0d88211f006c9998ce03ba0e"
-      - "63b6c0ec9464682cfd9814e7e2a5d533139e5c6aeb9d3e7997a5f976d6677ca6"
-    md5sum:
-      - "lVoplyvF66eUXign+DuZ8Q=="
-      - "RRinLLsJM2hpuFcE+3zURA=="
-
+      - { name: "oracle-database-preinstall-23c-1.0-1.el8.x86_64.rpm", sha256sum: "F41059C22A610A2180CC6286179A7DA148BFE14B0D88211F006C9998CE03BA0E", md5sum: "lVoplyvF66eUXign+DuZ8Q==" }
+      - { name: "oracle-database-free-23c-1.0-1.el8.x86_64.rpm", sha256sum: "63B6C0EC9464682CFD9814E7E2A5D533139E5C6AEB9D3E7997A5F976D6677CA6", md5sum: "RRinLLsJM2hpuFcE+3zURA==" }
   - name: 21c_base
     version: 21.3.0.0.0
     edition:
       - EE
       - SE2
     files:
-      - "V1011496-01.zip"
-    sha256sum:
-      - "c05d5c32a72b9bf84ab6babb49aee99cbb403930406aabe3cf2f94f1d35e0916"
-    md5sum:
-      - "iskVqACADd8Wo4JQbTlT2w=="
+      - { name: "V1011496-01.zip", sha256sum: "C05D5C32A72B9BF84AB6BABB49AEE99CBB403930406AABE3CF2F94F1D35E0916", md5sum: "iskVqACADd8Wo4JQbTlT2w==",
+          alt_name: "LINUX.X64_213000_db_home.zip", alt_sha256sum: "C05D5C32A72B9BF84AB6BABB49AEE99CBB403930406AABE3CF2F94F1D35E0916", alt_md5sum: "iskVqACADd8Wo4JQbTlT2w==" }
   - name: 19c_base
     version: 19.3.0.0.0
     edition:
       - EE
       - SE2
     files:
-      - "V982063-01.zip"
-    sha256sum:
-      - "BA8329C757133DA313ED3B6D7F86C5AC42CD9970A28BF2E6233F3235233AA8D8"
-    md5sum:
-      - "GFi9DSgcYPTdq9h7HCFKTw=="
-
+      - { name: "V982063-01.zip", sha256sum: "BA8329C757133DA313ED3B6D7F86C5AC42CD9970A28BF2E6233F3235233AA8D8", md5sum: "GFi9DSgcYPTdq9h7HCFKTw==",
+          alt_name: "LINUX.X64_193000_db_home.zip", alt_sha256sum: "BA8329C757133DA313ED3B6D7F86C5AC42CD9970A28BF2E6233F3235233AA8D8", alt_md5sum: "GFi9DSgcYPTdq9h7HCFKTw==" }
   - name: 18c_base
     version: 18.0.0.0.0
     edition:
       - EE
       - SE2
     files:
-      - "V978967-01.zip"
-    sha256sum:
-      - "C96A4FD768787AF98272008833FE10B172691CF84E42816B138C12D4DE63AB96"
-    md5sum:
-      - "mafEoIiopQLCYedBqDOa6A=="
-
+      - { name: "V978967-01.zip", sha256sum: "C96A4FD768787AF98272008833FE10B172691CF84E42816B138C12D4DE63AB96", md5sum: "mafEoIiopQLCYedBqDOa6A==" }
   - name: 12201_base
     version: 12.2.0.1.0
     edition:
       - EE
       - SE2
     files:
-      - "V839960-01.zip"
-    sha256sum:
-      - "96ED97D21F15C1AC0CCE3749DA6C3DAC7059BB60672D76B008103FC754D22DDE"
-    md5sum:
-      - "GEHyzncJz5CdtMBk2AqueQ=="
-
+      - { name: "V839960-01.zip", sha256sum: "96ED97D21F15C1AC0CCE3749DA6C3DAC7059BB60672D76B008103FC754D22DDE", md5sum: "GEHyzncJz5CdtMBk2AqueQ==" }
   - name: 12102_base
     version: 12.1.0.2.0
     edition:
       - EE
       - SE2
     files:
-      - "{% if oracle_edition == 'SE2' %}V77388-01_1of2.zip{% else %}V46095-01_1of2.zip{% endif %}"
-      - "{% if oracle_edition == 'SE2' %}V77388-01_2of2.zip{% else %}V46095-01_2of2.zip{% endif %}"
-    sha256sum:
-      - "{% if oracle_edition == 'SE2' %}73873369753230F5A0921F95ACEADB591388CB06ED72A7F3AEA7BCBCEA2403BC{% else %}31FDC2AF41687B4E547A3A18F796424D8C1AF36406D2160F65B0AF6A9CD47355{% endif %}"
-      - "{% if oracle_edition == 'SE2' %}2492E1BE1E3E3531DA83D0843C09C08E435AC8CEFD9A00C0DF56BE4F15CEEBF3{% else %}03DA14F5E875304B28F0F3BB02AF0EC33227885B99C9865DF70749D1E220ACCD{% endif %}"
-    md5sum:
-      - "{% if oracle_edition == 'SE2' %}2tvyz7ybU/ktCwf2Z3r5Zg=={% else %}CAQ1pAvUyN/2OZsjGoCOmg=={% endif %}"
-      - "{% if oracle_edition == 'SE2' %}K9qM1Ig7vT+JLcFS5Wj8ng=={% else %}MPIO+UN0QrgoLOOYRUbJgg=={% endif %}"
+      - { name: "{% if oracle_edition == 'SE2' %}V77388-01_1of2.zip{% else %}V46095-01_1of2.zip{% endif %}",
+          sha256sum: "{% if oracle_edition == 'SE2' %}73873369753230F5A0921F95ACEADB591388CB06ED72A7F3AEA7BCBCEA2403BC{% else %}31FDC2AF41687B4E547A3A18F796424D8C1AF36406D2160F65B0AF6A9CD47355{% endif %}",
+          md5sum: "{% if oracle_edition == 'SE2' %}2tvyz7ybU/ktCwf2Z3r5Zg=={% else %}CAQ1pAvUyN/2OZsjGoCOmg=={% endif %}" }
+      - { name: "{% if oracle_edition == 'SE2' %}V77388-01_2of2.zip{% else %}V46095-01_2of2.zip{% endif %}",
+          sha256sum: "{% if oracle_edition == 'SE2' %}2492E1BE1E3E3531DA83D0843C09C08E435AC8CEFD9A00C0DF56BE4F15CEEBF3{% else %}03DA14F5E875304B28F0F3BB02AF0EC33227885B99C9865DF70749D1E220ACCD{% endif %}",
+          md5sum: "{% if oracle_edition == 'SE2' %}K9qM1Ig7vT+JLcFS5Wj8ng=={% else %}MPIO+UN0QrgoLOOYRUbJgg=={% endif %}" }
   - name: 11204_base
     version: 11.2.0.4.0
     edition:
       - EE
       - SE
     files:
-      - "p13390677_112040_Linux-x86-64_1of7.zip"
-      - "p13390677_112040_Linux-x86-64_2of7.zip"
-    sha256sum:
-      - "0B399A6593804C04B4BD65F61E73575341A49F8A273ACABA0DCDA2DFEC4979E0"
-      - "73E04957EE0BF6F3B3E6CFCF659BDF647800FE52A377FB8521BA7E3105CCC8DD"
-    md5sum:
-      - "Fhb2F4mJGlbq/UDeefWPKA=="
-      - "Z7oeaKT1gbMFiFEUdoRD0w=="
+      - { name: "p13390677_112040_Linux-x86-64_1of7.zip", sha256sum: "0B399A6593804C04B4BD65F61E73575341A49F8A273ACABA0DCDA2DFEC4979E0", md5sum: "Fhb2F4mJGlbq/UDeefWPKA==" }
+      - { name: "p13390677_112040_Linux-x86-64_2of7.zip", sha256sum: "73E04957EE0BF6F3B3E6CFCF659BDF647800FE52A377FB8521BA7E3105CCC8DD", md5sum: "Z7oeaKT1gbMFiFEUdoRD0w==" }
 
 # 21c x86-64 uses 12.2.0.1 opatch as per the docs
 opatch_patches:
@@ -339,21 +248,13 @@ gi_interim_patches:
     patchnum: "25078431"
     patchutil: "gridsetup"
     files:
-      - "p25078431_122010_Linux-x86-64.zip"
-    sha256sum:
-      - "FA056EBD0FE0AD134F2B5C53F0DDF6F6A5DC73C7AE40DAEF18D0629850149525"
-    md5sum:
-      - "hK1WOGC1g/3QUryg3MM5OQ=="
+      - { name: "p25078431_122010_Linux-x86-64.zip", sha256sum: "FA056EBD0FE0AD134F2B5C53F0DDF6F6A5DC73C7AE40DAEF18D0629850149525", md5sum: "hK1WOGC1g/3QUryg3MM5OQ==" }
   - category: "HAS_interim_patch"
     version: 11.2.0.4.0
     patchnum: "18370031"
     patchutil: "opatch"
     files:
-      - "p18370031_112040_Linux-x86-64.zip"
-    sha256sum:
-      - "D8506DF94D0E646084F1708BEA9948E996B26CF0C33289ACAB0F614518329F98"
-    md5sum:
-      - "KggeYUXU5NK/U1BwndOv+g=="
+      - { name: "p18370031_112040_Linux-x86-64.zip", sha256sum: "D8506DF94D0E646084F1708BEA9948E996B26CF0C33289ACAB0F614518329F98", md5sum: "KggeYUXU5NK/U1BwndOv+g==" }
 
 gi_patches:
 # ensure the versions are in order

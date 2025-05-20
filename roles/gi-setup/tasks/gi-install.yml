@@ -62,7 +62,7 @@
   become: true
   become_user: "{{ grid_user }}"
   unarchive:
-    src: "{{ swlib_path }}/{{ item }}"
+    src: "{{ swlib_path }}/{{ item.name }}"
     dest: "{{ install_unzip_path }}"
     remote_src: true
   with_items:
@@ -211,7 +211,7 @@
   become: true
   become_user: "{{ grid_user }}"
   file:
-    path: "{{ swlib_unzip_path }}/{{ item.files.0 | replace('.zip','') }}"
+    path: "{{ swlib_unzip_path }}/{{ item.files.0.name | replace('.zip','') }}"
     state: directory
     owner: "{{ grid_user }}"
     group: "{{ oracle_group }}"
@@ -225,8 +225,8 @@
   become: true
   become_user: "{{ grid_user }}"
   unarchive:
-    src: "{{ swlib_path }}/{{ item.files.0 }}"
-    dest: "{{ swlib_unzip_path }}/{{ item.files.0 | replace('.zip','') }}"
+    src: "{{ swlib_path }}/{{ item.files.0.name }}"
+    dest: "{{ swlib_unzip_path }}/{{ item.files.0.name | replace('.zip','') }}"
     remote_src: true
   with_items:
     - "{{ gi_interim_patches }}"
@@ -240,13 +240,13 @@
     export PATH={{ grid_home }}/OPatch:${PATH}
     if [ "{{ item.patchutil }}" = "opatch" ]; then
        if [ -f "{{ swlib_unzip_path }}/ocm.rsp" ]; then
-          opatch napply -silent -oh {{ grid_home }} {{ swlib_unzip_path }}/{{ item.files.0 | replace('.zip','') }}/{{ item.patchnum }} \
+          opatch napply -silent -oh {{ grid_home }} {{ swlib_unzip_path }}/{{ item.files.0.name | replace('.zip','') }}/{{ item.patchnum }} \
             -ocmrf {{ swlib_unzip_path }}/ocm.rsp
        else
-          opatch napply -silent -oh {{ grid_home }} {{ swlib_unzip_path }}/{{ item.files.0 | replace('.zip','') }}/{{ item.patchnum }} -silent
+          opatch napply -silent -oh {{ grid_home }} {{ swlib_unzip_path }}/{{ item.files.0.name | replace('.zip','') }}/{{ item.patchnum }} -silent
        fi
     elif [ "{{ item.patchutil }}" = "gridsetup" ]; then
-       {{ grid_home }}/gridSetup.sh -silent -applyOneOffs {{ swlib_unzip_path }}/{{ item.files.0 | replace('.zip','') }}/{{ item.patchnum }} -responseFile {{ swlib_unzip_path }}/grid_install.rsp
+       {{ grid_home }}/gridSetup.sh -silent -applyOneOffs {{ swlib_unzip_path }}/{{ item.files.0.name | replace('.zip','') }}/{{ item.patchnum }} -responseFile {{ swlib_unzip_path }}/grid_install.rsp
     fi
   with_items:
     - "{{ gi_interim_patches }}"
@@ -255,7 +255,7 @@
   failed_when: "('OPatch succeeded' not in patch_output.stdout) and ('Successfully applied the patch' not in patch_output.stdout)"
   tags: gi-setup,patch
 
-- name: gi-install | OPatch ouptut
+- name: gi-install | OPatch output
   debug:
     msg:
       - "{{ patch_output }}"

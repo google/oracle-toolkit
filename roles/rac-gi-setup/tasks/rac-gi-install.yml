@@ -66,7 +66,7 @@
   become: true
   become_user: "{{ grid_user }}"
   unarchive:
-    src: "{{ swlib_path }}/{{ item.files | join() }}"
+    src: "{{ swlib_path }}/{{ item | json_query('.files[*].name') | join() }}"
     dest: "{{ swlib_unzip_path }}"
     remote_src: true
     creates: .ha_patch_{{ oracle_ver }}
