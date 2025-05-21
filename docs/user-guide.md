@@ -1926,7 +1926,7 @@ BACKUP_DEST
 </pre></p></td>
 <td>user defined - no default<br>
 Example: +RECO</td>
-<td>Disk group name or NFS file share location. Can include formatting options,
+<td>Disk group name, filesystem  or NFS file share location. Can include formatting options,
 such as "/u02/db_backups/ORCL_%I_%T_%s_%p.bak", for example.<br>
 <br>
 When writing to a non-ASM disk group location, include a valid RMAN format
@@ -1935,9 +1935,34 @@ shown above.<br>
 <br>
 If you are writing to a local file system, the
 directory does not have to exist, but initial backups will fail if the
-destination is not available or writeable.
+destination is not available or writeable.<br>
 <br>
-If you are writing to a gcsfuse bucket, the /gcsfuse must be used as parameter.</td>
+If you are writing to a NFS share, the NFS share directory uid and gid should be configured
+to match your ownership needs. The configuration is done by the storage manager or systems engineer
+providing the remote filesystem. The NFS option requires the --nfs-backup-config option.</td>
+</tr>
+<br>
+If you are writing to a gcsfuse bucket, the /mnt must be used as parameter.</td>
+</tr>
+<tr>
+<td>NFS backup configuration</td>
+<td><p><pre>
+NFS_BACKUP_CONFIG
+--nfs-backup-config
+</pre></p></td>
+<td>user defined - no default<br>
+Example: vers=3 </td>
+<td>The NFS version of the export shared is defined with this option. The values accepted are ( vers=3 | vers=4 ).<br>
+</tr>
+<tr>
+<td>NFS backup mount</td>
+<td><p><pre>
+NFS_BACKUP_MOUNT
+--nfs-backup-mount
+</pre></p></td>
+<td>user defined - no default<br>
+Example: remote-nfs-server:/nfs/backup </td>
+<td>The nfs remote share expected as [remote-nfs-server-name]:[/remote-share-mount] .<br>
 </tr>
 <tr>
 <td>GCS backup configuration</td>

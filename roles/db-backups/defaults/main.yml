@@ -30,5 +30,7 @@ gcsfuse_backup_temp_prefix: "gcsfusetmp"
 gcsfuse_backup_mount_prefix: "gcsfuse"
 gcsfuse_bucket_prefix: "fusebackup"
 
+nfs_mount_params: "user,_netdev,rsize=32768,wsize=32768,timeo=14,intr"
+
 # backup_mount_src: ""
 # backup_mount_path: ""

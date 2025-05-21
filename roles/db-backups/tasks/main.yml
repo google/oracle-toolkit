@@ -30,8 +30,9 @@
 - name: backup location | nfs mount
   include_tasks: nfs.yml
   when:
-    - backup_mount_src is defined
-    - backup_mount_path is defined
+    - nfs_backup_config | length > 0
+    - nfs_backup_mount | length > 0
+  tags: db-backups,add-backups
 
 - name: gcs backup location | gcs backup
   include_tasks: gcsmanual.yml
