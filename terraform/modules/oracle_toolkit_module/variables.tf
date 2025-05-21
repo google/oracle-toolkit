@@ -25,13 +25,25 @@ variable "fs_disks" {
 }
 
 variable "instance_name" {
-  description = "The name for the VM instance."
+  description = "The name for the target VM instance."
   type        = string
+}
+
+variable "control_node_name" {
+  description = "The name for the control node VM."
+  type        = string
+  default     = "control-node"
 }
 
 variable "machine_type" {
   description = "The machine type to be used for the instance (e.g., n4-standard-2)."
   type        = string
+}
+
+variable "control_node_machine_type" {
+  description = "The machine type to be used for the instance (e.g., n2-standard-2)."
+  type        = string
+  default     = "e2-medium"
 }
 
 variable "metadata_startup_script" {
@@ -169,6 +181,11 @@ variable "region" {
 
 variable "service_account_email" {
   description = "The service account email used for managing compute instance permissions."
+  type        = string
+}
+
+variable "control_node_service_account_email" {
+  description = "The service account used by the control node."
   type        = string
 }
 
