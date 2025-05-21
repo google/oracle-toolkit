@@ -21,11 +21,12 @@ module "oracle_toolkit" {
   ## MANDATORY SETTINGS
   ##############################################################################
   # General settings
-  region                = "REGION"                # example: us-central1
-  zone                  = "ZONE"                  # example: us-central1-b
-  project_id            = "PROJECT_ID"            # example: my-project-123
-  subnetwork            = "SUBNET"                # example: default
-  service_account_email = "SERVICE_ACCOUNT_EMAIL" # example: 123456789-compute@developer.gserviceaccount.com
+  region                             = "REGION"          # example: us-central1
+  zone                               = "ZONE"            # example: us-central1-b
+  project_id                         = "PROJECT_ID"      # example: my-project-123
+  subnetwork                         = "SUBNET"          # example: default
+  vm_service_account                 = "SERVICE_ACCOUNT" # example: oracle-vm-runner@my-project-123.iam.gserviceaccount.com
+  control_node_service_account       = "SERVICE_ACCOUNT" # example: control-node-sa@my-project-123.iam.gserviceaccount.com
 
   # Instance settings
   instance_name        = "INSTANCE_NAME"  # example: oracle-rhel8-example

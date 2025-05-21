@@ -53,12 +53,27 @@ To use this Terraform and Ansible integration, ensure you have the following too
 - **jq** - JSON processor required for handling playbook variables - [Installation Guide](https://stedolan.github.io/jq/download/)
 - **JMESPath** - [Installation Guide](https://pypi.org/project/jmespath/)
 
-Additionally, you will need:
+### 1. Service Account for the Control Node VM
 
-- A **Google Cloud project** with billing enabled
-- A **Service Account** with appropriate IAM roles for Compute Engine and Storage management
-- The following **IAM roles** added to the **Service Account** running **Terraform**:`roles/compute.instanceAdmin`, `roles/storage.objectAdmin`
-- A writeable [cloud storage bucket](https://cloud.google.com/storage/docs/creating-buckets) to store terraform state in
+Grant the service account attached to the control node VM the following IAM roles:
+
+- `roles/compute.osAdminLogin`
+  Grants OS Login access with sudo privileges, required by the Ansible playbooks.
+- `roles/iam.serviceAccountUser` on the **target VM's service account**  
+  Allows the control node to impersonate the target service account during SSH sessions.
+- `roles/storage.admin`
+  Grants the control node permission to write the Terraform state and create a temporary bucket to store a zip archive of the oracle-toolkit. This allows the control node VM to download and execute the oracle-toolkit.
+
+### 2. Firewall Rule for Internal IP Access
+Create a VPC firewall rule that allows ingress on TCP port 22 (or your custom SSH port) from the control node VM to the target VM.  
+Since both VMs reside in the same VPC, a rule permitting traffic on port 22 between their subnets or network tags is sufficient.
+
+### 3. Terraform State Bucket
+Create a Cloud Storage bucket to store Terraform state files.  
+Authorize the control node service account with read and write access to this bucket.
+
+### 4. OS Login is enabled
+OS Login must be enabled on all target VM instances. See [this guide](https://cloud.google.com/compute/docs/oslogin/set-up-oslogin) for instructions on how to enable OS Login.
 
 ---
 

@@ -44,47 +44,6 @@ locals {
   project_id = var.project_id
 }
 
-# Generate an SSH key pair
-resource "tls_private_key" "ssh_key" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
-}
-
-# Store the private key in Secret Manager
-resource "google_secret_manager_secret" "ssh_private_key" {
-  secret_id = "ansible-ssh-private-key"
-  project   = local.project_id
-  replication {
-    auto {}
-  }
-}
-
-resource "google_secret_manager_secret_version" "ssh_private_key_version" {
-  secret      = google_secret_manager_secret.ssh_private_key.id
-  secret_data = tls_private_key.ssh_key.private_key_pem
-}
-
-# Store the public key in Secret Manager
-resource "google_secret_manager_secret" "ssh_public_key" {
-  secret_id = "ansible-ssh-public-key"
-  project   = local.project_id
-  replication {
-    auto {}
-  }
-}
-
-resource "google_secret_manager_secret_version" "ssh_public_key_version" {
-  secret      = google_secret_manager_secret.ssh_public_key.id
-  secret_data = tls_private_key.ssh_key.public_key_openssh
-}
-
-resource "local_file" "private_key" {
-  filename        = abspath("${path.module}/ansible-ssh-key")
-  content         = tls_private_key.ssh_key.private_key_pem
-  file_permission = "0600"
-}
-
-# Instance template module
 module "instance_template" {
   source  = "terraform-google-modules/vm/google//modules/instance_template"
   version = "~> 13.0"
@@ -95,7 +54,7 @@ module "instance_template" {
   subnetwork         = var.subnetwork
   subnetwork_project = local.project_id
   service_account = {
-    email  = var.service_account_email
+    email  = var.vm_service_account
     scopes = ["https://www.googleapis.com/auth/cloud-platform"]
   }
 
@@ -109,7 +68,6 @@ module "instance_template" {
 
   metadata = {
     metadata_startup_script = var.metadata_startup_script
-    ssh-keys                = "ansible:${tls_private_key.ssh_key.public_key_openssh}"
   }
 
   additional_disks = local.additional_disks
@@ -117,7 +75,6 @@ module "instance_template" {
   tags = var.network_tags
 }
 
-# Compute instance module
 module "compute_instance" {
   source  = "terraform-google-modules/vm/google//modules/compute_instance"
   version = "~> 13.0"
@@ -138,52 +95,83 @@ module "compute_instance" {
   ]
 }
 
-# Local provisioner to run the Oracle Toolkit
-resource "null_resource" "oracle_toolkit" {
-  for_each = { for i, instance in module.compute_instance.instances_details : i => instance }
+# Generate a random suffix to avoid naming conflicts
+resource "random_id" "bucket_suffix" {
+  byte_length = 4
+}
 
-  provisioner "remote-exec" {
-    inline = ["echo 'Running Ansible on ${each.value.network_interface[0].access_config[0].nat_ip}'"]
+# Create temporary GCS bucket to store oracle-toolkit archive
+resource "google_storage_bucket" "temp_bucket" {
+  name     = "oracle-toolkit-bucket-${random_id.bucket_suffix.hex}"
+  project  = var.project_id
+  location = "US"
+  uniform_bucket_level_access = true
+  force_destroy = true
 
-    connection {
-      type        = "ssh"
-      user        = "ansible"
-      private_key = file(local_file.private_key.filename)
-      host        = each.value.network_interface[0].access_config[0].nat_ip
+  lifecycle {
+    prevent_destroy = false
+  }
+}
+
+# Archive the directory containing oracle-toolkit (one level above current path)
+data "archive_file" "oracle_toolkit_zip" {
+  type        = "zip"
+  source_dir  = ".."
+  output_path = "/tmp/oracle-toolkit.zip"
+}
+
+# Upload archive to the temporary bucket
+resource "google_storage_bucket_object" "upload_archive" {
+  name   = "oracle-toolkit.zip"
+  bucket = google_storage_bucket.temp_bucket.name
+  source = data.archive_file.oracle_toolkit_zip.output_path
+}
+
+resource "google_compute_instance" "control_node" {
+  project      = var.project_id
+  name         = var.control_node_name
+  machine_type = var.control_node_machine_type
+  zone         = var.zone
+
+  boot_disk {
+    initialize_params {
+      image = "debian-cloud/debian-12"
     }
   }
 
-  provisioner "local-exec" {
-    working_dir = "../"
-    command     = <<-EOT
-      bash install-oracle.sh \
-      --instance-ip-addr ${each.value.network_interface[0].access_config[0].nat_ip} \
-      --instance-ssh-user ansible \
-      --instance-ssh-key "${local_file.private_key.filename}" \
-      --ora-asm-disks-json '${jsonencode(local.asm_disk_config)}' \
-      --ora-data-mounts-json '${jsonencode(local.data_mounts_config)}' \
-      --swap-blk-device "/dev/disk/by-id/google-swap" \
-      --ora-swlib-bucket "${var.ora_swlib_bucket}" \
-      --ora-version "${var.ora_version}" \
-      --backup-dest "${var.ora_backup_dest}" \
-      ${var.ora_db_name != "" ? "--ora-db-name ${var.ora_db_name}" : ""} \
-      ${var.ora_db_container != "" ? "--ora-db-container ${lower(var.ora_db_container)}" : ""} \
-      ${var.ntp_pref != "" ? "--ntp-pref ${var.ntp_pref}" : ""} \
-      ${var.oracle_release != "" ? "--oracle-release ${var.oracle_release}" : ""} \
-      ${var.ora_edition != "" ? "--ora-edition ${var.ora_edition}" : ""} \
-      ${var.ora_listener_port != "" ? "--ora-listener-port ${var.ora_listener_port}" : ""} \
-      ${var.ora_redo_log_size != "" ? "--ora-redo-log-size ${var.ora_redo_log_size}" : ""} &
-    EOT
+  network_interface {
+    network       = var.subnetwork
+
+    dynamic "access_config" {
+      for_each = var.assign_public_ip ? [1] : []
+      content {}
+    }
   }
 
-  depends_on = [module.compute_instance, local_file.private_key]
-}
-
-# Deleting local private key after Oracle Toolkit provision
-resource "null_resource" "delete_privatekey" {
-  provisioner "local-exec" {
-    command = "rm -f ${local_file.private_key.filename}"
+  service_account {
+    email  = var.control_node_service_account
+    scopes = ["cloud-platform"]
   }
 
-  depends_on = [null_resource.oracle_toolkit]
+  metadata_startup_script = templatefile("${path.module}/scripts/setup.sh.tpl", {
+    bucket_name         = google_storage_bucket.temp_bucket.name
+    instance_name       = module.compute_instance.instances_details[0].name
+    instance_zone       = module.compute_instance.instances_details[0].zone
+    ip_addr             = module.compute_instance.instances_details[0].network_interface[0].network_ip
+    asm_disk_config     = jsonencode(local.asm_disk_config)
+    data_mounts_config  = jsonencode(local.data_mounts_config)
+    swap_blk_device     = "/dev/disk/by-id/google-swap"
+    ora_swlib_bucket    = var.ora_swlib_bucket
+    ora_version         = var.ora_version
+    ora_backup_dest     = var.ora_backup_dest
+    ora_db_name         = var.ora_db_name
+    ora_db_container    = lower(var.ora_db_container)
+    ntp_pref            = var.ntp_pref
+    oracle_release      = var.oracle_release
+    ora_edition         = var.ora_edition
+    ora_listener_port   = var.ora_listener_port
+    ora_redo_log_size   = var.ora_redo_log_size
+  })
+
+  depends_on = [module.compute_instance, google_storage_bucket_object.upload_archive]
 }
