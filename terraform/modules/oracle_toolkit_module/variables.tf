@@ -224,3 +224,23 @@ variable "gcs_source" {
     error_message = "The gcs_source must be a valid GCS path starting with 'gs://' and ending in '.zip'."
   }
 }
+
+variable "sys_secret_path" {
+  description = "Secret Manager resource path for the Oracle SYS user password"
+  type        = string
+
+  validation {
+    condition     = can(regex("^projects/[^/]+/secrets/[^/]+/versions/[^/]+$", var.sys_secret_path))
+    error_message = "sys_secret_path must be in the format: projects/<project>/secrets/<secret_name>/versions/<version>"
+  }
+}
+
+variable "system_secret_path" {
+  description = "Secret Manager resource path for the Oracle SYSTEM user password"
+  type        = string
+
+  validation {
+    condition     = can(regex("^projects/[^/]+/secrets/[^/]+/versions/[^/]+$", var.system_secret_path))
+    error_message = "system_secret_path must be in the format: projects/<project>/secrets/<secret_name>/versions/<version>"
+  }
+}
