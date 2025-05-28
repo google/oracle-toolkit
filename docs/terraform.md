@@ -63,11 +63,11 @@ Grant the service account attached to the control node VM the following IAM role
   Allows the control node to impersonate the target service account during SSH sessions.
 - `roles/storage.objectAdmin` required for write access to:
    - The GCS bucket used for storing Terraform state
-   - The bucket specified in var.provisioning_artifacts_bucket, which stores:
+   - The bucket specified in var.gcs_source which stores:
      - Terraform configuration files for Infrastructure Manager
      - The ZIP archive of the Ansible toolkit
-
-These permissions allow Terraform to write its state and ensure that the Terraform-provisioned control node VM can download and execute the oracle-toolkit during its startup script execution.
+- `roles/compute.instanceAdmin.v1` (or a custom role including compute.instances.delete)
+   Required to delete the ephemeral control node VM after the deployment is complete.
 
 ### 2. Firewall Rule for Internal IP Access
 Create a VPC firewall rule that allows ingress on TCP port 22 (or your custom SSH port) from the control node VM to the target VM.  
@@ -151,15 +151,26 @@ Deploy the infrastructure:
 terraform apply
 ```
 
-This will:
+This process will perform the following steps:
 
-- Create a VM on Google Cloud with the specified configuration
-- Apply the SSH public key to the VM
-- Use Ansible playbooks to configure the instance
+- Provision an ephemeral control node to run deployment and configuration tasks.
+- Provision a database VM with the specified configuration to host the Oracle database.
+- The control node uses Ansible to connect to the database VM and automate the installation and configuration of the Oracle database.
+- After configuration, the ephemeral control node is deleted to minimize resource usage.
 
-5. Verify Ansible Execution
+5. View startup execution logs
+   To view logs from startup script execution on the control node VM, run the following query in the Cloud Logging. Make sure to replace <my-project> and <instance-id> with your actual project ID and instance ID:
 
-   Once deployment is complete, verify the output to check if Ansible playbooks ran successfully:
+```plaintext
+log_name="projects/<my-project>/logs/google_metadata_script_runner"
+resource.type="gce_instance"
+resource.labels.instance_id="<instance-id>"
+resource.labels.project_id="<my-project>"
+```
+
+6. Verify Ansible Execution
+
+   Once deployment is complete, review the Ansible output to verify that the playbooks ran successfully:
 
 ```plaintext
 PLAY [dbasm] *******************************************************************

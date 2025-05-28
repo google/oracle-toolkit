@@ -27,7 +27,7 @@ module "oracle_toolkit" {
   subnetwork                         = "SUBNET"          # example: default
   vm_service_account                 = "SERVICE_ACCOUNT" # example: oracle-vm-runner@my-project-123.iam.gserviceaccount.com
   control_node_service_account       = "SERVICE_ACCOUNT" # example: control-node-sa@my-project-123.iam.gserviceaccount.com
-  gcs_source                         = "GCS_BUCKET_NAME"  # example: provisioning-artifacts-bucket
+  gcs_source                         = "GCS_BUCKET_NAME" # example: provisioning-artifacts-bucket
 
   # Instance settings
   instance_name        = "INSTANCE_NAME"  # example: oracle-rhel8-example
