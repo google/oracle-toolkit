@@ -95,24 +95,6 @@ module "compute_instance" {
   ]
 }
 
-# Generate a random suffix to avoid naming conflicts
-resource "random_id" "bucket_suffix" {
-  byte_length = 4
-}
-
-# Create temporary GCS bucket to store oracle-toolkit archive
-resource "google_storage_bucket" "temp_bucket" {
-  name     = "oracle-toolkit-bucket-${random_id.bucket_suffix.hex}"
-  project  = var.project_id
-  location = "US"
-  uniform_bucket_level_access = true
-  force_destroy = true
-
-  lifecycle {
-    prevent_destroy = false
-  }
-}
-
 # Archive the directory containing oracle-toolkit (one level above current path)
 data "archive_file" "oracle_toolkit_zip" {
   type        = "zip"
@@ -120,16 +102,20 @@ data "archive_file" "oracle_toolkit_zip" {
   output_path = "/tmp/oracle-toolkit.zip"
 }
 
-# Upload archive to the temporary bucket
+# Upload the Ansible archive to the GCS bucket provided by the user
 resource "google_storage_bucket_object" "upload_archive" {
   name   = "oracle-toolkit.zip"
-  bucket = google_storage_bucket.temp_bucket.name
+  bucket = var.gcs_source
   source = data.archive_file.oracle_toolkit_zip.output_path
+}
+
+resource "random_id" "suffix" {
+  byte_length = 4
 }
 
 resource "google_compute_instance" "control_node" {
   project      = var.project_id
-  name         = var.control_node_name
+  name         = "${var.control_node_name_prefix}-${random_id.suffix.hex}"
   machine_type = var.control_node_machine_type
   zone         = var.zone
 
@@ -154,7 +140,7 @@ resource "google_compute_instance" "control_node" {
   }
 
   metadata_startup_script = templatefile("${path.module}/scripts/setup.sh.tpl", {
-    bucket_name         = google_storage_bucket.temp_bucket.name
+    bucket_name         = var.gcs_source
     instance_name       = module.compute_instance.instances_details[0].name
     instance_zone       = module.compute_instance.instances_details[0].zone
     ip_addr             = module.compute_instance.instances_details[0].network_interface[0].network_ip

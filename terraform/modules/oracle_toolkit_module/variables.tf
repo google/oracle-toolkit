@@ -25,12 +25,12 @@ variable "fs_disks" {
 }
 
 variable "instance_name" {
-  description = "The name for the target VM instance."
+  description = "The name prefix for the target VM instance."
   type        = string
 }
 
-variable "control_node_name" {
-  description = "The name for the control node VM."
+variable "control_node_name_prefix" {
+  description = "The name prefix for the control node VM."
   type        = string
   default     = "control-node"
 }
@@ -214,4 +214,9 @@ variable "assign_public_ip" {
   description = "Whether to assign a public IP address to the control node VM. Set to false if the environment already has internet access via a Cloud NAT"
   type        = bool
   default     = true
+}
+
+variable "gcs_source" {
+  type        = string
+  description = "The name of a GCS bucket used to store provisioning artifacts, including Terraform files for Workload Manager and Ansible ZIP archive uploaded during 'terraform apply' to be consumed by the startup script on provisioned VMs"
 }

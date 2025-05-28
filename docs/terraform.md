@@ -61,8 +61,13 @@ Grant the service account attached to the control node VM the following IAM role
   Grants OS Login access with sudo privileges, required by the Ansible playbooks.
 - `roles/iam.serviceAccountUser` on the **target VM's service account**  
   Allows the control node to impersonate the target service account during SSH sessions.
-- `roles/storage.admin`
-  Grants the control node permission to write the Terraform state and create a temporary bucket to store a zip archive of the oracle-toolkit. This allows the control node VM to download and execute the oracle-toolkit.
+- `roles/storage.objectAdmin` required for write access to:
+   - The GCS bucket used for storing Terraform state
+   - The bucket specified in var.provisioning_artifacts_bucket, which stores:
+     - Terraform configuration files for Infrastructure Manager
+     - The ZIP archive of the Ansible toolkit
+
+These permissions allow Terraform to write its state and ensure that the Terraform-provisioned control node VM can download and execute the oracle-toolkit during its startup script execution.
 
 ### 2. Firewall Rule for Internal IP Access
 Create a VPC firewall rule that allows ingress on TCP port 22 (or your custom SSH port) from the control node VM to the target VM.  

@@ -8,7 +8,7 @@ DEST_DIR="/oracle-toolkit"
 
 apt-get install -y ansible python3-jmespath unzip
 
-ssh_user=$(gcloud compute os-login describe-profile --format=json | jq -r '.posixAccounts[].username')
+SSH_USER=$(gcloud compute os-login describe-profile --format=json | jq -r '.posixAccounts[].username')
 
 echo "Triggering SSH key creation via OS Login by running a one-time gcloud compute ssh command."
 echo "This ensures that a persistent SSH key pair is created and associated with your Google Account."
@@ -22,10 +22,8 @@ until gcloud compute ssh ${instance_name} --zone=${instance_zone} --internal-ip 
 done
 
 mkdir -p "$DEST_DIR"
-echo "Downloading $ARCHIVE_NAME from bucket $BUCKET_NAME to /tmp"
+echo "Downloading gs://$BUCKET_NAME/$ARCHIVE_NAME to /tmp"
 gsutil cp "gs://$BUCKET_NAME/$ARCHIVE_NAME" /tmp/
-echo "Removing gs://$BUCKET_NAME bucket"
-gsutil rm -r "gs://$BUCKET_NAME"
 echo "Extracting files from /tmp/$ARCHIVE_NAME to $DEST_DIR"
 unzip "/tmp/$ARCHIVE_NAME" -d "$DEST_DIR"
 rm "/tmp/$ARCHIVE_NAME"
@@ -33,7 +31,7 @@ rm "/tmp/$ARCHIVE_NAME"
 cd "$DEST_DIR"
 
 bash install-oracle.sh \
---instance-ssh-user "$ssh_user" \
+--instance-ssh-user "$SSH_USER" \
 --instance-ssh-key /root/.ssh/google_compute_engine \
 %{ if ip_addr != "" }--instance-ip-addr "${ip_addr}" %{ endif } \
 %{ if asm_disk_config != "" }--ora-asm-disks-json '${asm_disk_config}' %{ endif } \
@@ -49,3 +47,8 @@ bash install-oracle.sh \
 %{ if ora_edition != "" }--ora-edition "${ora_edition}" %{ endif } \
 %{ if ora_listener_port != "" }--ora-listener-port "${ora_listener_port}" %{ endif } \
 %{ if ora_redo_log_size != "" }--ora-redo-log-size "${ora_redo_log_size}" %{ endif }
+
+CONTROL_NODE_NAME=$(curl -X GET http://metadata.google.internal/computeMetadata/v1/instance/name -H 'Metadata-Flavor: Google')
+CONTROL_NODE_ZONE=$(curl -X GET http://metadata.google.internal/computeMetadata/v1/instance/zone -H 'Metadata-Flavor: Google')
+echo "Destroying $CONTROL_NODE_NAME control node VM in zone $CONTROL_NODE_ZONE"
+gcloud --quiet compute instances delete $CONTROL_NODE_NAME --zone=$CONTROL_NODE_ZONE
