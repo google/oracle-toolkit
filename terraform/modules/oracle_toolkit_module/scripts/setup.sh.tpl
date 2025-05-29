@@ -2,7 +2,6 @@
 
 set -e
 
-ARCHIVE_NAME="oracle-toolkit.zip"
 DEST_DIR="/oracle-toolkit"
 
 apt-get install -y ansible python3-jmespath unzip
@@ -19,16 +18,21 @@ timeout 2m bash -c 'until gcloud compute ssh "${instance_name}" --zone="${instan
   echo "Waiting for SSH to become available on '${instance_name}'..."
   sleep 5
 done' || {
-  echo "Timed out waiting for SSH"
+  echo "ERROR: Timed out waiting for SSH"
   exit 1
 }
 
+
+control_node_sa="$(curl -s http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email -H 'Metadata-Flavor: Google')"
+echo "Downloading '${gcs_source}' to /tmp"
+if ! gsutil cp "${gcs_source}" /tmp/; then
+  echo "ERROR: Failed to download '${gcs_source}'. Make sure the file exists and that the service account '$control_node_sa' has 'roles/storage.objectViewer' role on the bucket."
+  exit 1
+fi
+zip_file="$(basename "${gcs_source}")"
 mkdir -p "$DEST_DIR"
-echo "Downloading 'gs://${bucket_name}/$ARCHIVE_NAME' to /tmp"
-gsutil cp "gs://${bucket_name}/$ARCHIVE_NAME" /tmp/
-echo "Extracting files from '/tmp/$ARCHIVE_NAME' to '$DEST_DIR'"
-unzip "/tmp/$ARCHIVE_NAME" -d "$DEST_DIR"
-rm "/tmp/$ARCHIVE_NAME"
+echo "Extracting files from '$zip_file' to '$DEST_DIR'"
+unzip "/tmp/$zip_file" -d "$DEST_DIR"
 
 cd "$DEST_DIR"
 
@@ -50,10 +54,10 @@ bash install-oracle.sh \
 %{ if ora_listener_port != "" }--ora-listener-port "${ora_listener_port}" %{ endif } \
 %{ if ora_redo_log_size != "" }--ora-redo-log-size "${ora_redo_log_size}" %{ endif }
 
-CONTROL_NODE_NAME="$(curl -X GET http://metadata.google.internal/computeMetadata/v1/instance/name -H 'Metadata-Flavor: Google')"
-CONTROL_NODE_ZONE="$(curl -X GET http://metadata.google.internal/computeMetadata/v1/instance/zone -H 'Metadata-Flavor: Google')"
-CONTROL_NODE_PROJECT_ID="$(curl http://metadata.google.internal/computeMetadata/v1/project/project-id -H 'Metadata-Flavor: Google')"
-echo "Initiating deletion of control node VM '$CONTROL_NODE_NAME' in zone '$CONTROL_NODE_ZONE' in project '$PROJECT_ID'..."
-gcloud --quiet compute instances delete "$CONTROL_NODE_NAME" --zone="$CONTROL_NODE_ZONE" --project="$CONTROL_NODE_PROJECT_ID"
+control_node_name="$(curl -s http://metadata.google.internal/computeMetadata/v1/instance/name -H 'Metadata-Flavor: Google')"
+control_node_zone="$(curl -s http://metadata.google.internal/computeMetadata/v1/instance/zone -H 'Metadata-Flavor: Google')"
+control_node_project_id="$(curl -s http://metadata.google.internal/computeMetadata/v1/project/project-id -H 'Metadata-Flavor: Google')"
+echo "Initiating deletion of control node VM '$control_node_name' in zone '$controcontrol_node_zonel_node_name' in project '$control_node_project_id'..."
+gcloud --quiet compute instances delete "$control_node_name" --zone="$control_node_zone" --project="$control_node_project_id"
 
 echo "Startup script execution complete"

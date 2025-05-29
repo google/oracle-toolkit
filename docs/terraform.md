@@ -61,11 +61,8 @@ Grant the service account attached to the control node VM the following IAM role
   Grants OS Login access with sudo privileges, required by the Ansible playbooks.
 - `roles/iam.serviceAccountUser` on the **target VM's service account**  
   Allows the control node to impersonate the target service account during SSH sessions.
-- `roles/storage.objectAdmin` required for write access to:
-   - The GCS bucket used for storing Terraform state
-   - The bucket specified in var.gcs_source which stores:
-     - Terraform configuration files for Infrastructure Manager
-     - The ZIP archive of the Ansible toolkit
+- `roles/storage.objectViewer` on the bucket specified in var.gcs_source to download the ZIP archive of the oracle-toolkit
+- `roles/storage.objectUser` on the Terraform state bucket specified in backend.tf to write Terraform state.
 - `roles/compute.instanceAdmin.v1` (or a custom role including compute.instances.delete)
    Required to delete the ephemeral control node VM after the deployment is complete.
 
@@ -77,7 +74,23 @@ Since both VMs reside in the same VPC, a rule permitting traffic on port 22 betw
 Create a Cloud Storage bucket to store Terraform state files.  
 Authorize the control node service account with read and write access to this bucket.
 
-### 4. OS Login is enabled
+### 4. Toolkit Source Bucket
+Create a Cloud Storage bucket to store the oracle-toolkit ZIP file.
+
+Clone the toolkit repository and prepare the ZIP archive:
+
+```bash
+git clone https://github.com/google/oracle-toolkit.git
+cd oracle-toolkit
+zip -r /tmp/oracle-toolkit.zip . -x "terraform/*" -x ".git/*"
+```
+
+Upload the ZIP file to your GCS bucket:
+```bash
+gsutil cp /tmp/oracle-toolkit.zip gs://your-bucket-name/
+```
+
+### 5. OS Login is enabled
 OS Login must be enabled on all target VM instances. See [this guide](https://cloud.google.com/compute/docs/oslogin/set-up-oslogin) for instructions on how to enable OS Login.
 
 ---

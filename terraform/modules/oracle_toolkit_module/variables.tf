@@ -211,12 +211,16 @@ variable "zone" {
 }
 
 variable "assign_public_ip" {
-  description = "Whether to assign a public IP address to the control node VM. Set to false if the environment already has internet access via a Cloud NAT"
+  description = "Whether to assign a public IP address to the control node VM. Set to false if the environment already has internet access via a Cloud NAT."
   type        = bool
   default     = true
 }
 
 variable "gcs_source" {
   type        = string
-  description = "The name of a GCS bucket used to store provisioning artifacts, including Terraform files for Workload Manager and Ansible ZIP archive uploaded during 'terraform apply' to be consumed by the startup script on provisioned VMs"
+  description = "GCS path to a ZIP file containing the oracle-toolkit. This ZIP will be downloaded and extracted on the control node VM, where its install-oracle.sh script will be executed to provision a new database VM."
+  validation {
+    condition     = can(regex("^gs://.+\\.zip$", var.gcs_source))
+    error_message = "The gcs_source must be a valid GCS path starting with 'gs://' and ending in '.zip'."
+  }
 }

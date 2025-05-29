@@ -95,20 +95,6 @@ module "compute_instance" {
   ]
 }
 
-# Archive the directory containing oracle-toolkit (one level above current path)
-data "archive_file" "oracle_toolkit_zip" {
-  type        = "zip"
-  source_dir  = ".."
-  output_path = "/tmp/oracle-toolkit.zip"
-}
-
-# Upload the Ansible archive to the GCS bucket provided by the user
-resource "google_storage_bucket_object" "upload_archive" {
-  name   = "oracle-toolkit.zip"
-  bucket = var.gcs_source
-  source = data.archive_file.oracle_toolkit_zip.output_path
-}
-
 resource "random_id" "suffix" {
   byte_length = 4
 }
@@ -140,7 +126,7 @@ resource "google_compute_instance" "control_node" {
   }
 
   metadata_startup_script = templatefile("${path.module}/scripts/setup.sh.tpl", {
-    bucket_name         = var.gcs_source
+    gcs_source          = var.gcs_source
     instance_name       = module.compute_instance.instances_details[0].name
     instance_zone       = module.compute_instance.instances_details[0].zone
     ip_addr             = module.compute_instance.instances_details[0].network_interface[0].network_ip
@@ -159,5 +145,5 @@ resource "google_compute_instance" "control_node" {
     ora_redo_log_size   = var.ora_redo_log_size
   })
 
-  depends_on = [module.compute_instance, google_storage_bucket_object.upload_archive]
+  depends_on = [module.compute_instance]
 }
