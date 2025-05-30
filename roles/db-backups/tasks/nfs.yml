@@ -33,18 +33,29 @@
 
 - name: nfs_backups | Create a nfs backups mount folder
   file:
-    path: "{{ backup_dest }}"
+    path: "{{ backup_dest }}/{{ db_name }}"
     state: directory
     mode: u=rwx,go=rx
     owner: "{{ oracle_user}}"
     group: backupdba
+
+- name: NFS values | Display NFS values
+  debug:
+    msg:
+      - "{{ backup_dest }}/{{ db_name }}"
+      - "{{ nfs_backup_config }},{{ nfs_mount_params }}"
+      - "{{ nfs_backup_mount }}"
 
 - name: nfs_backups | Mount NFS share (backup)
   become: true
   become_user: root
   mount:
     fstype: nfs
-    name: "{{ backup_dest }}"
-    opts: "user,vers=3,_netdev,rsize=8192,wsize=8192,timeo=14,intr"
-    src: "{{ backup_src }}"
+    name: "{{ backup_dest }}/{{ db_name }}"
+    opts: "{{ nfs_backup_config }},{{ nfs_mount_params }}"
+    src: "{{ nfs_backup_mount }}"
     state: mounted
+
+- name: nfs set backup directory | NFS set backup directory
+  set_fact:
+    backup_dest: "{{ backup_dest }}/{{ db_name }}"
