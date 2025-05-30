@@ -53,12 +53,45 @@ To use this Terraform and Ansible integration, ensure you have the following too
 - **jq** - JSON processor required for handling playbook variables - [Installation Guide](https://stedolan.github.io/jq/download/)
 - **JMESPath** - [Installation Guide](https://pypi.org/project/jmespath/)
 
-Additionally, you will need:
+### 1. Service Account for the Control Node VM
 
-- A **Google Cloud project** with billing enabled
-- A **Service Account** with appropriate IAM roles for Compute Engine and Storage management
-- The following **IAM roles** added to the **Service Account** running **Terraform**:`roles/compute.instanceAdmin`, `roles/storage.objectAdmin`
-- A writeable [cloud storage bucket](https://cloud.google.com/storage/docs/creating-buckets) to store terraform state in
+Grant the service account attached to the control node VM the following IAM roles:
+
+- `roles/compute.osAdminLogin`
+  Grants OS Login access with sudo privileges, required by the Ansible playbooks.
+- `roles/iam.serviceAccountUser` on the **target VM's service account**  
+  Allows the control node to impersonate the target service account during SSH sessions.
+- `roles/storage.objectViewer` on the bucket specified in var.gcs_source to download the ZIP archive of the oracle-toolkit
+- `roles/storage.objectUser` on the Terraform state bucket specified in backend.tf to write Terraform state.
+- `roles/compute.instanceAdmin.v1` (or a custom role including compute.instances.delete)
+   Required to delete the ephemeral control node VM after the deployment is complete.
+
+### 2. Firewall Rule for Internal IP Access
+Create a VPC firewall rule that allows ingress on TCP port 22 (or your custom SSH port) from the control node VM to the target VM.  
+Since both VMs reside in the same VPC, a rule permitting traffic on port 22 between their subnets or network tags is sufficient.
+
+### 3. Terraform State Bucket
+Create a Cloud Storage bucket to store Terraform state files.  
+Authorize the control node service account with read and write access to this bucket.
+
+### 4. Toolkit Source Bucket
+Create a Cloud Storage bucket to store the oracle-toolkit ZIP file.
+
+Clone the toolkit repository and prepare the ZIP archive:
+
+```bash
+git clone https://github.com/google/oracle-toolkit.git
+cd oracle-toolkit
+zip -r /tmp/oracle-toolkit.zip . -x "terraform/*" -x ".git/*"
+```
+
+Upload the ZIP file to your GCS bucket:
+```bash
+gsutil cp /tmp/oracle-toolkit.zip gs://your-bucket-name/
+```
+
+### 5. OS Login is enabled
+OS Login must be enabled on all target VM instances. See [this guide](https://cloud.google.com/compute/docs/oslogin/set-up-oslogin) for instructions on how to enable OS Login.
 
 ---
 
@@ -131,15 +164,26 @@ Deploy the infrastructure:
 terraform apply
 ```
 
-This will:
+This process will perform the following steps:
 
-- Create a VM on Google Cloud with the specified configuration
-- Apply the SSH public key to the VM
-- Use Ansible playbooks to configure the instance
+- Provision an ephemeral control node to run deployment and configuration tasks.
+- Provision a database VM with the specified configuration to host the Oracle database.
+- The control node uses Ansible to connect to the database VM and automate the installation and configuration of the Oracle database.
+- After configuration, the ephemeral control node is deleted to minimize resource usage.
 
-5. Verify Ansible Execution
+5. View startup execution logs
+   To view logs from startup script execution on the control node VM, run the following query in the Cloud Logging. Make sure to replace <my-project> and <instance-id> with your actual project ID and instance ID:
 
-   Once deployment is complete, verify the output to check if Ansible playbooks ran successfully:
+```plaintext
+log_name="projects/<my-project>/logs/google_metadata_script_runner"
+resource.type="gce_instance"
+resource.labels.instance_id="<instance-id>"
+resource.labels.project_id="<my-project>"
+```
+
+6. Verify Ansible Execution
+
+   Once deployment is complete, review the Ansible output to verify that the playbooks ran successfully:
 
 ```plaintext
 PLAY [dbasm] *******************************************************************

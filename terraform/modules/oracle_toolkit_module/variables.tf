@@ -25,13 +25,25 @@ variable "fs_disks" {
 }
 
 variable "instance_name" {
-  description = "The name for the VM instance."
+  description = "The name prefix for the target VM instance."
   type        = string
+}
+
+variable "control_node_name_prefix" {
+  description = "The name prefix for the control node VM."
+  type        = string
+  default     = "control-node"
 }
 
 variable "machine_type" {
   description = "The machine type to be used for the instance (e.g., n4-standard-2)."
   type        = string
+}
+
+variable "control_node_machine_type" {
+  description = "The machine type to be used for the instance (e.g., n2-standard-2)."
+  type        = string
+  default     = "e2-medium"
 }
 
 variable "metadata_startup_script" {
@@ -167,8 +179,13 @@ variable "region" {
   type        = string
 }
 
-variable "service_account_email" {
-  description = "The service account email used for managing compute instance permissions."
+variable "vm_service_account" {
+  description = "The service account used for managing compute instance permissions."
+  type        = string
+}
+
+variable "control_node_service_account" {
+  description = "The service account used by the control node."
   type        = string
 }
 
@@ -191,4 +208,19 @@ variable "subnetwork" {
 variable "zone" {
   description = "The specific availability zone within the selected GCP region (e.g., us-central1-b)."
   type        = string
+}
+
+variable "assign_public_ip" {
+  description = "Whether to assign a public IP address to the control node VM. Set to false if the environment already has internet access via a Cloud NAT."
+  type        = bool
+  default     = true
+}
+
+variable "gcs_source" {
+  type        = string
+  description = "GCS path to a ZIP file containing the oracle-toolkit. This ZIP will be downloaded and extracted on the control node VM, where its install-oracle.sh script will be executed to provision a new database VM."
+  validation {
+    condition     = can(regex("^gs://.+\\.zip$", var.gcs_source))
+    error_message = "The gcs_source must be a valid GCS path starting with 'gs://' and ending in '.zip'."
+  }
 }
