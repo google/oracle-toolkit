@@ -1,9 +1,24 @@
 #!/bin/bash
 
-set -e
+set -Eeuo pipefail
+
+control_node_name="$(curl -s http://metadata.google.internal/computeMetadata/v1/instance/name -H 'Metadata-Flavor: Google')"
+# The zone value from the metadata server is in the format 'projects/PROJECT_NUMBER/zones/ZONE'. 
+# extracting the last part
+control_node_zone_full="$(curl -s http://metadata.google.internal/computeMetadata/v1/instance/zone -H 'Metadata-Flavor: Google')"
+control_node_zone="$(basename "$control_node_zone_full")"
+control_node_project_id="$(curl -s http://metadata.google.internal/computeMetadata/v1/project/project-id -H 'Metadata-Flavor: Google')"
+  
+cleanup() {
+  echo "Deleting '$control_node_name' GCE instance in zone '$control_node_zone' in project '$control_node_project_id'..."
+  gcloud --quiet compute instances delete "$control_node_name" --zone="$control_node_zone" --project="$control_node_project_id"
+}
+
+trap cleanup EXIT
 
 DEST_DIR="/oracle-toolkit"
 
+apt-get update
 apt-get install -y ansible python3-jmespath unzip
 
 ssh_user="$(gcloud compute os-login describe-profile --format=json | jq -r '.posixAccounts[].username')"
@@ -53,11 +68,3 @@ bash install-oracle.sh \
 %{ if ora_edition != "" }--ora-edition "${ora_edition}" %{ endif } \
 %{ if ora_listener_port != "" }--ora-listener-port "${ora_listener_port}" %{ endif } \
 %{ if ora_redo_log_size != "" }--ora-redo-log-size "${ora_redo_log_size}" %{ endif }
-
-control_node_name="$(curl -s http://metadata.google.internal/computeMetadata/v1/instance/name -H 'Metadata-Flavor: Google')"
-control_node_zone="$(curl -s http://metadata.google.internal/computeMetadata/v1/instance/zone -H 'Metadata-Flavor: Google')"
-control_node_project_id="$(curl -s http://metadata.google.internal/computeMetadata/v1/project/project-id -H 'Metadata-Flavor: Google')"
-echo "Initiating deletion of control node VM '$control_node_name' in zone '$controcontrol_node_zonel_node_name' in project '$control_node_project_id'..."
-gcloud --quiet compute instances delete "$control_node_name" --zone="$control_node_zone" --project="$control_node_project_id"
-
-echo "Startup script execution complete"
