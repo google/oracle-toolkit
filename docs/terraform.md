@@ -49,9 +49,7 @@ To use this Terraform and Ansible integration, ensure you have the following too
 
 - **Google Cloud SDK** - [Installation Guide](https://cloud.google.com/sdk/docs/install)
 - **Terraform** - [Installation Guide](https://learn.hashicorp.com/tutorials/terraform/install-cli)
-- **Ansible** - [Installation Guide](https://docs.ansible.com/ansible/latest/installation_guide/index.html)
-- **jq** - JSON processor required for handling playbook variables - [Installation Guide](https://stedolan.github.io/jq/download/)
-- **JMESPath** - [Installation Guide](https://pypi.org/project/jmespath/)
+
 
 ### 1. Service Account for the Control Node VM
 
@@ -212,11 +210,3 @@ terraform destroy
 1. No Such File or Directory
 
 - Make sure `working_dir = "${path.root}"` is set in the provisioner block.
-
-2. JSON Parsing Errors
-
-- Ensure jq is installed and working:
-
-```bash
-jq --version
-```
