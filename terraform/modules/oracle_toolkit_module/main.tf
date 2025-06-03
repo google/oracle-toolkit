@@ -105,6 +105,13 @@ resource "google_compute_instance" "control_node" {
   machine_type = var.control_node_machine_type
   zone         = var.zone
 
+  scheduling {
+    max_run_duration {
+      seconds = 604800
+    }
+    instance_termination_action = "DELETE"
+  }
+
   boot_disk {
     initialize_params {
       image = "debian-cloud/debian-12"
