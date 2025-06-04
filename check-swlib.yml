@@ -13,28 +13,25 @@
 # limitations under the License.
 
 ---
-- name: Set correct RDBMS release
+- name: Playbook pre_tasks
   hosts: localhost
   connection: local
   gather_facts: false
   pre_tasks:
-    - name: Verify that Ansible on control node meets the version requirements
-      assert:
-        that: "ansible_version.full is version_compare('2.8', '>=')"
-        fail_msg: "You must update Ansible to at least 2.8 to use these playbooks"
-        success_msg: "Ansible version is {{ ansible_version.full }}, continuing"
-  tasks:
-    - include_role:
+    - name: Check environment readiness
+      include_role:
+        name: common
+        tasks_from: readiness_checks.yml
+      vars:
+        control_node_checks: true
+      tags: readiness_checks
+    - name: Determine specific release
+      include_role:
         name: common
         tasks_from: populate-vars.yml
-  tags: check-swlib
 
-- name: Check swlib
-  hosts: localhost
-  connection: local
-  gather_facts: false
   tasks:
-    - include_role:
+    - name: Check swlib
+      include_role:
         name: check-swlib
-        tasks_from: main.yml
   tags: check-swlib

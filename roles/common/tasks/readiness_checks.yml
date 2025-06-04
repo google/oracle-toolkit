@@ -1,0 +1,78 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- name: Gather target hardware facts
+  gather_facts:
+    gather_subset:
+      - hardware
+  tags: readiness_checks
+
+- name: readiness_check | Ansible version is {{ minimum_ansible_version }} or higher
+  assert:
+    that: "ansible_version.full is version_compare('{{ minimum_ansible_version }}', '>=')"
+    quiet: true
+    fail_msg: "Ansible {{ minimum_ansible_version }} or higher is required but wasn't detected: install Ansible {{ minimum_ansible_version }} or higher"
+  when: control_node_checks
+  tags: readiness_checks
+
+- name: readiness_check | JMESpath is installed
+  assert:
+    that: '{{ lookup(''pipe'', ansible_playbook_python ~ '' -c "import jmespath" && echo true || echo false'') == ''true'' }}'
+    quiet: true
+    fail_msg: "Wasn't able to run 'import jmespath': install on your Ansible control node"
+  when: control_node_checks
+  tags: readiness_checks
+
+- name: readiness_check | OS family is {{ os_family_supported }}
+  assert:
+    that: "ansible_os_family == '{{ os_family_supported }}'"
+    quiet: true
+    fail_msg: "Ansible fact detected OS family: {{ ansible_os_family }}"
+  when: managed_host_checks
+  tags: readiness_checks
+
+- name: readiness_check | OS version is >= {{ os_min_supported_version }}
+  assert:
+    that: "ansible_distribution_version is version_compare('{{ os_min_supported_version }}', '>=')"
+    quiet: true
+    fail_msg: "Ansible fact detected OS version: {{ ansible_distribution_version }}"
+  when: managed_host_checks
+  tags: readiness_checks
+
+- name: readiness_check | Target memory >= {{ os_minimum_memory_mb }}
+  assert:
+    that: "ansible_memtotal_mb >= {{ os_minimum_memory_mb }}"
+    quiet: true
+    fail_msg: "Ansible fact detected target memory (MB): {{ ansible_memtotal_mb }}"
+  when: managed_host_checks
+  tags: readiness_checks
+
+- name: readiness_check | Swap space >= {{ [ansible_memtotal_mb | default(0), os_minimum_swap_mb] | min }}
+  assert:
+    that: "ansible_swaptotal_mb >= {{ [ansible_memtotal_mb | default(0), os_minimum_swap_mb] | min }}"
+    quiet: true
+    fail_msg: "Ansible fact detected swap (MB): {{ ansible_swaptotal_mb }}"
+  when: managed_host_checks
+  tags: readiness_checks
+
+- name: 'readiness_check | Validate privilege escalation ("become_user: {{ become_user_check }}") ability'
+  command: whoami
+  become: true
+  become_user: "{{ become_user_check }}"
+  register: become_check
+  when: become_user_check is defined
+  failed_when: become_check.rc != 0 or become_check.stdout != become_user_check
+  changed_when: false
+  tags: readiness_checks
