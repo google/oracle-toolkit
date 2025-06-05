@@ -21,7 +21,11 @@ DEST_DIR="/oracle-toolkit"
 apt-get update
 apt-get install -y ansible python3-jmespath unzip
 
-ssh_user="$(gcloud compute os-login describe-profile --format=json | jq -r '.posixAccounts[].username')"
+ssh_user="$(gcloud compute os-login describe-profile --format='value(posixAccounts[0].username)')"
+if [[ -z "$ssh_user" ]]; then
+  echo "ERROR: Failed to extract the POSIX username. This may be due to OS Login not being enabled or missing IAM permissions."
+  exit 1
+fi
 
 echo "Triggering SSH key creation via OS Login by running a one-time gcloud compute ssh command."
 echo "This ensures that a persistent SSH key pair is created and associated with your Google Account."
