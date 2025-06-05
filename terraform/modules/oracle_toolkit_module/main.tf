@@ -87,12 +87,10 @@ module "compute_instance" {
   instance_template   = module.instance_template.self_link
   deletion_protection = false
 
-  access_config = [
-    {
-      nat_ip       = null
-      network_tier = "PREMIUM"
-    }
-  ]
+  access_config = var.assign_public_ip ? [{
+    nat_ip       = null
+    network_tier = "PREMIUM"
+  }] : []
 }
 
 resource "random_id" "suffix" {
