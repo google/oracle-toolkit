@@ -130,6 +130,29 @@
     - system_secret_path is defined
   tags: db-create
 
+
+- name: Ensure the google-cloud-sdk yum repo is enabled
+  yum_repository:
+    name: google-cloud-sdk
+    file: google-cloud
+    description: Google Cloud SDK
+    baseurl: https://packages.cloud.google.com/yum/repos/cloud-sdk-el{{ ansible_distribution_major_version }}-x86_64
+    enabled: yes
+    gpgcheck: yes
+    repo_gpgcheck: no
+    gpgkey:
+      - https://packages.cloud.google.com/yum/doc/yum-key.gpg
+      - https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+  when: ansible_os_family == "RedHat"
+  tags: db-create
+
+- name: Install the Google Cloud CLI
+  dnf:
+    name: google-cloud-cli
+    state: present
+  when: ansible_os_family == "RedHat"
+  tags: db-create
+
 - name: Create database using DBCA
   block:
     - name: Run DBCA
