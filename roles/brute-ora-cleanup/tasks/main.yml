@@ -174,20 +174,25 @@
     - cluster_name is not defined
     - not free_edition
 
-- name: Uninstall TFA service
-  command: "{{ grid_home }}/bin/tfactl uninstall -local -silent"
-  environment:
-    PATH: "{{ grid_home }}/perl/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
-    PERL5LIB: "{{ grid_home }}/perl/lib"
-  register: uninstall_tfa
+- name: (Best Effort) Ensure TFA services are stopped and disabled
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  with_items:
+    - init.tfa
+    - oracle-tfa.service
   ignore_errors: true
   become: true
   become_user: root
+  changed_when: false
+  failed_when: false
   when: not free_edition
 
 - name: Kill (SIGTERM) any remaining Oracle processes
   command: "pkill -f {{ item }}"
   with_items:
+    - "/opt/oracle.ahf/"
     - ora_smon
     - tnslsnr
     - agent13c
@@ -216,6 +221,7 @@
 - name: Kill (SIGKILL) any remaining Oracle processes
   command: "pkill -9 -f {{ item }}"
   with_items:
+    - "/opt/oracle.ahf/"
     - ora_smon
     - tnslsnr
     - agent13c
@@ -271,9 +277,11 @@
     - "/etc/sysconfig/oracleasm.rpmsave"
     - "/etc/sysconfig/oracledrivers.conf"
     - "/etc/systemd/system/oracle-ohasd.service"
+    - "/etc/systemd/system/oracle-tfa.service"
     - "/etc/systemd/system/graphical.target.wants/oracle-ohasd.service"
     - "/etc/systemd/system/multi-user.target.wants/oracle-ohasd.service"
     - "/etc/systemd/system/multi-user.target.wants/oracleasm.service"
+    - "/opt/oracle.ahf"
     - "/var/log/oracleasm"
     - "/var/log/oracleohasd"
   ignore_errors: true
