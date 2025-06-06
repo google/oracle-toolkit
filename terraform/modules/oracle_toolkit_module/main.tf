@@ -68,6 +68,7 @@ module "instance_template" {
 
   metadata = {
     metadata_startup_script = var.metadata_startup_script
+    enable-oslogin          = "TRUE"
   }
 
   additional_disks = local.additional_disks
@@ -149,6 +150,10 @@ resource "google_compute_instance" "control_node" {
     ora_listener_port   = var.ora_listener_port
     ora_redo_log_size   = var.ora_redo_log_size
   })
+
+  metadata = {
+    enable-oslogin = "TRUE"
+  }
 
   depends_on = [module.compute_instance]
 }

@@ -87,10 +87,6 @@ Upload the ZIP file to your GCS bucket:
 ```bash
 gsutil cp /tmp/oracle-toolkit.zip gs://your-bucket-name/
 ```
-
-### 5. OS Login is enabled
-OS Login must be enabled on all target VM instances. See [this guide](https://cloud.google.com/compute/docs/oslogin/set-up-oslogin) for instructions on how to enable OS Login.
-
 ---
 
 ## Project Directory Structure
