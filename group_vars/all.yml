@@ -57,6 +57,12 @@ swap_blk_device: "{{ lookup('env','SWAP_BLK_DEVICE')|lower|default('',true) }}"
 # ntp preferred server
 ntp_preferred: "{{ lookup('env','NTP_PREF')|lower|default('',true) }}"
 
+# Secret Manager resource path containing a password for the Oracle SYS user
+sys_secret_path: "{{ lookup('env','SYS_SECRET_PATH')|lower|default('',true) }}"
+
+# Secret Manager resource path containing a password for the Oracle SYSTEM user
+system_secret_path: "{{ lookup('env','SYSTEM_SECRET_PATH')|lower|default('',true) }}"
+
 # DB configuration related variables:
 db_name: "{{ lookup('env','ORA_DB_NAME')|default('ORCL',true) }}"
 db_domain: "{{ lookup('env','ORA_DB_DOMAIN')|default('',true) }}"

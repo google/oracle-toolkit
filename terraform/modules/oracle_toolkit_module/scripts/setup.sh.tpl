@@ -70,4 +70,6 @@ bash install-oracle.sh \
 %{ if oracle_release != "" }--oracle-release "${oracle_release}" %{ endif } \
 %{ if ora_edition != "" }--ora-edition "${ora_edition}" %{ endif } \
 %{ if ora_listener_port != "" }--ora-listener-port "${ora_listener_port}" %{ endif } \
-%{ if ora_redo_log_size != "" }--ora-redo-log-size "${ora_redo_log_size}" %{ endif }
+%{ if ora_redo_log_size != "" }--ora-redo-log-size "${ora_redo_log_size}" %{ endif } \
+%{ if sys_secret_path != "" }--sys-secret-path "${sys_secret_path}" %{ endif } \
+%{ if system_secret_path != "" }--system-secret-path "${system_secret_path}" %{ endif }

@@ -142,12 +142,14 @@ resource "google_compute_instance" "control_node" {
     ora_version         = var.ora_version
     ora_backup_dest     = var.ora_backup_dest
     ora_db_name         = var.ora_db_name
-    ora_db_container    = lower(var.ora_db_container)
+    ora_db_container    = var.ora_db_container
     ntp_pref            = var.ntp_pref
     oracle_release      = var.oracle_release
     ora_edition         = var.ora_edition
     ora_listener_port   = var.ora_listener_port
     ora_redo_log_size   = var.ora_redo_log_size
+    sys_secret_path     = var.sys_secret_path
+    system_secret_path  = var.system_secret_path
   })
 
   depends_on = [module.compute_instance]
