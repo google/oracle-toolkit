@@ -21,12 +21,6 @@ DEST_DIR="/oracle-toolkit"
 apt-get update
 apt-get install -y ansible python3-jmespath unzip
 
-ssh_user="$(gcloud compute os-login describe-profile --format='value(posixAccounts[0].username)')"
-if [[ -z "$ssh_user" ]]; then
-  echo "ERROR: Failed to extract the POSIX username. This may be due to OS Login not being enabled or missing IAM permissions."
-  exit 1
-fi
-
 echo "Triggering SSH key creation via OS Login by running a one-time gcloud compute ssh command."
 echo "This ensures that a persistent SSH key pair is created and associated with your Google Account."
 echo "The private auto-generated ssh key (~/.ssh/google_compute_engine) will be used by Ansible to connect to the VM and run playbooks remotely."
@@ -41,7 +35,6 @@ done' || {
   exit 1
 }
 
-
 control_node_sa="$(curl -s http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email -H 'Metadata-Flavor: Google')"
 echo "Downloading '${gcs_source}' to /tmp"
 if ! gsutil cp "${gcs_source}" /tmp/; then
@@ -51,7 +44,13 @@ fi
 zip_file="$(basename "${gcs_source}")"
 mkdir -p "$DEST_DIR"
 echo "Extracting files from '$zip_file' to '$DEST_DIR'"
-unzip "/tmp/$zip_file" -d "$DEST_DIR"
+unzip -o "/tmp/$zip_file" -d "$DEST_DIR"
+
+ssh_user="$(gcloud compute os-login describe-profile --format='value(posixAccounts[0].username)')"
+if [[ -z "$ssh_user" ]]; then
+  echo "ERROR: Failed to extract the POSIX username. This may be due to OS Login not being enabled or missing IAM permissions."
+  exit 1
+fi
 
 cd "$DEST_DIR"
 
