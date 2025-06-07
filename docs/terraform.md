@@ -63,6 +63,8 @@ Grant the service account attached to the control node VM the following IAM role
 - `roles/storage.objectUser` on the Terraform state bucket specified in backend.tf to write Terraform state.
 - `roles/compute.instanceAdmin.v1` (or a custom role including compute.instances.delete)
    Required to delete the ephemeral control node VM after the deployment is complete.
+- `roles/logging.logWriter`
+  Requred to write to Google Cloud Logging.
 
 ### 2. Firewall Rule for Internal IP Access
 Create a VPC firewall rule that allows ingress on TCP port 22 (or your custom SSH port) from the control node VM to the target VM.  
