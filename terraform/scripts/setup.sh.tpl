@@ -71,4 +71,6 @@ bash install-oracle.sh \
 %{ if ora_edition != "" }--ora-edition "${ora_edition}" %{ endif } \
 %{ if ora_listener_port != "" }--ora-listener-port "${ora_listener_port}" %{ endif } \
 %{ if ora_redo_log_size != "" }--ora-redo-log-size "${ora_redo_log_size}" %{ endif } \
-%{ if skip_database_config }--skip-database-config %{ endif }
+%{ if skip_database_config }--skip-database-config %{ endif } \
+%{ if install_workload_agent != "" }--install-workload-agent "${install_workload_agent}" %{ endif } \
+%{ if oracle_metrics_secret != "" }--oracle-metrics-secret "${oracle_metrics_secret}" %{ endif }

@@ -1,0 +1,41 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- name: Fail if not RHEL
+  fail:
+    msg: "This playbook only supports RHEL."
+  when: ansible_os_family != "RedHat"
+  tags: install-workload-agent
+
+- name: Add google-cloud-workload-agent repository
+  yum_repository:
+    name: google-cloud-workload-agent
+    file: google-cloud-workload-agent
+    description: Google Cloud Agent for Compute Workloads Repository
+    baseurl: https://packages.cloud.google.com/yum/repos/google-cloud-workload-agent-$basearch
+    enabled: yes
+    gpgcheck: no
+    repo_gpgcheck: yes
+    gpgkey:
+      - https://packages.cloud.google.com/yum/doc/yum-key.gpg
+      - https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+  tags: install-workload-agent
+
+- name: Install Google Cloud Workload Agent
+  package:
+    name: google-cloud-workload-agent
+    state: present
+    lock_timeout: "{{ pkg_mgr_lock_timeout }}"
+  tags: install-workload-agent

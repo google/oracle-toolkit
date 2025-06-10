@@ -254,6 +254,13 @@ SWAP_BLK_DEVICE_PARAM=".*"
 COMPATIBLE_RDBMS="${COMPATIBLE_RDBMS:-0}"
 COMPATIBLE_RDBMS_PARAM="^[0-9][0-9]\.[0-9].*"
 
+INSTALL_WORKLOAD_AGENT="${INSTALL_WORKLOAD_AGENT:-FALSE}"
+INSTALL_WORKLOAD_AGENT_PARAM="^(TRUE|FALSE)$"
+
+ORACLE_METRICS_SECRET="${ORACLE_METRICS_SECRET}"
+ORACLE_METRICS_SECRET_PARAM="^projects/[^/]+/secrets/[^/]+/versions/[^/]+$"
+
+
 export ANSIBLE_DISPLAY_SKIPPED_HOSTS=false
 ###
 GETOPT_MANDATORY="ora-swlib-bucket:"
@@ -267,6 +274,7 @@ GETOPT_OPTIONAL="$GETOPT_OPTIONAL,backup-start-hour:,backup-start-min:,archive-b
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-swlib-type:,ora-swlib-path:,ora-swlib-credentials:,instance-ip-addr:,primary-ip-addr:,instance-ssh-user:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,instance-ssh-key:,instance-hostname:,ntp-pref:,inventory-file:,compatible-rdbms:,instance-ssh-extra-args:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,help,validate,check-instance,prep-host,install-sw,config-db,debug,allow-install-on-vm,skip-database-config,swap-blk-device:"
+GETOPT_OPTIONAL="$GETOPT_OPTIONAL,install-workload-agent:,oracle-metrics-secret:"
 GETOPT_LONG="$GETOPT_MANDATORY,$GETOPT_OPTIONAL"
 GETOPT_SHORT="h"
 
@@ -516,6 +524,14 @@ while true; do
     ;;
   --swap-blk-device)
     SWAP_BLK_DEVICE="$2"
+    shift
+    ;;
+  --install-workload-agent)
+    INSTALL_WORKLOAD_AGENT="$2"
+    shift
+    ;;
+  --oracle-metrics-secret)
+    ORACLE_METRICS_SECRET="$2"
     shift
     ;;
   --check-instance)
@@ -806,6 +822,15 @@ shopt -s nocasematch
   echo "Incorrect parameter provided for compatible-rdbms: $COMPATIBLE_RDBMS"
   exit 1
 }
+[[ ! "$INSTALL_WORKLOAD_AGENT" =~ $INSTALL_WORKLOAD_AGENT_PARAM ]] && {
+  echo "Incorrect parameter provided for secret-path: $INSTALL_WORKLOAD_AGENT"
+  exit 1
+}
+[[ -n "$ORACLE_METRICS_SECRET" && ! "$ORACLE_METRICS_SECRET" =~ $ORACLE_METRICS_SECRET_PARAM ]] && {
+  echo "Incorrect parameter provided for oracle-metrics-secret: $ORACLE_METRICS_SECRET"
+  echo "Expected format: projects/<project>/secrets/<secret_name>/versions/<version>"
+  exit 1
+}
 
 # Parameter overrides for features that Free Edition does not support
 # (incl. RAC, ASM, role separation, and customized database name)
@@ -1028,6 +1053,8 @@ export ORA_RELEASE
 export PB_LIST
 export PRIMARY_IP_ADDR
 export SWAP_BLK_DEVICE
+export INSTALL_WORKLOAD_AGENT
+export ORACLE_METRICS_SECRET
 
 echo -e "Running with parameters from command line or environment variables:\n"
 set | grep -E '^(ORA_|BACKUP_|GCS_|ARCHIVE_|INSTANCE_|PB_|ANSIBLE_|CLUSTER|PRIMARY)' | grep -v '_PARAM='

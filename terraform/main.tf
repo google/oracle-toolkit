@@ -132,23 +132,25 @@ resource "google_compute_instance" "control_node" {
   }
 
   metadata_startup_script = templatefile("${path.module}/scripts/setup.sh.tpl", {
-    gcs_source          = var.gcs_source
-    instance_name       = module.compute_instance.instances_details[0].name
-    instance_zone       = module.compute_instance.instances_details[0].zone
-    ip_addr             = module.compute_instance.instances_details[0].network_interface[0].network_ip
-    asm_disk_config     = jsonencode(local.asm_disk_config)
-    data_mounts_config  = jsonencode(local.data_mounts_config)
-    swap_blk_device     = "/dev/disk/by-id/google-swap"
-    ora_swlib_bucket    = var.ora_swlib_bucket
-    ora_version         = var.ora_version
-    ora_backup_dest     = var.ora_backup_dest
-    ora_db_name         = var.ora_db_name
-    ora_db_container    = lower(var.ora_db_container)
-    ntp_pref            = var.ntp_pref
-    ora_release         = var.ora_release
-    ora_edition         = var.ora_edition
-    ora_listener_port   = var.ora_listener_port
-    ora_redo_log_size   = var.ora_redo_log_size
+    gcs_source             = var.gcs_source
+    instance_name          = module.compute_instance.instances_details[0].name
+    instance_zone          = module.compute_instance.instances_details[0].zone
+    ip_addr                = module.compute_instance.instances_details[0].network_interface[0].network_ip
+    asm_disk_config        = jsonencode(local.asm_disk_config)
+    data_mounts_config     = jsonencode(local.data_mounts_config)
+    swap_blk_device        = "/dev/disk/by-id/google-swap"
+    ora_swlib_bucket       = var.ora_swlib_bucket
+    ora_version            = var.ora_version
+    ora_backup_dest        = var.ora_backup_dest
+    ora_db_name            = var.ora_db_name
+    ora_db_container       = var.ora_db_container
+    ntp_pref               = var.ntp_pref
+    ora_release            = var.ora_release
+    ora_edition            = var.ora_edition
+    ora_listener_port      = var.ora_listener_port
+    ora_redo_log_size      = var.ora_redo_log_size
+    install_workload_agent = var.install_workload_agent
+    oracle_metrics_secret  = var.oracle_metrics_secret
     skip_database_config = var.skip_database_config
   })
 

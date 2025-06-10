@@ -111,6 +111,11 @@ arch_bu_start_min: "{{ lookup('env','ARCHIVE_BACKUP_MIN')|default('30',true) }}"
 # backup_mount_src: "192.168.185.82:/backups" #an nfs share of some sort
 # backup_mount_path: "/backups" #an nfs mount point
 
+# workload-agent related variables
+install_workload_agent: "{{ lookup('env','INSTALL_WORKLOAD_AGENT')|lower|default(swlib_path_default,false) }}"
+oracle_metrics_secret: "{{ lookup('env','ORACLE_METRICS_SECRET') }}"
+
+
 ## End of customizable Global Variables
 
 ################################################################################

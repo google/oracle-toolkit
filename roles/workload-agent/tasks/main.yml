@@ -1,0 +1,39 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- name: Fetch workload agent user password from Secret Manager
+  command: gcloud --quiet secrets versions access {{ oracle_metrics_secret }}
+  register: wlm_agent_password
+  changed_when: false
+  no_log: true
+  tags: workload-agent
+
+- name: Create Oracle user for Google Cloud Workload Agent
+  become: true
+  become_user: "{{ oracle_user }}"
+  shell: |
+    set -o pipefail
+    sqlplus -s -L / as sysdba <<EOF
+    WHENEVER SQLERROR EXIT 1;
+    CREATE USER {{ workload_agent_username }} IDENTIFIED BY {{ wlm_agent_password.stdout }};
+    GRANT CREATE SESSION,SELECT_CATALOG_ROLE,SYSDG TO {{ workload_agent_username }};
+    EXIT;
+    EOF
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  no_log: true
+  tags: workload-agent

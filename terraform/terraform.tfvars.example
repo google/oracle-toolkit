@@ -22,6 +22,8 @@ project_id                   = "your-project-id"
 subnetwork                   = "default"
 vm_service_account           = "your-vm-service-account@your-project-id.iam.gserviceaccount.com"
 control_node_service_account = "your-control-node-service-account@your-project-id.iam.gserviceaccount.com"
+db_password_secret           = "projects/your-project/secrets/your-secret/versions/latest"
+
 
 # Instance settings
 instance_name        = "orcl"

@@ -2223,6 +2223,22 @@ instance is created.</td>
 <td>Run with the Ansible debugging flag enabled.  With debugging
 enabled, passwords appear in logfiles.</td>
 </tr>
+<tr>
+<td></td>
+<td><p><pre>
+--install_workload_agent
+</pre></p></td>
+<td></td>
+<td>Whether to install <a href="https://github.com/GoogleCloudPlatform/workloadagent">Google Cloud Agent for Compute Workloads</a></td>
+</tr>
+<tr>
+<td></td>
+<td><p><pre>
+--oracle_metrics_secret
+</pre></p></td>
+<td></td>
+<td>Fully qualified name of the Secret Manager secret that stores the Oracle database user's password. This user is specifically configured for the workload-agent to enable metric collection. Expected format: "projects/your-project/secrets/your-secret-name/versions/version"</td>
+</tr>
 </tbody>
 </table>
 

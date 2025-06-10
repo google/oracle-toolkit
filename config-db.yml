@@ -46,6 +46,15 @@
       tags: primary-db
 
     - include_role:
+        name: workload-agent
+      when:
+        - cluster_type != "RAC"
+        - create_db | bool
+        - install_workload_agent | bool
+        - oracle_metrics_secret | length > 0
+      tags: workload-agent
+
+    - include_role:
         name: db-copy
         tasks_from: active-copy
       when:

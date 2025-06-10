@@ -117,6 +117,35 @@
     - not (ansible_distribution == 'RedHat' and ansible_distribution_major_version | int == 7)
   tags: os-packages
 
+- name: Install Google Cloud Workload Agent
+  include_tasks:
+    file: workload_agent.yml
+  when:
+    - cluster_type != "RAC"
+    - install_workload_agent | bool
+  tags: workload-agent
+
+- name: Install Google Cloud CLI
+  include_tasks:
+    file: google_cloud_cli.yml
+  when:
+    - cluster_type != "RAC"
+    - install_workload_agent | bool
+    - oracle_metrics_secret | length > 0
+  tags: workload-agent
+
+- name: Fetch and validate workload-agent's database user password
+  command: gcloud --quiet secrets versions access {{ oracle_metrics_secret }}
+  register: wlm_agent_password
+  failed_when: wlm_agent_password.stdout | length == 0 or "ERROR" in wlm_agent_password.stderr
+  changed_when: false
+  no_log: true
+  when:
+    - cluster_type != "RAC"
+    - install_workload_agent | bool
+    - oracle_metrics_secret | length > 0
+  tags: workload-agent
+
 - name: Add OS groups
   group:
     name: "{{ item.group }}"
