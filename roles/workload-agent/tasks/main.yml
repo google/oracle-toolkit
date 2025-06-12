@@ -15,19 +15,28 @@
 ---
 - name: Fetch workload agent user password from Secret Manager
   command: gcloud --quiet secrets versions access {{ oracle_metrics_secret }}
-  register: wlm_agent_password
+  register: result
   changed_when: false
+  failed_when: >
+    (result.stdout | length == 0) or
+    ("ERROR" in result.stderr)
   no_log: true
   tags: workload-agent
 
-- name: Create Oracle user for Google Cloud Workload Agent
+- name: Validate password format
+  fail:
+    msg: "Invalid password format. It must match this pattern: {{ password_pattern }}"
+  when: not (result.stdout is match(password_pattern))
+  tags: workload-agent
+
+- name: Create Oracle user for Google Cloud Agent for Compute Workloads
   become: true
   become_user: "{{ oracle_user }}"
   shell: |
     set -o pipefail
     sqlplus -s -L / as sysdba <<EOF
-    WHENEVER SQLERROR EXIT 1;
-    CREATE USER {{ workload_agent_username }} IDENTIFIED BY {{ wlm_agent_password.stdout }};
+    WHENEVER SQLERROR EXIT SQL.SQLCODE;
+    CREATE USER {{ workload_agent_username }} IDENTIFIED BY {{ result.stdout }};
     GRANT CREATE SESSION,SELECT_CATALOG_ROLE,SYSDG TO {{ workload_agent_username }};
     EXIT;
     EOF

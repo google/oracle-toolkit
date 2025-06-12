@@ -15,7 +15,7 @@
 ---
 - name: Fail if not RHEL
   fail:
-    msg: "This playbook only supports RHEL."
+    msg: "The Google Cloud Agent for Compute Workloads can only be installed on Enterprise Linux systems (e.g., RHEL or compatible)."
   when: ansible_os_family != "RedHat"
   tags: install-workload-agent
 
@@ -33,7 +33,7 @@
       - https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
   tags: install-workload-agent
 
-- name: Install Google Cloud Workload Agent
+- name: Install Google Cloud Agent for Compute Workloads
   package:
     name: google-cloud-workload-agent
     state: present

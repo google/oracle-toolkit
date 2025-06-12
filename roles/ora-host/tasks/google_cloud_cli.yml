@@ -15,7 +15,7 @@
 ---
 - name: Fail if not RHEL
   fail:
-    msg: "This playbook only supports RHEL."
+    msg: "This playbook currently only supports installing the gcloud CLI on Enterprise Linux systems (e.g., RHEL or compatible)."
   when: ansible_os_family != "RedHat"
   tags: install-google-cloud-cli
 

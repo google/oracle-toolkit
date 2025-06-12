@@ -30,3 +30,4 @@ secrets/
 terraform/*sh-key*
 vars/
 vault_password_file
+terraform/terraform.tfvars

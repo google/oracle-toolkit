@@ -2229,7 +2229,7 @@ enabled, passwords appear in logfiles.</td>
 --install_workload_agent
 </pre></p></td>
 <td></td>
-<td>Whether to install <a href="https://github.com/GoogleCloudPlatform/workloadagent">Google Cloud Agent for Compute Workloads</a></td>
+<td>Whether to install <a href="https://cloud.google.com/compute/docs/instances/agent-for-compute-workloads">Google Cloud Agent for Compute Workloads</a></td>
 </tr>
 <tr>
 <td></td>
