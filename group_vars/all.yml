@@ -57,6 +57,9 @@ swap_blk_device: "{{ lookup('env','SWAP_BLK_DEVICE')|lower|default('',true) }}"
 # ntp preferred server
 ntp_preferred: "{{ lookup('env','NTP_PREF')|lower|default('',true) }}"
 
+# Google Cloud Secret Manager resource containing the password to be used for both the Oracle SYS and SYSTEM users
+db_password_secret: "{{ lookup('env','DB_PASSWORD_SECRET')|lower|default('',true) }}"
+
 # DB configuration related variables:
 db_name: "{{ lookup('env','ORA_DB_NAME')|default('ORCL',true) }}"
 db_domain: "{{ lookup('env','ORA_DB_DOMAIN')|default('',true) }}"

@@ -255,6 +255,17 @@ variable "gcs_source" {
   }
 }
 
+variable "db_password_secret" {
+  description = "Google Cloud Secret Manager resource containing the password to be used for both the Oracle SYS and SYSTEM users"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.db_password_secret == "" || can(regex("^projects/[^/]+/secrets/[^/]+/versions/[^/]+$", var.db_password_secret))
+    error_message = "db_password_secret must be in the format: projects/<project>/secrets/<secret_name>/versions/<version>"
+  }
+}
+
 variable "install_workload_agent" {
   description = "Whether to install workload-agent on the database VM."
   type        = bool

@@ -56,15 +56,20 @@ To use this Terraform and Ansible integration, ensure you have the following too
 Grant the service account attached to the control node VM the following IAM roles:
 
 - `roles/compute.osAdminLogin`
-  Grants OS Login access with sudo privileges, required by the Ansible playbooks.
+   Grants OS Login access with sudo privileges, required by the Ansible playbooks.
 - `roles/iam.serviceAccountUser` on the **target VM's service account**  
-  Allows the control node to impersonate the target service account during SSH sessions.
+   Allows the control node to impersonate the target service account during SSH sessions.
 - `roles/storage.objectViewer` on the bucket specified in var.gcs_source to download the ZIP archive of the oracle-toolkit
 - `roles/storage.objectUser` on the Terraform state bucket specified in backend.tf to write Terraform state.
 - `roles/compute.instanceAdmin.v1` (or a custom role including compute.instances.delete)
    Required to delete the ephemeral control node VM after the deployment is complete.
 - `roles/logging.logWriter`
   Requred to write to Google Cloud Logging.
+
+### 2. Service Account for the database VM
+
+- `roles/secretmanager.secretAccessor` 
+   Assign this role to the service account for access to Secret Manager secrets containing the Oracle SYS and SYSTEM user passwords.
 
 ### 2. Firewall Rule for Internal IP Access
 Create a VPC firewall rule that allows ingress on TCP port 22 (or your custom SSH port) from the control node VM to the target VM.  

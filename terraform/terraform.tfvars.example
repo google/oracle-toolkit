@@ -62,3 +62,4 @@ ora_redo_log_size      = "100MB"
 skip_database_config   = false
 install_workload_agent = true
 oracle_metrics_secret  = "projects/your-project/secrets/your-secret/versions/latest"
+db_password_secret     = "projects/your-project/secrets/your-secret/versions/latest"

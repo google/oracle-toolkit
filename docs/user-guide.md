@@ -2229,6 +2229,14 @@ enabled, passwords appear in logfiles.</td>
 <tr>
 <td></td>
 <td><p><pre>
+--db-password-secret
+</pre></p></td>
+<td></td>
+<td>Google Cloud Secret Manager resource path containing the password to be used for both the Oracle SYS and SYSTEM users. Expected format: projects/<project>/secrets/<secret_name>/versions/<version></td>
+</tr>
+<tr>
+<td></td>
+<td><p><pre>
 --install_workload_agent
 </pre></p></td>
 <td></td>

@@ -88,24 +88,37 @@
     - check_oratab.stdout == "0"
   tags: db-create
 
-- name: Copy to instance the pwgen.sh script
+- name: Copy pwgen.sh script to the target machine
   copy:
     src: "{{ pwgen_file }}"
     dest: "{{ pwgen_path }}/{{ pwgen_file }}"
     owner: root
     mode: u=rwx,go=rx
+  when:
+    - db_password_secret | length == 0
+  tags: db-create
 
 - name: Generate command for password randomization (not 11.2)
   set_fact:
     pwd_gen_cmd: echo -e "$({{ pass_param }})\n$({{ pass_param }})\n$({{ pass_param }})"
   when:
     - oracle_ver != "11.2.0.4.0"
+    - db_password_secret | length == 0
   tags: db-create
 
 - name: Generate command for password randomization (11.2 only)
   set_fact:
     pwd_gen_cmd: echo -e "$({{ pass_param }})\n$({{ pass_param }})"
-  when: oracle_ver == "11.2.0.4.0"
+  when: 
+    - oracle_ver == "11.2.0.4.0"
+    - db_password_secret | length == 0
+  tags: db-create
+
+- name: Generate command for retrieving passwords from Secret Manager
+  set_fact:
+    pwd_gen_cmd: password=$(gcloud --quiet secrets versions access {{ db_password_secret }}); echo -e "$password\n$password"
+  when:
+    - db_password_secret | length > 0
   tags: db-create
 
 - name: Create database using DBCA

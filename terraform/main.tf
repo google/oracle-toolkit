@@ -186,6 +186,7 @@ resource "google_compute_instance" "control_node" {
     ora_edition = var.ora_edition
     ora_listener_port = var.ora_listener_port
     ora_redo_log_size = var.ora_redo_log_size
+    db_password_secret = var.db_password_secret
     install_workload_agent = var.install_workload_agent
     oracle_metrics_secret = var.oracle_metrics_secret
     skip_database_config = var.skip_database_config
