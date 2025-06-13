@@ -48,10 +48,7 @@
     - include_role:
         name: workload-agent
       when:
-        - ansible_facts['product_name'] == "Google Compute Engine"
-        - create_db | bool
         - install_workload_agent | bool
-        - oracle_metrics_secret | length > 0
       tags: workload-agent
 
     - include_role:

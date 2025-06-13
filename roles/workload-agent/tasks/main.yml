@@ -13,41 +13,14 @@
 # limitations under the License.
 
 ---
-- name: Fetch workload agent user password from Secret Manager
-  command: gcloud --quiet secrets versions access {{ oracle_metrics_secret }}
-  register: result
-  changed_when: false
-  failed_when: >
-    (result.stdout | length == 0) or
-    ("ERROR" in result.stderr)
-  no_log: true
-  tags: workload-agent
-
-- name: Validate password format
-  fail:
-    msg: "Invalid password format. It must match this pattern: {{ password_pattern }}"
-  when: not (result.stdout is match(password_pattern))
-  tags: workload-agent
-
 - name: Install Google Cloud Agent for Compute Workloads
   include_tasks:
     file: install.yml
   tags: workload-agent
 
-- name: Create Oracle user for Google Cloud Agent for Compute Workloads
-  become: true
-  become_user: "{{ oracle_user }}"
-  shell: |
-    set -o pipefail
-    sqlplus -s -L / as sysdba <<EOF
-    WHENEVER SQLERROR EXIT SQL.SQLCODE;
-    CREATE USER {{ workload_agent_username }} IDENTIFIED BY {{ result.stdout }};
-    GRANT CREATE SESSION,SELECT_CATALOG_ROLE,SYSDG TO {{ workload_agent_username }};
-    EXIT;
-    EOF
-  environment:
-    ORACLE_HOME: "{{ oracle_home }}"
-    ORACLE_SID: "{{ oracle_sid }}"
-    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
-  no_log: true
+- name: Fetch agent password and create database user
+  include_tasks:
+    file: create_db_user.yml
+  when:
+    - oracle_metrics_secret | length > 0
   tags: workload-agent
