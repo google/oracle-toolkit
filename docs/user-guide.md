@@ -1870,6 +1870,24 @@ ORA_REDO_LOG_SIZE
 100MB</td>
 <td></td>
 </tr>
+<tr>
+<td>PGA target</td>
+<td><p><pre>
+ORA_PGA_TARGET_MB
+--ora-pga-target-mb
+</pre></p></td>
+<td>150</td>
+<td>Oracle aggregate private memory target</td>
+</tr>
+<tr>
+<td>SGA target</td>
+<td><p><pre>
+ORA_SGA_TARGET_MB
+--ora-sga-target-mb
+</pre></p></td>
+<td>45% of total memory</td>
+<td>Oracle shared memory, backed by a hugepage allocation.</td>
+</tr>
 </tbody>
 </table>
 

@@ -12,5 +12,5 @@ dbca -silent -createDatabase -gdbName {{ db_name }}{{ domain() }} \
 -diskGroupName {{ data_destination }} \
 -recoveryGroupName {{ reco_destination }} \
 -redoLogFileSize {{ redologsize }} \
--initParams pga_aggregate_target='{{ pga_aggtar_bytes }}',sga_target='{{ sga_target_bytes }}',streams_pool_size=64M,use_large_pages=ONLY,db_domain='{{ db_domain }}',diagnostic_dest='{{ oracle_base }}' \
+-initParams pga_aggregate_target='{{ pga_target }}',sga_target='{{ sga_target }}',streams_pool_size=64M,use_large_pages=ONLY,db_domain='{{ db_domain }}',diagnostic_dest='{{ oracle_base }}' \
 -ignorePreReqs {% if oracle_ver != '12.1.0.2.0' %}-ignorePrereqFailure{% endif %}
