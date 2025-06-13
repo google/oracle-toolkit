@@ -254,9 +254,6 @@ SWAP_BLK_DEVICE_PARAM=".*"
 COMPATIBLE_RDBMS="${COMPATIBLE_RDBMS:-0}"
 COMPATIBLE_RDBMS_PARAM="^[0-9][0-9]\.[0-9].*"
 
-INSTALL_WORKLOAD_AGENT="${INSTALL_WORKLOAD_AGENT:-FALSE}"
-INSTALL_WORKLOAD_AGENT_PARAM="^(TRUE|FALSE)$"
-
 ORACLE_METRICS_SECRET="${ORACLE_METRICS_SECRET}"
 ORACLE_METRICS_SECRET_PARAM="^projects/[^/]+/secrets/[^/]+/versions/[^/]+$"
 
@@ -274,7 +271,7 @@ GETOPT_OPTIONAL="$GETOPT_OPTIONAL,backup-start-hour:,backup-start-min:,archive-b
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-swlib-type:,ora-swlib-path:,ora-swlib-credentials:,instance-ip-addr:,primary-ip-addr:,instance-ssh-user:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,instance-ssh-key:,instance-hostname:,ntp-pref:,inventory-file:,compatible-rdbms:,instance-ssh-extra-args:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,help,validate,check-instance,prep-host,install-sw,config-db,debug,allow-install-on-vm,skip-database-config,swap-blk-device:"
-GETOPT_OPTIONAL="$GETOPT_OPTIONAL,install-workload-agent:,oracle-metrics-secret:"
+GETOPT_OPTIONAL="$GETOPT_OPTIONAL,install-workload-agent,oracle-metrics-secret:"
 GETOPT_LONG="$GETOPT_MANDATORY,$GETOPT_OPTIONAL"
 GETOPT_SHORT="h"
 
@@ -527,8 +524,7 @@ while true; do
     shift
     ;;
   --install-workload-agent)
-    INSTALL_WORKLOAD_AGENT="$2"
-    shift
+    INSTALL_WORKLOAD_AGENT=true
     ;;
   --oracle-metrics-secret)
     ORACLE_METRICS_SECRET="$2"
@@ -822,15 +818,16 @@ shopt -s nocasematch
   echo "Incorrect parameter provided for compatible-rdbms: $COMPATIBLE_RDBMS"
   exit 1
 }
-[[ ! "$INSTALL_WORKLOAD_AGENT" =~ $INSTALL_WORKLOAD_AGENT_PARAM ]] && {
-  echo "Incorrect parameter provided for secret-path: $INSTALL_WORKLOAD_AGENT"
-  exit 1
-}
 [[ -n "$ORACLE_METRICS_SECRET" && ! "$ORACLE_METRICS_SECRET" =~ $ORACLE_METRICS_SECRET_PARAM ]] && {
   echo "Incorrect parameter provided for oracle-metrics-secret: $ORACLE_METRICS_SECRET"
   echo "Expected format: projects/<project>/secrets/<secret_name>/versions/<version>"
   exit 1
 }
+# if ORACLE_METRICS_SECRET is specified, INSTALL_WORKLOAD_AGENT must be as well
+if [[ -n "$ORACLE_METRICS_SECRET" && "$INSTALL_WORKLOAD_AGENT" == false ]]; then
+  echo "--install-workload-agent must be specified when using --oracle-metrics-secret"
+  exit 1
+fi
 
 # Parameter overrides for features that Free Edition does not support
 # (incl. RAC, ASM, role separation, and customized database name)

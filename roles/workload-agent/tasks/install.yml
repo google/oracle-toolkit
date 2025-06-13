@@ -13,18 +13,6 @@
 # limitations under the License.
 
 ---
-- name: Fail if not RHEL
-  fail:
-    msg: "The Google Cloud Agent for Compute Workloads can only be installed on Enterprise Linux systems (e.g., RHEL or compatible)."
-  when: ansible_os_family != "RedHat"
-  tags: install-workload-agent
-
-- name: Fail if not on GCP
-  fail:
-    msg: "The Google Cloud Agent for Compute Workloads can only be installed on Google Cloud Engine"
-  when: ansible_facts['product_name'] != "Google Compute Engine"
-  tags: install-workload-agent
-
 - name: Add google-cloud-workload-agent repository
   yum_repository:
     name: google-cloud-workload-agent

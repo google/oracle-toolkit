@@ -13,12 +13,6 @@
 # limitations under the License.
 
 ---
-- name: Fail if not RHEL
-  fail:
-    msg: "This playbook currently only supports installing the gcloud CLI on Enterprise Linux systems (e.g., RHEL or compatible)."
-  when: ansible_os_family != "RedHat"
-  tags: install-google-cloud-cli
-
 - name: Add google-cloud-sdk yum repository
   yum_repository:
     name: google-cloud-sdk

@@ -45,10 +45,24 @@
         - lookup('env', 'PRIMARY_IP_ADDR') is not defined or lookup('env', 'PRIMARY_IP_ADDR') | length == 0
       tags: primary-db
 
+    - name: Skip intallation of Google Cloud Agent for Compute Workloads if non-RHEL OS detected
+      debug:
+        msg: "Non-RHEL OS detected. Skipping the installation of Google Cloud Agent for Compute Workloads."
+      when: ansible_os_family != "RedHat"
+      tags: workload-agent
+
+    - name: Skip intallation of Google Cloud Agent for Compute Workloads if non-GCE environment detected
+      debug:
+        msg: "Non-GCE environment detected. Skipping the installation of Google Cloud Agent for Compute Workloads."
+      when: ansible_facts['product_name'] != "Google Compute Engine"
+      tags: workload-agent
+
     - include_role:
         name: workload-agent
       when:
         - install_workload_agent | bool
+        - ansible_facts['product_name'] == "Google Compute Engine"
+        - ansible_os_family == "RedHat"
       tags: workload-agent
 
     - include_role:

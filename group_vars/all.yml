@@ -113,7 +113,7 @@ arch_bu_start_min: "{{ lookup('env','ARCHIVE_BACKUP_MIN')|default('30',true) }}"
 
 # workload-agent related variables
 install_workload_agent: "{{ lookup('env','INSTALL_WORKLOAD_AGENT')|lower|default(false) }}"
-oracle_metrics_secret: "{{ lookup('env','ORACLE_METRICS_SECRET') }}"
+oracle_metrics_secret: "{{ lookup('env','ORACLE_METRICS_SECRET')|lower|default('', true)}}"
 
 
 ## End of customizable Global Variables

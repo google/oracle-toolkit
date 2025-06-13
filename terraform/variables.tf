@@ -235,15 +235,16 @@ variable "gcs_source" {
 variable "install_workload_agent" {
   description = "Whether to install workload-agent on the database VM."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "oracle_metrics_secret" {
   description = "Fully qualified name of the Secret Manager secret that stores the Oracle database user's password. This user is specifically configured for the workload-agent to enable metric collection."
   type        = string
+  default     = ""
 
   validation {
-    condition     = can(regex("^projects/[^/]+/secrets/[^/]+/versions/[^/]+$", var.oracle_metrics_secret))
+    condition     = var.oracle_metrics_secret == "" || can(regex("^projects/[^/]+/secrets/[^/]+/versions/[^/]+$", var.oracle_metrics_secret))
     error_message = "oracle_metrics_secret must be in the format: projects/<project>/secrets/<secret_name>/versions/<version>"
   }
 }

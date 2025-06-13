@@ -117,16 +117,22 @@
     - not (ansible_distribution == 'RedHat' and ansible_distribution_major_version | int == 7)
   tags: os-packages
 
+- name: Skip Google Cloud CLI installation if non-RHEL OS detected
+  debug:
+    msg: "Non-RHEL OS detected. Skipping the installation of Google Cloud CLI"
+  when: ansible_os_family != "RedHat"
+  tags: install-google-cloud-cli
+
 - name: Install Google Cloud CLI
   include_tasks:
     file: google_cloud_cli.yml
   when:
-    - ansible_facts['product_name'] == "Google Compute Engine"
+    - ansible_os_family == "RedHat"
     - install_workload_agent | bool
     - oracle_metrics_secret | length > 0
-  tags: install-gcloud
+  tags: install-google-cloud-cli
 
-- name: Fetch and validate oracle_metrics_secret
+- name: Fetch and validate workload-agent's user password
   command: gcloud --quiet secrets versions access {{ oracle_metrics_secret }}
   register: result
   failed_when: >
@@ -136,7 +142,7 @@
   changed_when: false
   no_log: true
   when:
-    - ansible_facts['product_name'] == "Google Compute Engine"
+    - ansible_os_family == "RedHat"
     - install_workload_agent | bool
     - oracle_metrics_secret | length > 0
   tags: validate-workload-agent-password
