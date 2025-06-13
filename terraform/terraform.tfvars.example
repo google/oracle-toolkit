@@ -22,9 +22,6 @@ project_id                   = "your-project-id"
 subnetwork                   = "default"
 vm_service_account           = "your-vm-service-account@your-project-id.iam.gserviceaccount.com"
 control_node_service_account = "your-control-node-service-account@your-project-id.iam.gserviceaccount.com"
-install_workload_agent       = true
-oracle_metrics_secret        = "projects/your-project/secrets/your-secret/versions/latest"
-
 
 # Instance settings
 instance_name        = "orcl"
@@ -81,14 +78,15 @@ asm_disks = [
 # Parameters below are optional
 # A full list of parameters can be found here https://google.github.io/oracle-toolkit/user-guide.html#parameters
 # The example below will install Oracle 19c, using the Oracle software stored in a GCS bucket, and will configure the backup destination to be RECO diskgroup.
-ora_version       = "19"
-ora_release       = "latest"
-ora_edition       = "EE"
-ora_backup_dest   = "+RECO"
-ora_db_name       = "orcl"
-ora_db_container  = false
-ntp_pref          = "169.254.169.254"
-ora_listener_port = "1521"
-ora_redo_log_size = "100MB"
-skip_database_config = false
-
+ora_version            = "19"
+ora_release            = "latest"
+ora_edition            = "EE"
+ora_backup_dest        = "+RECO"
+ora_db_name            = "orcl"
+ora_db_container       = false
+ntp_pref               = "169.254.169.254"
+ora_listener_port      = "1521"
+ora_redo_log_size      = "100MB"
+skip_database_config   = false
+install_workload_agent = true
+oracle_metrics_secret  = "projects/your-project/secrets/your-secret/versions/latest"

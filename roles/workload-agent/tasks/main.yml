@@ -29,6 +29,11 @@
   when: not (result.stdout is match(password_pattern))
   tags: workload-agent
 
+- name: Install Google Cloud Agent for Compute Workloads
+  include_tasks:
+    file: install.yml
+  tags: workload-agent
+
 - name: Create Oracle user for Google Cloud Agent for Compute Workloads
   become: true
   become_user: "{{ oracle_user }}"

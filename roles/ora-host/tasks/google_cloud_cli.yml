@@ -36,6 +36,6 @@
 - name: Install Google Cloud CLI
   dnf:
     name: google-cloud-cli
-    state: present
+    state: latest
     lock_timeout: "{{ pkg_mgr_lock_timeout }}"
   tags: install-google-cloud-cli

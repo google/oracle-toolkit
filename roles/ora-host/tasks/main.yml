@@ -117,39 +117,14 @@
     - not (ansible_distribution == 'RedHat' and ansible_distribution_major_version | int == 7)
   tags: os-packages
 
-- name: Check if running on Google Cloud
-  uri:
-    url: http://metadata.google.internal
-    method: GET
-    return_content: no
-    headers:
-      Metadata-Flavor: Google
-  register: gcp_check
-  failed_when: false
-  changed_when: false
-  ignore_errors: true
-
-- name: Set is_gcp fact based on the response from metadata server
-  set_fact:
-    is_gcp: "{{ (gcp_check.status is defined and gcp_check.status == 200) | bool }}"
-  tags: workload-agent
-
-- name: Install Google Cloud Agent for Compute Workloads
-  include_tasks:
-    file: workload_agent.yml
-  when:
-    - is_gcp | bool
-    - install_workload_agent | bool
-  tags: workload-agent
-
 - name: Install Google Cloud CLI
   include_tasks:
     file: google_cloud_cli.yml
   when:
-    - is_gcp | bool
+    - ansible_facts['product_name'] == "Google Compute Engine"
     - install_workload_agent | bool
     - oracle_metrics_secret | length > 0
-  tags: workload-agent
+  tags: install-gcloud
 
 - name: Fetch and validate oracle_metrics_secret
   command: gcloud --quiet secrets versions access {{ oracle_metrics_secret }}
@@ -161,10 +136,10 @@
   changed_when: false
   no_log: true
   when:
-    - is_gcp | bool
+    - ansible_facts['product_name'] == "Google Compute Engine"
     - install_workload_agent | bool
     - oracle_metrics_secret | length > 0
-  tags: workload-agent
+  tags: validate-workload-agent-password
 
 - name: Add OS groups
   group:

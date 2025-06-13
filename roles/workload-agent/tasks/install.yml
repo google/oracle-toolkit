@@ -36,6 +36,6 @@
 - name: Install Google Cloud Agent for Compute Workloads
   package:
     name: google-cloud-workload-agent
-    state: present
+    state: latest
     lock_timeout: "{{ pkg_mgr_lock_timeout }}"
   tags: install-workload-agent
