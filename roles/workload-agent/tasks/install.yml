@@ -27,7 +27,7 @@
       - https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
   tags: install-workload-agent
 
-- name: Install Google Cloud Agent for Compute Workloads
+- name: Install google-cloud-workload-agent package
   package:
     name: google-cloud-workload-agent
     state: latest
