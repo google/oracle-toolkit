@@ -68,8 +68,9 @@ Grant the service account attached to the control node VM the following IAM role
 
 ### 2. Service Account for the database VM
 
-- `roles/secretmanager.secretAccessor` 
-   Assign this role to the service account for access to Secret Manager secrets containing the Oracle SYS and SYSTEM user passwords.
+- `roles/secretmanager.secretAccessor` - Grants access to retrieve passwords from Secret Manager.
+- `roles/monitoring.metricWriter` - Required only if the --install-workload-agent and --oracle-metrics-secret flags are set. This allows the workoload agent to write metrics to Cloud Monitoring.
+- `roles/compute.viewer` -  Required only if the --install-workload-agent and --oracle-metrics-secret flags are set. Needed by the workload agent.
 
 ### 2. Firewall Rule for Internal IP Access
 Create a VPC firewall rule that allows ingress on TCP port 22 (or your custom SSH port) from the control node VM to the target VM.  
