@@ -46,3 +46,13 @@
     PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
   no_log: true
   tags: workload-agent
+
+- name: Copy workload-agent's configuration file to the database VM
+  template:
+    src: "configuration.json.j2"
+    dest: "/etc/google-cloud-workload-agent/configuration.json"
+    owner: root
+    group: root
+    mode: u=rw,go=r
+  notify: Restart workload-agent
+  tags: workload-agent

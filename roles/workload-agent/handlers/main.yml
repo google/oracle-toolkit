@@ -13,14 +13,8 @@
 # limitations under the License.
 
 ---
-- name: Install Google Cloud Agent for Compute Workloads
-  include_tasks:
-    file: install.yml
-  tags: workload-agent
-
-- name: Configure Google Cloud Agent for Compute Workloads to collect Oracle metrics and send them to Google Cloud Monitoring
-  include_tasks:
-    file: metric_collection.yml
-  when:
-    - oracle_metrics_secret | length > 0
+- name: Restart workload-agent
+  service:
+    name: google-cloud-workload-agent
+    state: restarted
   tags: workload-agent

@@ -1,0 +1,21 @@
+{
+  "log_level": "INFO",
+  "oracle_configuration": {
+    "enabled": true,
+    "oracle_metrics": {
+      "enabled": true,
+      "connection_parameters": [
+        {
+          "host": "{{ inventory_hostname }}",
+          "port": 1521,
+          "service_name": "{{ oracle_sid }}",
+          "username": "{{ workload_agent_username }}",
+          "secret": {
+            "project_id": "{{ oracle_metrics_secret.split('/')[1] }}",
+            "secret_name": "{{ oracle_metrics_secret.split('/')[3] }}"
+          }
+        }
+      ]
+    }
+  }
+}
