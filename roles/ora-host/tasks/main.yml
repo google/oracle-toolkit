@@ -132,34 +132,12 @@
     - oracle_metrics_secret | length > 0
   tags: install-google-cloud-cli
 
-- name: Fetch and validate workload-agent's user password
-  command: gcloud --quiet secrets versions access {{ oracle_metrics_secret }}
-  register: result
-  failed_when: >
-    (result.stdout | length == 0) or
-    ("ERROR" in result.stderr) or 
-    (not (result.stdout is match(password_pattern)))
-  changed_when: false
-  no_log: true
+- name: Fetch and validate DB passwords
+  include_tasks:
+    file: validate_passwords.yml
   when:
-    - ansible_os_family == "RedHat"
-    - install_workload_agent | bool
-    - oracle_metrics_secret | length > 0
-  tags: validate-workload-agent-password
-
-- name: Fetch and validate DB password
-  command: gcloud --quiet secrets versions access {{ db_password_secret }}
-  register: db_password
-  failed_when: >
-    - ('ERROR' in db_password.stderr) or
-    - (db_password.stdout == '') or
-    - (not (db_password.stdout is match(password_pattern)))
-  changed_when: false
-  no_log: true
-  when:
-    - ansible_os_family == "RedHat"
-    - db_password_secret | length > 0
-  tags: validate-db-password
+  - ansible_os_family == "RedHat"
+  tags: validate-db-passwords
 
 - name: Add OS groups
   group:
