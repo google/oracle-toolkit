@@ -269,7 +269,7 @@ variable "db_password_secret" {
 variable "install_workload_agent" {
   description = "Whether to install workload-agent on the database VM."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "oracle_metrics_secret" {
