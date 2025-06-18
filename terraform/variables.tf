@@ -200,12 +200,6 @@ variable "project_id" {
   type        = string
 }
 
-variable "region" {
-  description = "The GCP region where the instance and related resources will be deployed (e.g., us-central1)."
-  type        = string
-  default     = "us-central1"
-}
-
 variable "vm_service_account" {
   description = "The service account used for managing compute instance permissions."
   type        = string
@@ -236,24 +230,6 @@ variable "source_image_project" {
   description = "The project where the source image is located."
   type        = string
   default     = "oracle-linux-cloud"
-}
-
-variable "network" {
-  description = "The name of the GCP network to which the instance will be attached."
-  type        = string
-  default     = "default"
-}
-
-variable "subnetwork" {
-  description = "The name of the GCP subnetwork to which the instance will be attached; customize if using custom subnet creation mode."
-  type        = string
-  default     = ""
-}
-
-variable "zone" {
-  description = "The specific availability zone within the selected GCP region (e.g., us-central1-b)."
-  type        = string
-  default     = "us-central1-b"
 }
 
 variable "assign_public_ip" {
@@ -303,4 +279,66 @@ variable "skip_database_config" {
   description = "Whether to skip database creation, and to simply install the Oracle software; Set to true if planning to migrate an existing database."
   type        = bool
   default     = false
+}
+
+# Single-instance input variables
+variable "region" {
+  description = "The GCP region where the instance and related resources will be deployed (e.g., us-central1)."
+  type        = string
+  default     = "us-central1"
+}
+
+variable "zone" {
+  description = "The specific availability zone within the selected GCP region (e.g., us-central1-b)."
+  type        = string
+  default     = "us-central1-b"
+}
+
+variable "network" {
+  description = "The name of the GCP network to which the instance will be attached."
+  type        = string
+  default     = "default"
+}
+
+variable "subnetwork" {
+  description = "The name of the GCP subnetwork to which the instance will be attached; customize if using custom subnet creation mode."
+  type        = string
+  default     = ""
+}
+
+# Multi-instance input variables
+variable "region1" {
+  description = "The region of the first VM in multi-instance setup. Used to build the subnetwork self-link."
+  type        = string
+  default     = ""
+}
+
+variable "region2" {
+  description = "The region of the second VM in multi-instance setup. Used to build the subnetwork self-link."
+  type        = string
+  default     = ""
+}
+
+variable "zone1" {
+  description = "The GCP zone to deploy the first VM in multi-instance setup. Must be within region1."
+  type        = string
+  default     = ""
+}
+
+variable "zone2" {
+  description = "The GCP zone to deploy the second VM in multi-instance setup. Must be within region2."
+  type        = string
+  default     = ""
+}
+
+variable "subnetwork1" {
+  description = "The name of the subnetwork to use for the first VM in multi-instance setup. Must exist in region1."
+  type        = string
+  default     = ""
+}
+
+variable "subnetwork2" {
+  description = "The name of the subnetwork to use for the second VM in multi-instance setup. Must exist in region2."
+  type        = string
+  default     = ""
 }
