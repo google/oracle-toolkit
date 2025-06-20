@@ -209,11 +209,21 @@ variable "region" {
 variable "vm_service_account" {
   description = "The service account used for managing compute instance permissions."
   type        = string
+
+  validation {
+    condition     = can(regex("^[a-z0-9._-]+@[a-z0-9.-]+[.]gserviceaccount[.]com$", var.vm_service_account))
+    error_message = "vm_service_account must look like an e-mail address ending in a subdomain of gserviceaccount.com https://cloud.google.com/iam/docs/service-account-types"
+  }
 }
 
 variable "control_node_service_account" {
   description = "The service account used by the control node."
   type        = string
+
+  validation {
+    condition     = can(regex("^[a-z0-9._-]+@[a-z0-9.-]+[.]gserviceaccount[.]com$", var.control_node_service_account))
+    error_message = "control_node_service_account must look like an e-mail address ending in a subdomain of gserviceaccount.com https://cloud.google.com/iam/docs/service-account-types"
+  }
 }
 
 variable "source_image_family" {
