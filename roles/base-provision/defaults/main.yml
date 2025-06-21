@@ -13,9 +13,6 @@
 # limitations under the License.
 
 ---
-os_family_supported: "RedHat"
-os_min_supported_version: "{% if free_edition %}8{% else %}7.3{% endif %}"
-
 etc_hosts_ip: "{% if 'virtualbox' in ansible_virtualization_type %}{{ ansible_all_ipv4_addresses[1] }}{% else %}{{ ansible_default_ipv4.address }}{% endif %}"
 install_os_packages: true
 
