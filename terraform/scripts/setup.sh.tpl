@@ -24,7 +24,7 @@ trap cleanup EXIT
 DEST_DIR="/oracle-toolkit"
 
 apt-get update
-apt-get install -y ansible python3-jmespath unzip
+apt-get install -y ansible python3-jmespath unzip python3-google-auth
 
 echo "Triggering SSH key creation via OS Login by running a one-time gcloud compute ssh command."
 echo "This ensures that a persistent SSH key pair is created and associated with your Google Account."
@@ -59,6 +59,15 @@ fi
 
 cd "$DEST_DIR"
 
+# Enable logging of Ansible tasks in JSON format to Google Cloud Logging
+cat <<EOF >> ./ansible.cfg
+callback_plugins = ./tools/callback_plugins
+
+[cloud_logging]
+project = $control_node_project_id
+EOF
+
+# Suppress output to avoid duplicate logs in Google Cloud Logging (already handled by gcp_logging.py Ansible plugin)
 bash install-oracle.sh \
 --instance-ssh-user "$ssh_user" \
 --instance-ssh-key /root/.ssh/google_compute_engine \
@@ -79,4 +88,4 @@ bash install-oracle.sh \
 %{ if skip_database_config }--skip-database-config %{ endif } \
 %{ if install_workload_agent }--install-workload-agent %{ endif } \
 %{ if oracle_metrics_secret != "" }--oracle-metrics-secret "${oracle_metrics_secret}" %{ endif } \
-%{ if db_password_secret != "" }--db-password-secret "${db_password_secret}" %{ endif }
+%{ if db_password_secret != "" }--db-password-secret "${db_password_secret}" %{ endif } > /dev/null
