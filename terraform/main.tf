@@ -79,62 +79,153 @@ locals {
   additional_disks = concat(local.fs_disks, local.asm_disks)
 
   project_id = var.project_id
+
+  is_multi_instance = (
+    var.zone1 != "" && var.zone2 != ""
+  )
+
+  instances = local.is_multi_instance ? {
+    node1 = {
+      name       = "${var.instance_name}-1"
+      zone       = var.zone1
+      region     = var.region1
+      network    = null
+      subnetwork = "projects/${var.project_id}/regions/${var.region1}/subnetworks/${var.subnetwork1}"
+    }
+    node2 = {
+      name       = "${var.instance_name}-2"
+      zone       = var.zone2
+      region     = var.region2
+      network    = null
+      subnetwork = "projects/${var.project_id}/regions/${var.region2}/subnetworks/${var.subnetwork2}"
+    }
+  } : {
+    default = {
+      name       = var.instance_name
+      zone       = var.zone
+      region     = var.region
+
+      # Include exactly one of these - never both
+      network    = var.network
+      subnetwork = var.network == "" && var.subnetwork != "" ? "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.subnetwork}": null
+    }
+  }
 }
 
-module "instance_template" {
-  source  = "terraform-google-modules/vm/google//modules/instance_template"
-  version = "~> 13.0"
 
-  name_prefix        = format("%s-template", var.instance_name)
-  region             = var.region
-  project_id         = local.project_id
-  network            = coalesce(var.network, var.subnetwork)
-  subnetwork         = coalesce(var.subnetwork, var.network)
-  subnetwork_project = local.project_id
-  service_account = {
-    email  = var.vm_service_account
-    scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+data "google_compute_image" "os_image" {
+  family  = var.source_image_family
+  project = var.source_image_project
+}
+
+resource "time_static" "template_suffix" {}
+
+locals {
+  template_suffix = formatdate("YYYYMMDDhhmmss", time_static.template_suffix.rfc3339)
+}
+
+resource "google_compute_instance_template" "default" {
+  name         = "${var.instance_name}-${local.template_suffix}"
+  project      = var.project_id
+  machine_type = var.machine_type
+
+  network_interface {
+    # gets overridden during instance creation
+    network = "default"
+  }
+  disk {
+    boot = true
+    auto_delete = true
+    source_image = data.google_compute_image.os_image.self_link
+    disk_type = var.boot_disk_type
+    disk_size_gb  = var.boot_disk_size_gb
   }
 
-  machine_type         = var.machine_type
-  source_image_family  = var.source_image_family
-  source_image_project = var.source_image_project
-  disk_size_gb         = var.boot_disk_size_gb
-  disk_type            = var.boot_disk_type
-  auto_delete          = true
+  dynamic "disk" {
+    for_each = local.additional_disks
+    content {
+      auto_delete       = lookup(disk.value, "auto_delete", null)
+      boot              = lookup(disk.value, "boot", null)
+      device_name       = lookup(disk.value, "device_name", null)
+      disk_size_gb      = lookup(disk.value, "disk_size_gb", null)
+      disk_type         = lookup(disk.value, "disk_type", null)
+      labels            = lookup(disk.value, "disk_labels", null)
+    }
+  }
 
+  service_account {
+    email  = var.vm_service_account
+    scopes = ["cloud-platform"]
+  }
 
   metadata = {
     metadata_startup_script = var.metadata_startup_script
     enable-oslogin          = "TRUE"
   }
 
-  additional_disks = local.additional_disks
-
   tags = var.network_tags
 }
 
-module "compute_instance" {
-  source  = "terraform-google-modules/vm/google//modules/compute_instance"
-  version = "~> 13.0"
+resource "google_compute_instance_from_template" "database_vm" {
+  for_each = local.instances
 
-  region              = var.region
-  zone                = var.zone
-  network            = coalesce(var.network, var.subnetwork)
-  subnetwork         = coalesce(var.subnetwork, var.network)
-  subnetwork_project  = local.project_id
-  hostname            = var.instance_name
-  instance_template   = module.instance_template.self_link
-  deletion_protection = false
+  name = each.value.name
+  zone = each.value.zone
+  project = var.project_id
+  source_instance_template = google_compute_instance_template.default.self_link
 
-  access_config = var.assign_public_ip ? [{
-    nat_ip       = null
-    network_tier = "PREMIUM"
-  }] : []
+  # Only one of network or subnetwork is expected to be set per instance, not both.
+  # Otherwise, Terraform will return an error:
+  # Exactly one of 'network' or 'subnetwork' must be provided.
+  dynamic "network_interface" {
+    for_each = (each.value.network != "" || each.value.subnetwork != "") ? [1] : []
+    content {
+      network    = each.value.network
+      subnetwork = each.value.subnetwork
+
+      dynamic "access_config" {
+        for_each = var.assign_public_ip ? [1] : []
+        content {}
+      }
+    }
+  }
+
 }
 
 resource "random_id" "suffix" {
   byte_length = 4
+}
+
+locals {
+  oracle_nodes = [
+    for vm in google_compute_instance_from_template.database_vm : {
+      name = vm.name
+      zone = vm.zone
+      ip   = vm.network_interface[0].network_ip
+    }
+  ]
+}
+
+locals {
+  common_flags = join(" ", compact([
+    length(local.asm_disk_config) > 0 ? "--ora-asm-disks-json '${jsonencode(local.asm_disk_config)}'" : "",
+    length(local.data_mounts_config) > 0 ? "--ora-data-mounts-json '${jsonencode(local.data_mounts_config)}'" : "",
+    "--swap-blk-device /dev/disk/by-id/google-swap",
+    var.ora_swlib_bucket != "" ? "--ora-swlib-bucket ${var.ora_swlib_bucket}" : "",
+    var.ora_version != "" ? "--ora-version ${var.ora_version}" : "",
+    var.ora_backup_dest != "" ? "--backup-dest ${var.ora_backup_dest}" : "",
+    var.ora_db_name != "" ? "--ora-db-name ${var.ora_db_name}" : "",
+    var.ora_db_container != "" ? "--ora-db-container ${var.ora_db_container}" : "",
+    var.ntp_pref != "" ? "--ntp-pref ${var.ntp_pref}" : "",
+    var.ora_release != "" ? "--ora-release ${var.ora_release}" : "",
+    var.ora_edition != "" ? "--ora-edition ${var.ora_edition}" : "",
+    var.ora_listener_port != "" ? "--ora-listener-port ${var.ora_listener_port}" : "",
+    var.ora_redo_log_size != "" ? "--ora-redo-log-size ${var.ora_redo_log_size}" : "",
+    var.db_password_secret != "" ? "--db-password-secret ${var.db_password_secret}" : "",
+    var.oracle_metrics_secret != "" ? "--oracle-metrics-secret ${var.oracle_metrics_secret}" : "",
+    var.install_workload_agent ? "--install-workload-agent" : "",
+    var.skip_database_config ? "--skip-database-config" : ""
+  ]))
 }
 
 resource "google_compute_instance" "control_node" {
@@ -142,7 +233,7 @@ resource "google_compute_instance" "control_node" {
   name         = "${var.control_node_name_prefix}-${random_id.suffix.hex}"
   machine_type = var.control_node_machine_type
   zone         = var.zone
-
+  
   scheduling {
     max_run_duration {
       seconds = 604800
@@ -174,33 +265,15 @@ resource "google_compute_instance" "control_node" {
 
   metadata_startup_script = templatefile("${path.module}/scripts/setup.sh.tpl", {
     gcs_source = var.gcs_source
-    instance_name = module.compute_instance.instances_details[0].name
-    instance_zone = module.compute_instance.instances_details[0].zone
-    ip_addr = module.compute_instance.instances_details[0].network_interface[0].network_ip
-    asm_disk_config = jsonencode(local.asm_disk_config)
-    data_mounts_config = jsonencode(local.data_mounts_config)
-    swap_blk_device = "/dev/disk/by-id/google-swap"
-    ora_swlib_bucket = var.ora_swlib_bucket
-    ora_version = var.ora_version
-    ora_backup_dest = var.ora_backup_dest
-    ora_db_name = var.ora_db_name
-    ora_db_container = var.ora_db_container
-    ntp_pref = var.ntp_pref
-    ora_release = var.ora_release
-    ora_edition = var.ora_edition
-    ora_listener_port = var.ora_listener_port
-    ora_redo_log_size = var.ora_redo_log_size
-    db_password_secret = var.db_password_secret
-    install_workload_agent = var.install_workload_agent
-    oracle_metrics_secret = var.oracle_metrics_secret
-    skip_database_config = var.skip_database_config
+    oracle_nodes_json = jsonencode(local.oracle_nodes)
+    common_flags = local.common_flags
   })
 
   metadata = {
     enable-oslogin = "TRUE"
   }
 
-  depends_on = [module.compute_instance]
+  depends_on = [google_compute_instance_from_template.database_vm]
 }
 
 output "control_node_log_url" {
