@@ -3,12 +3,12 @@
 set -Eeuo pipefail
 
 control_node_name="$(curl -s http://metadata.google.internal/computeMetadata/v1/instance/name -H 'Metadata-Flavor: Google')"
-# The zone value from the metadata server is in the format 'projects/PROJECT_NUMBER/zones/ZONE'. 
+# The zone value from the metadata server is in the format 'projects/PROJECT_NUMBER/zones/ZONE'.
 # extracting the last part
 control_node_zone_full="$(curl -s http://metadata.google.internal/computeMetadata/v1/instance/zone -H 'Metadata-Flavor: Google')"
 control_node_zone="$(basename "$control_node_zone_full")"
 control_node_project_id="$(curl -s http://metadata.google.internal/computeMetadata/v1/project/project-id -H 'Metadata-Flavor: Google')"
-  
+
 cleanup() {
   # https://cloud.google.com/compute/docs/troubleshooting/troubleshoot-os-login#invalid_argument
   echo "Deleting the public SSH key from the control node's service account OS Login profile to prevent exceeding the 32KiB limit"
@@ -89,6 +89,8 @@ bash install-oracle.sh \
 %{ if ora_listener_port != "" }--ora-listener-port "${ora_listener_port}" %{ endif } \
 %{ if ora_redo_log_size != "" }--ora-redo-log-size "${ora_redo_log_size}" %{ endif } \
 %{ if skip_database_config }--skip-database-config %{ endif } \
+%{ if ora_pga_target_mb != ""}--ora-pga-target-mb "${ora_pga_target_mb}" %{ endif } \
+%{ if ora_sga_target_mb != ""}--ora-sga-target-mb "${ora_sga_target_mb}" %{ endif } \
 %{ if install_workload_agent }--install-workload-agent %{ endif } \
 %{ if oracle_metrics_secret != "" }--oracle-metrics-secret "${oracle_metrics_secret}" %{ endif } \
 %{ if db_password_secret != "" }--db-password-secret "${db_password_secret}" %{ endif }

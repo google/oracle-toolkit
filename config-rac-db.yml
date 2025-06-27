@@ -13,6 +13,20 @@
 # limitations under the License.
 
 ---
+- name: Playbook pre_tasks
+  hosts: dbasm
+  gather_facts: false
+  pre_tasks:
+    - name: Check environment readiness
+      include_role:
+        name: common
+        tasks_from: readiness_checks.yml
+      vars:
+        control_node_checks: true
+        managed_host_checks: true
+        become_user_check: root
+      tags: readiness_checks
+
 - hosts: dbasm[0]
   tasks:
     - include_role:

@@ -34,17 +34,18 @@
     - "{{ check_oratab }}"
   tags: rac-db-create
 
+
 - name: rac-db-create | Adjust instance memory values (not 11.2 or 12.1)
   set_fact:
-    sga_target_bytes: "{{ sga_target }}"
-    pga_aggtar_bytes: "{{ pga_aggtar }}"
+    sga_target: "{{ ora_sga_target_mb }}M"
+    pga_target: "{{ ora_pga_target_mb }}M"
   when: oracle_ver not in ['11.2.0.4.0','12.1.0.2.0']
   tags: db-create
 
 - name: rac-db-create | Adjust instance memory values (11.2 and 12.1)
   set_fact:
-    sga_target_bytes: "{{ sga_target | regex_replace('M$', '') }}"
-    pga_aggtar_bytes: "{{ pga_aggtar | regex_replace('M$', '') }}"
+    sga_target: "{{ ora_sga_target_mb }}000000"
+    pga_target: "{{ ora_pga_target_mb }}000000"
   when: oracle_ver in ['11.2.0.4.0','12.1.0.2.0']
   tags: rac-db-create
 

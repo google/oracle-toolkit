@@ -194,6 +194,8 @@ resource "google_compute_instance" "control_node" {
     install_workload_agent = var.install_workload_agent
     oracle_metrics_secret = var.oracle_metrics_secret
     skip_database_config = var.skip_database_config
+    ora_pga_target_mb = var.ora_pga_target_mb
+    ora_sga_target_mb = var.ora_sga_target_mb
     deployment_name = var.deployment_name
   })
 

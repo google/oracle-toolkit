@@ -116,6 +116,10 @@ section_size: 32G
 # variable which defines usage of compressed backupsets for duplication
 backupset_compression: true
 
+# defaults for readiness check booleans
+control_node_checks: false
+managed_host_checks: false
+
 gi_software:
   - name: 21c_gi
     version: 21.3.0.0.0

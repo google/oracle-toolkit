@@ -129,8 +129,8 @@ oracle_metrics_secret: "{{ lookup('env','ORACLE_METRICS_SECRET')|lower|default('
 db_config_type: "{% if lookup('env','CLUSTER_TYPE')|default('NONE', true) in ('NONE', 'DG') %}SI{% elif lookup('env','CLUSTER_TYPE') == 'RAC' %}RAC{% endif %}"
 instance_num: 1
 memory_pct: 45
-sga_target: "{{ (ansible_memory_mb.real.total*memory_pct)//100 }}M"
-pga_aggtar: 150M
+ora_pga_target_mb: "{{ lookup('env','ORA_PGA_TARGET_MB')|int|default('150',true) }}"
+ora_sga_target_mb: "{{ lookup('env','ORA_SGA_TARGET_MB')|int|default((ansible_memory_mb.real.total*memory_pct)//100,true) }}"
 oracle_user: oracle
 oracle_group: oinstall
 grid_user: "{% if role_separation|bool %}grid{% else %}{{ oracle_user }}{% endif %}"
@@ -157,3 +157,11 @@ firsttime_connect_user: "customeradmin"
 control_node_key_file: "~/.ssh/id_rsa_oracle_toolkit"
 proxy_setup: "{{ lookup('env','ORA_PROXY_SETUP')|lower|default('false',true) }}"
 u01_lun: "{{ lookup('env','ORA_U01_LUN')|lower|default('',true) }}"
+
+#  Environment and infrastructure values (requirements) used for readiness checks
+minimum_ansible_version: 2.9
+os_supported_architecture: "x86_64"
+os_family_supported: "RedHat"
+os_min_supported_version: "{% if free_edition %}8{% else %}7.3{% endif %}"
+os_minimum_memory_mb: 2560
+os_minimum_swap_mb: 8192

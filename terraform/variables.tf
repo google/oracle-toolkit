@@ -305,6 +305,18 @@ variable "skip_database_config" {
   default     = false
 }
 
+variable "ora_pga_target_mb" {
+  description = "Oracle session private memory aggregate target, in MB."
+  type        = number
+  default     = 0
+}
+
+variable "ora_sga_target_mb" {
+  description = "Oracle shared memory target, in MB."
+  type        = number
+  default     = 0
+}
+
 variable "deployment_name" {
   description = "Name of the deployment provided by WLM"
   type        = string
