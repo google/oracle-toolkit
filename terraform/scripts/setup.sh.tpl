@@ -69,7 +69,7 @@ ignore_gcp_api_errors = false
 enable_async_logging = true
 EOF
 
-export "DEPLOYMENT_NAME=${deployment_name}"
+export DEPLOYMENT_NAME="${deployment_name}"
 
 bash install-oracle.sh \
 --instance-ssh-user "$ssh_user" \
