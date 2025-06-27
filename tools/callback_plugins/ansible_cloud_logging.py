@@ -117,7 +117,6 @@ class PlaybookStartMessage(TypedDict):
   check: bool
   limit: str
   env: dict[str, str]
-
   # WLM fields
   deployment_name: str
   state: str
@@ -146,7 +145,6 @@ class PlaybookTaskStartMessage(TypedDict):
   name: str
   host: str
   start_time: str
-
   # WLM fields
   deployment_name: str
   state: str
@@ -199,7 +197,6 @@ class PlaybookEndMessage(TypedDict):
   start_time: str
   end_time: str
   stats: dict[str, Any]
-
   # WLM fields
   deployment_name: str
   state: str
@@ -477,13 +474,6 @@ class CallbackModule(callback.CallbackBase):
     Args:
       playbook: ansible.playbook.Playbook.
     """
-    # fields required by WLM
-    self.start_msg["deployment_name"] = self.deployment_name
-    self.start_msg["state"] = "PLAYBOOK_START"
-    self.start_msg["timestamp"] = self.start_time
-    self.start_msg["file_name"] = playbook._file_name.rpartition("/")[2]
-    self.start_msg["base_dir"] = playbook._basedir
-
     self.start_msg["user"] = self.user
     self.start_msg["start_time"] = self.start_time
     self.start_msg["id"] = self.id
@@ -498,6 +488,12 @@ class CallbackModule(callback.CallbackBase):
       self.start_msg["limit"] = context.CLIARGS["subset"]
     if context.CLIARGS.get("check", False):
       self.start_msg["check"] = context.CLIARGS["check"]
+    # WLM fields
+    self.start_msg["deployment_name"] = self.deployment_name
+    self.start_msg["state"] = "PLAYBOOK_START"
+    self.start_msg["timestamp"] = self.start_time
+    self.start_msg["file_name"] = playbook._file_name.rpartition("/")[2]
+    self.start_msg["base_dir"] = playbook._basedir
 
   def v2_playbook_on_play_start(self, play: ansible.playbook.Play) -> None:
     """Plugin function that gets called when first connections are made.
@@ -524,29 +520,22 @@ class CallbackModule(callback.CallbackBase):
     time_now = self._time_now()
     self.logging_collector.send(
         PlaybookTaskStartMessage(
-            # WLM fields
-            state="TASK_START",
-            deployment_name=self.deployment_name,
-            timestamp=time_now,
-            step_name=task.get_name(),
-            # Non-WLM fields
             id=self.id,
             event_type="PLAYBOOK_TASK_START",
             task_id=task._uuid,
             name=task.get_name(),
             host=host.get_name(),
             start_time=time_now,
+            # WLM fields
+            state="TASK_START",
+            deployment_name=self.deployment_name,
+            timestamp=time_now,
+            step_name=task.get_name(),
         )
     )
 
     # Starts constructing event for task end.
     t = PlaybookTaskEndMessage(
-        # WLM fields
-        state="TASK_END",
-        step_name="",
-        timestamp="",
-        deployment_name="",
-        # Non-WLM fields
         id="",
         event_type="PLAYBOOK_TASK_END",
         task_id="",
@@ -556,18 +545,22 @@ class CallbackModule(callback.CallbackBase):
         end_time="",
         status="",
         result={},
+        # WLM fields
+        state="TASK_END",
+        step_name="",
+        timestamp="",
+        deployment_name="",
     )
-    # WLM fields
-    t["step_name"] = task.get_name()
-    t["timestamp"] = time_now
-    t["deployment_name"] = self.deployment_name
-    t["step_name"] = task.get_name()
-    # Non-WLM fields
     t["id"] = self.id
     t["task_id"] = task._uuid
     t["name"] = task.get_name()
     t["host"] = host.get_name()
     t["start_time"] = time_now
+    # WLM fields
+    t["step_name"] = task.get_name()
+    t["timestamp"] = time_now
+    t["deployment_name"] = self.deployment_name
+    t["step_name"] = task.get_name()
     self.tasks[(host.get_name(), task._uuid)] = t
 
   def v2_runner_on_failed(
@@ -626,34 +619,32 @@ class CallbackModule(callback.CallbackBase):
       stats: The stats object of type ansible.executor.stats.AggregateStats
     """
     msg = PlaybookEndMessage(
-        # WLM fields
-        state="PLAYBOOK_END",
-        deployment_name="",
-        timestamp="",
-        playbook_stats={},
-        # Non-WLM fields
         id="",
         event_type="PLAYBOOK_END",
         user="",
         start_time="",
         end_time="",
         stats={},
+        # WLM fields
+        state="PLAYBOOK_END",
+        deployment_name="",
+        timestamp="",
+        playbook_stats={},
     )
     hosts = sorted(stats.processed.keys())
     summary = {}
     for h in hosts:
       s = stats.summarize(h)
       summary[h] = s
-    # WLM fields
-    msg["deployment_name"] = self.deployment_name
-    msg["timestamp"] = self._time_now()
-    msg["playbook_stats"] = summary 
-     # Non-WLM fields
     msg["id"] = self.id
     msg["user"] = self.user
     msg["start_time"] = self.start_time
     msg["end_time"] = self._time_now()
     msg["stats"] = summary
+    # WLM fields
+    msg["deployment_name"] = self.deployment_name
+    msg["timestamp"] = self._time_now()
+    msg["playbook_stats"] = summary 
     self.logging_collector.send(msg)
     if self.enable_async_logging:
       self.logging_collector.send(None)
