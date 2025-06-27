@@ -304,3 +304,9 @@ variable "skip_database_config" {
   type        = bool
   default     = false
 }
+
+variable "deployment_name" {
+  description = "Name of the deployment provided by WLM"
+  type        = string
+  default     = ""
+}

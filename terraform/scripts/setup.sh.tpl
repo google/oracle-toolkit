@@ -65,9 +65,12 @@ callback_plugins = ./tools/callback_plugins
 
 [cloud_logging]
 project = $control_node_project_id
+ignore_gcp_api_errors = false
+enable_async_logging = true
 EOF
 
-# Suppress output to avoid duplicate logs in Google Cloud Logging (already handled by gcp_logging.py Ansible plugin)
+export "DEPLOYMENT_NAME=${deployment_name}"
+
 bash install-oracle.sh \
 --instance-ssh-user "$ssh_user" \
 --instance-ssh-key /root/.ssh/google_compute_engine \
@@ -88,4 +91,4 @@ bash install-oracle.sh \
 %{ if skip_database_config }--skip-database-config %{ endif } \
 %{ if install_workload_agent }--install-workload-agent %{ endif } \
 %{ if oracle_metrics_secret != "" }--oracle-metrics-secret "${oracle_metrics_secret}" %{ endif } \
-%{ if db_password_secret != "" }--db-password-secret "${db_password_secret}" %{ endif } > /dev/null
+%{ if db_password_secret != "" }--db-password-secret "${db_password_secret}" %{ endif }

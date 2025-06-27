@@ -14,21 +14,24 @@ import uuid
 
 import ansible
 from ansible import context
-# When Ansible runs, it dynamically and automatically constructs a namespace
-# (ansible_collections) and merges Ansible-provided and user-provided
-# module utilities to the dynamically-constructed namespace. See
-# https://docs.ansible.com/ansible/latest/dev_guide/developing_module_utilities.html#using-and-developing-module-utilities.
+
+# Ansible plugins and modules import utilities from a special namespace that doesn't
+# follow standard Python import behavior. At runtime, Ansible dynamically builds this
+# namespace (ansible_collections) by combining built-in utilities and any found in installed collections.
+# You must run the plugin within Ansible for the imports to work correctly.
+# Ansible sets up the import paths and injects collection-based utilities at runtime.
+# See more details here: https://docs.ansible.com/ansible/latest/dev_guide/developing_module_utilities.html#using-and-developing-module-utilities.
 from ansible.module_utils.parsing import convert_bool
 from ansible.plugins import callback
 from ansible_collections.google.cloud.plugins.module_utils.gcp_utils import GcpSession
 
 
 DOCUMENTATION = """
-  name: cloud_full_logging
+  name: ansible_cloud_logging
   type: aggregate
   options:
     project:
-      description: Project ID of the Google Cloud project to which logs are sent
+      description: The Google Cloud project ID where logs will be sent.
       required: true
       type: str
       env:
@@ -45,15 +48,15 @@ DOCUMENTATION = """
       ini:
         - section: cloud_logging
           key: log_name
-    ignore_errors:
-      description: If enabled (default) GCP API errors are ignored and Ansible will not exit early.
+    ignore_gcp_api_errors:
+      description: If enabled (default) GCP API errors are ignored and do not cause Ansible to fail.
       type: bool
       default: True
       env:
-        - name: ANSIBLE_CLOUD_LOGGING_IGNORE_ERRORS
+        - name: ANSIBLE_CLOUD_LOGGING_IGNORE_GCP_API_ERRORS
       ini:
         - section: cloud_logging
-          key: ignore_errors
+          key: ignore_gcp_api_errors
     print_uuid:
       description: If enabled, print the UUID of the Playbook execution.
       type: bool
@@ -63,15 +66,17 @@ DOCUMENTATION = """
       ini:
         - section: cloud_logging
           key: print_uuid
-    multiprocessing:
-      description: If enabled, use multiprocessing to send logs to GCP. This speeds up Ansible execution significantly.
+    enable_async_logging:
+      description: If True, log messages are queued and sent by a background thread 
+        to avoid blocking Ansible execution. If False, messages are sent
+        synchronously as they are emitted.
       type: bool
-      default: False
+      default: True
       env:
-        - name: ANSIBLE_CLOUD_LOGGING_MULTIPROCESSING
+        - name: ANSIBLE_CLOUD_LOGGING_ENABLE_ASYNC_LOGGING
       ini:
         - section: cloud_logging
-          key: multiprocessing
+          key: enable_async_logging
 """
 
 
@@ -113,7 +118,43 @@ class PlaybookStartMessage(TypedDict):
   limit: str
   env: dict[str, str]
 
+  # WLM fields
+  deployment_name: str
+  state: str
+  timestamp: str
+  file_name: str
+  base_dir: str
 
+
+class PlaybookTaskStartMessage(TypedDict):
+  """Defines the serializable message for a playbook task start event.
+
+  params:
+    id: Unique ID of the playbook execution.
+    event_type: Type of the event.
+    task_id: Unique ID of the task.
+    name: Name of the task.
+    host: Hostname of the host where the task is executed.
+    start_time: Timestamp when the task execution started.
+    end_time: Timestamp when the task execution ended.
+    status: Status of the task (OK, FAILED, SKIPPED, etc.)
+    result: Dictionary containing the execution result.
+  """
+  id: str
+  event_type: str
+  task_id: str
+  name: str
+  host: str
+  start_time: str
+
+  # WLM fields
+  deployment_name: str
+  state: str
+  timestamp: str
+  step_name: str
+
+
+# Not supported by WLM
 class PlaybookTaskEndMessage(TypedDict):
   """Defines the serializable message for a playbook task event.
 
@@ -140,29 +181,6 @@ class PlaybookTaskEndMessage(TypedDict):
   result: dict[str, Any]
 
 
-class PlaybookTaskStartMessage(TypedDict):
-  """Defines the serializable message for a playbook task start event.
-
-  params:
-    id: Unique ID of the playbook execution.
-    event_type: Type of the event.
-    task_id: Unique ID of the task.
-    name: Name of the task.
-    host: Hostname of the host where the task is executed.
-    start_time: Timestamp when the task execution started.
-    end_time: Timestamp when the task execution ended.
-    status: Status of the task (OK, FAILED, SKIPPED, etc.)
-    result: Dictionary containing the execution result.
-  """
-
-  id: str
-  event_type: str
-  task_id: str
-  name: str
-  host: str
-  start_time: str
-
-
 class PlaybookEndMessage(TypedDict):
   """Defines the serializable message for a playbook end event.
 
@@ -182,73 +200,75 @@ class PlaybookEndMessage(TypedDict):
   end_time: str
   stats: dict[str, Any]
 
+  # WLM fields
+  deployment_name: str
+  state: str
+  timestamp: str
+  playbook_stats: dict[str, Any]
+
 
 class CloudLoggingCollector:
-  """Provides a thread for collecting and sending logs to GCP Logging.
+  """Provides a thread for collecting and sending logs to Google Cloug Logging.
 
   Create a new CloudLoggingCollector instance by passing the project and
-  the log_name. New messages can be added to the queue via calling
-  CloudLoggingCollector.send(msg). The separate worker thread running in the
-  background will consume the queue until a "None" message has been received.
-
-  Make sure to run start_consuming() after initializing the instance of
-  CloudLoggingCollector to start all necessary worker threads.
+  the log_name. Log messages can be submitted using CloudLoggingCollector.send(msg). 
+  If enable_async_logging is set to True, messages are queued and processed by 
+  a background thread started via start_consuming(). Otherwise, messages are sent synchronously. 
+  The separate worker thread running in the background will consume the queue 
+  until a "None" message has been received. Make sure to run start_consuming() 
+  after initializing the instance of CloudLoggingCollector to start all necessary worker threads.
 
   Attributes:
-    project: The project ID of the Google Cloud project to which logs are sent.
+    project: The Google Cloud project ID where logs will be sent.
     log_name: The log ID of the log entry name.
-    multiprocessing: If enabled, use multiprocessing to send logs to GCP. This
-      speeds up Ansible execution significantly.
-    ignore_errors: If enabled, GCP API errors are ignored and Ansible will not
-      exit early.
+    enable_async_logging: If True, log messages are queued and sent by a background thread 
+      to avoid blocking Ansible execution. If False, messages are sent
+      synchronously as they are emitted.
+    ignore_gcp_api_errors: If enabled, GCP API errors are ignored and do not cause Ansible to fail.
     params: Parameters for the GcpSession class.
-    queue: The message queue for multiprocessing.
-    logging: The GcpSession instance for sending logs to GCP.
-    consumer: The thread consuming messages from the queue.
+    queue: Holds log messages when async logging is enabled.
+    gcp_session: Handles authenticated communication with the Google Cloud Logging API.
+    consumer: Background thread that processes log messages from the queue.
   """
 
   def __init__(
       self,
       project: str,
       log_name: str,
-      multiprocessing: bool,
-      ignore_errors: bool = False,
+      enable_async_logging: bool,
+      ignore_gcp_api_errors: bool = False,
   ):
     """Initializes the CloudLoggingCollector instance.
 
     Args:
-      project: The project ID of the Google Cloud project to which logs are
-        sent.
+      project: The Google Cloud project ID where logs will be sent.
       log_name: The log ID of the log entry name.
-      multiprocessing: If enabled, use multiprocessing to send logs to GCP. This
-        speeds up Ansible execution significantly.
-      ignore_errors: If enabled, GCP API errors are ignored and Ansible will not
-        exit early.
+      enable_async_logging: If True, log messages are queued and sent by a background thread 
+        to avoid blocking Ansible execution. If False, messages are sent
+        synchronously as they are emitted.
+      ignore_gcp_api_errors: If enabled, GCP API errors are ignored and do not cause Ansible to fail.
     """
     self.project = project
     self.log_name = log_name
-    self.multiprocessing = multiprocessing
-    self.ignore_errors = ignore_errors
-    # We have to define params for the GcpSession class.
-    # For some reason, it throws an error if these params are not defined.
+    self.enable_async_logging = enable_async_logging
+    self.ignore_gcp_api_errors = ignore_gcp_api_errors
     self.params = {
         "auth_kind": "application",
         "scopes": "https://www.googleapis.com/auth/logging.write",
     }
-    self.logging = GcpSession(self, "logging")
-    if self.multiprocessing:
+    self.gcp_session = GcpSession(self, "logging")
+    if self.enable_async_logging:
       self.queue = queue.Queue()
 
   def fail_json(self, **kwargs) -> None:
-    raise RuntimeError(kwargs.get("msg", "GCP Logging callback failed"))
+    raise RuntimeError(kwargs.get("msg", "An error occurred, but no message was provided"))
 
   def start_consuming(self) -> None:
-    """If multiprocessing enabled this function setups consumer and queue.
+    """Starts the background consumer thread.
 
-    If multiprocessing is disabled, this function is a no-op. We do not log
-    disabled multiprocessing to not destroy the Ansible CLI output.
+    If enable_async_logging is False, the method, is a no-op.
     """
-    if self.multiprocessing:
+    if self.enable_async_logging:
       self.consumer = threading.Thread(target=self.consume)
       self.consumer.start()
 
@@ -261,7 +281,7 @@ class CloudLoggingCollector:
           | PlaybookEndMessage
       ),
   ) -> None:
-    """Sends a log entry to GCP Logging."""
+    """Sends a log entry to Google Cloud Logging."""
     entry = {
         "logName": f"projects/{self.project}/logs/{self.log_name}",
         "resource": {
@@ -273,7 +293,7 @@ class CloudLoggingCollector:
         "jsonPayload": payload,
     }
     entries = {"entries": [entry]}
-    resp = self.logging.full_post(
+    resp = self.gcp_session.full_post(
         "https://logging.googleapis.com/v2/entries:write",
         json=entries,
     )
@@ -282,7 +302,7 @@ class CloudLoggingCollector:
           f"Received status code {resp.status_code} for log entry:"
           f" {resp.json()}"
       )
-      if not self.ignore_errors:
+      if not self.ignore_gcp_api_errors:
         print(
             "The Ansible playbook execution was terminated due to an error"
             " encountered while attempting to send execution logs to Cloud. For"
@@ -305,15 +325,15 @@ class CloudLoggingCollector:
     """Public send method to add a new log message to the queue.
 
     Args:
-      payload: The payload to be sent to GCP Logging.
+      payload: The payload to be sent to Google Cloug Logging.
     """
-    if self.multiprocessing:
+    if self.enable_async_logging:
       self.queue.put(payload)
       return
     self._send(payload)
 
   def consume(self):
-    """Consumes messages from the queue and sends them to GCP Logging."""
+    """Consumes messages from the queue and sends them to Google Cloug Logging."""
     while True:
       msg = self.queue.get()
       # if msg is None ensures that we break out of the loop to finish the
@@ -332,7 +352,7 @@ class CloudLoggingCollector:
 
 
 class CallbackModule(callback.CallbackBase):
-  """Ansible callback plugin to get execution data and invoke CloudLogging writer."""
+  """Ansible callback plugin that sends playbook logs to Google Cloud Logging in JSON format."""
 
   def __init__(self, display=None):
     super().__init__(display)
@@ -362,17 +382,20 @@ class CallbackModule(callback.CallbackBase):
     self.set_options()
     self.project = self.get_option("project")
     self.log_name = self.get_option("log_name")
-    self.ignore_errors = convert_bool.boolean(self.get_option("ignore_errors"))
+    # Convert string value from ansible.cfg to a proper boolean
+    self.ignore_gcp_api_errors = convert_bool.boolean(self.get_option("ignore_gcp_api_errors"))
     self.print_uuid = convert_bool.boolean(self.get_option("print_uuid"))
-    self.multiprocessing = convert_bool.boolean(
-        self.get_option("multiprocessing")
+    self.enable_async_logging = convert_bool.boolean(
+        self.get_option("enable_async_logging")
     )
+    # The optional deployment_name is passed in by Terraform.
+    self.deployment_name = os.environ.get("DEPLOYMENT_NAME", "UNSET_DEPLOYMENT_NAME")
 
     self.logging_collector = CloudLoggingCollector(
         project=self.project,
         log_name=self.log_name,
-        multiprocessing=self.multiprocessing,
-        ignore_errors=self.ignore_errors,
+        enable_async_logging=self.enable_async_logging,
+        ignore_gcp_api_errors=self.ignore_gcp_api_errors,
     )
     self.logging_collector.start_consuming()
 
@@ -388,7 +411,11 @@ class CallbackModule(callback.CallbackBase):
       var_options: Optional[Dict[str, str]] = None,
       direct: Optional[Dict[str, str]] = None,
   ) -> None:
-    """Sets the option for the callback module. Will be called by Ansible.
+    """Called by Ansible to initialize the callback plugin's configuration options.
+
+      This method sets internal options from Ansible's config system (e.g., ansible.cfg,
+      extra vars, or direct settings). Use self.get_option(<option_name>) to access these
+      values.
 
     Args:
       task_keys: Only passed through.
@@ -408,15 +435,15 @@ class CallbackModule(callback.CallbackBase):
     return f"{datetime.datetime.now(datetime.timezone.utc).isoformat()}"
 
   def _filter_env(self, env: dict[str, str]) -> dict[str, str]:
-    """Filters out the environment variables that are not needed.
+    """Filters out unnecessary environment variables before sending to Google Cloud Logging.
 
     Args:
-      env: The environment variables set for the playbook execution.
+      env: A dictionary of environment variables available during playbook execution.
 
     Returns:
-      A dictionary containing the filtered environment variables.
+      A new dictionary containing only the environment variables relevant for logging.
     """
-    wanted_prefix = ("ANSIBLE", "BORG", "WETLAB", "GUITAR", "GCE", "SENSIBLE")
+    wanted_prefix = ("ANSIBLE")
     return {
         k: v
         for k, v in env.items()
@@ -450,6 +477,13 @@ class CallbackModule(callback.CallbackBase):
     Args:
       playbook: ansible.playbook.Playbook.
     """
+    # fields required by WLM
+    self.start_msg["deployment_name"] = self.deployment_name
+    self.start_msg["state"] = "PLAYBOOK_START"
+    self.start_msg["timestamp"] = self.start_time
+    self.start_msg["file_name"] = playbook._file_name.rpartition("/")[2]
+    self.start_msg["base_dir"] = playbook._basedir
+
     self.start_msg["user"] = self.user
     self.start_msg["start_time"] = self.start_time
     self.start_msg["id"] = self.id
@@ -490,6 +524,12 @@ class CallbackModule(callback.CallbackBase):
     time_now = self._time_now()
     self.logging_collector.send(
         PlaybookTaskStartMessage(
+            # WLM fields
+            state="TASK_START",
+            deployment_name=self.deployment_name,
+            timestamp=time_now,
+            step_name=task.get_name(),
+            # Non-WLM fields
             id=self.id,
             event_type="PLAYBOOK_TASK_START",
             task_id=task._uuid,
@@ -501,6 +541,12 @@ class CallbackModule(callback.CallbackBase):
 
     # Starts constructing event for task end.
     t = PlaybookTaskEndMessage(
+        # WLM fields
+        state="TASK_END",
+        step_name="",
+        timestamp="",
+        deployment_name="",
+        # Non-WLM fields
         id="",
         event_type="PLAYBOOK_TASK_END",
         task_id="",
@@ -511,6 +557,12 @@ class CallbackModule(callback.CallbackBase):
         status="",
         result={},
     )
+    # WLM fields
+    t["step_name"] = task.get_name()
+    t["timestamp"] = time_now
+    t["deployment_name"] = self.deployment_name
+    t["step_name"] = task.get_name()
+    # Non-WLM fields
     t["id"] = self.id
     t["task_id"] = task._uuid
     t["name"] = task.get_name()
@@ -536,7 +588,8 @@ class CallbackModule(callback.CallbackBase):
       self, result: ansible.executor.task_result.TaskResult
   ) -> None:
     """Plugin function that gets called when a task succeeds."""
-    self._store_result_in_task(result, "OK")
+    # WLM expects "SUCCESS" instead of Ansible's "OK"
+    self._store_result_in_task(result, "SUCCESS")
 
   def v2_runner_on_skipped(
       self, result: ansible.executor.task_result.TaskResult
@@ -556,7 +609,8 @@ class CallbackModule(callback.CallbackBase):
     Args:
       result: The result object of type ansible.executor.result.Result
     """
-    self._store_result_in_task(result, "UNREACHABLE")
+     # WLM expects "FAILED" instead of Ansible's "UNREACHABLE"
+    self._store_result_in_task(result, "FAILED")
 
   def v2_playbook_on_stats(
       self, stats: ansible.executor.stats.AggregateStats
@@ -572,6 +626,12 @@ class CallbackModule(callback.CallbackBase):
       stats: The stats object of type ansible.executor.stats.AggregateStats
     """
     msg = PlaybookEndMessage(
+        # WLM fields
+        state="PLAYBOOK_END",
+        deployment_name="",
+        timestamp="",
+        playbook_stats={},
+        # Non-WLM fields
         id="",
         event_type="PLAYBOOK_END",
         user="",
@@ -584,12 +644,17 @@ class CallbackModule(callback.CallbackBase):
     for h in hosts:
       s = stats.summarize(h)
       summary[h] = s
+    # WLM fields
+    msg["deployment_name"] = self.deployment_name
+    msg["timestamp"] = self._time_now()
+    msg["playbook_stats"] = summary 
+     # Non-WLM fields
     msg["id"] = self.id
     msg["user"] = self.user
     msg["start_time"] = self.start_time
     msg["end_time"] = self._time_now()
     msg["stats"] = summary
     self.logging_collector.send(msg)
-    if self.multiprocessing:
+    if self.enable_async_logging:
       self.logging_collector.send(None)
       self.logging_collector.wait()
