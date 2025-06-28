@@ -207,6 +207,36 @@ ok: [VM_PUBLIC_IP]
 terraform destroy
 ```
 
+## Ansible Cloud Logging callback plugin
+
+This callback plugin sends Ansible playbook logs to Google Cloud Logging in structured JSON format.
+
+### Setup
+
+To enable the plugin, add the following to your ansible.cfg:
+
+```bash
+[defaults]
+callback_plugins = ./tools/callback_plugins
+```
+
+### Configuration (ansible.cfg)
+
+Under the [cloud_logging] section, you can configure:
+
+```bash
+[cloud_logging]
+project = your-project                   # Required: GCP project ID
+log_name = ansible_cloud_logging         # Optional: defaults to 'ansible_cloud_logging'
+ignore_gcp_api_errors = false            # Optional: if true (default), GCP API errors are ignored and do not cause Ansible to fail
+print_uuid = true                        # Optional: print UUID for each playbook execution
+enable_async_logging = true              # Optional:  If true (default), log messages are queued and sent by a background thread to avoid blocking Ansible execution
+```
+
+When enable_async_logging is enabled, logs are queued and sent by a background thread to avoid blocking Ansible execution. Otherwise, logs are sent synchronously.
+
+
+
 ## Troubleshooting
 
 ### Common Issues

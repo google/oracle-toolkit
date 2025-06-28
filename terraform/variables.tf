@@ -316,3 +316,9 @@ variable "ora_sga_target_mb" {
   type        = number
   default     = 0
 }
+
+variable "deployment_name" {
+  description = "Name of the deployment provided by WLM"
+  type        = string
+  default     = ""
+}
