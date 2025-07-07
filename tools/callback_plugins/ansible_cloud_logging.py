@@ -490,7 +490,7 @@ class CallbackModule(callback.CallbackBase):
       self.start_msg["check"] = context.CLIARGS["check"]
     # WLM fields
     self.start_msg["deployment_name"] = self.deployment_name
-    self.start_msg["state"] = "PLAYBOOK_START"
+    self.start_msg["state"] = "playbook_start"
     self.start_msg["timestamp"] = self.start_time
     self.start_msg["file_name"] = playbook._file_name.rpartition("/")[2]
     self.start_msg["base_dir"] = playbook._basedir
@@ -527,7 +527,7 @@ class CallbackModule(callback.CallbackBase):
             host=host.get_name(),
             start_time=time_now,
             # WLM fields
-            state="TASK_START",
+            state="task_start",
             deployment_name=self.deployment_name,
             timestamp=time_now,
             step_name=task.get_name(),
@@ -546,7 +546,7 @@ class CallbackModule(callback.CallbackBase):
         status="",
         result={},
         # WLM fields
-        state="TASK_END",
+        state="task_end",
         step_name="",
         timestamp="",
         deployment_name="",
@@ -575,14 +575,14 @@ class CallbackModule(callback.CallbackBase):
       ignore_errors: If set to True, no errors are processed. We set this to
         False on default, because we always want to process errors.
     """
-    self._store_result_in_task(result, "FAILED")
+    self._store_result_in_task(result, "failed")
 
   def v2_runner_on_ok(
       self, result: ansible.executor.task_result.TaskResult
   ) -> None:
     """Plugin function that gets called when a task succeeds."""
-    # WLM expects "SUCCESS" instead of Ansible's "OK"
-    self._store_result_in_task(result, "SUCCESS")
+    # WLM expects "success" instead of Ansible's "OK"
+    self._store_result_in_task(result, "success")
 
   def v2_runner_on_skipped(
       self, result: ansible.executor.task_result.TaskResult
@@ -592,7 +592,7 @@ class CallbackModule(callback.CallbackBase):
     Args:
       result: The result object of type ansible.executor.result.Result
     """
-    self._store_result_in_task(result, "SKIPPED")
+    self._store_result_in_task(result, "skipped")
 
   def v2_runner_on_unreachable(
       self, result: ansible.executor.task_result.TaskResult
@@ -602,8 +602,8 @@ class CallbackModule(callback.CallbackBase):
     Args:
       result: The result object of type ansible.executor.result.Result
     """
-     # WLM expects "FAILED" instead of Ansible's "UNREACHABLE"
-    self._store_result_in_task(result, "FAILED")
+     # WLM expects "failed" instead of Ansible's "UNREACHABLE"
+    self._store_result_in_task(result, "failed")
 
   def v2_playbook_on_stats(
       self, stats: ansible.executor.stats.AggregateStats
@@ -626,7 +626,7 @@ class CallbackModule(callback.CallbackBase):
         end_time="",
         stats={},
         # WLM fields
-        state="PLAYBOOK_END",
+        state="playbook_end",
         deployment_name="",
         timestamp="",
         playbook_stats={},
