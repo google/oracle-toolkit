@@ -67,6 +67,7 @@ callback_plugins = ./tools/callback_plugins
 project = $control_node_project_id
 ignore_gcp_api_errors = false
 enable_async_logging = true
+log_name = Ansible_logs
 EOF
 
 export DEPLOYMENT_NAME="${deployment_name}"
