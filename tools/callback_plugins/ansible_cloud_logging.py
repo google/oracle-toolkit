@@ -653,7 +653,9 @@ class CallbackModule(callback.CallbackBase):
     msg["end_time"] = self._time_now()
     msg["stats"] = summary
     # WLM fields
-    playbook_stats = {
+    msg["deployment_name"] = self.deployment_name
+    msg["timestamp"] = self._time_now()
+    msg["playbook_stats"] = {
       'processed': stats.processed,
       'failures': stats.failures,
       'ok': stats.ok,
@@ -661,9 +663,6 @@ class CallbackModule(callback.CallbackBase):
       'changed': stats.changed,
       'skipped': stats.skipped,
     }
-    msg["deployment_name"] = self.deployment_name
-    msg["timestamp"] = self._time_now()
-    msg["playbook_stats"] = playbook_stats
     msg["file_name"] = self.start_msg["file_name"]
     self.logging_collector.send(msg)
     if self.enable_async_logging:
