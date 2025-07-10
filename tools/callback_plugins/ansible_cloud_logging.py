@@ -7,6 +7,7 @@ import datetime
 import getpass
 import os
 import queue
+import json
 import sys
 import threading
 from typing import Any, Dict, Optional, TypedDict
@@ -25,6 +26,8 @@ from ansible.module_utils.parsing import convert_bool
 from ansible.plugins import callback
 from ansible_collections.google.cloud.plugins.module_utils.gcp_utils import GcpSession
 
+
+MAX_RESULT_SIZE = 256 * 1024  # 256 KB
 
 DOCUMENTATION = """
   name: ansible_cloud_logging
@@ -202,6 +205,7 @@ class PlaybookEndMessage(TypedDict):
   state: str
   timestamp: str
   playbook_stats: dict[str, Any]
+  file_name: str
 
 
 class CloudLoggingCollector:
@@ -296,15 +300,13 @@ class CloudLoggingCollector:
     )
     if resp.status_code != 200:
       print(
-          f"Received status code {resp.status_code} for log entry:"
-          f" {resp.json()}"
+          f"Received status code: {resp.status_code}\n"
+          f"Response: {resp.json()}"
       )
       if not self.ignore_gcp_api_errors:
         print(
             "The Ansible playbook execution was terminated due to an error"
-            " encountered while attempting to send execution logs to Cloud. For"
-            " detailed information regarding the error, please refer to the"
-            " following link: go/sap-ansible#ansible-logging",
+            " encountered while attempting to send execution logs to Google Cloud Logging.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -460,7 +462,15 @@ class CallbackModule(callback.CallbackBase):
     """
     host = result._host
     task = result._task
-    self.tasks[(host.get_name(), task._uuid)]["result"] = result._result.copy()
+
+    result_data = result._result.copy()
+    # Replace results that exceed Cloud Logging's 256KB payload limit with a warning
+    serialized = json.dumps(result_data)
+    if len(serialized.encode('utf-8')) > MAX_RESULT_SIZE:
+        result_data = {
+            "warning": f"Result omitted because it exceeded {MAX_RESULT_SIZE} bytes",
+        }
+    self.tasks[(host.get_name(), task._uuid)]["result"] = result_data
     self.tasks[(host.get_name(), task._uuid)]["end_time"] = self._time_now()
     self.tasks[(host.get_name(), task._uuid)]["status"] = status
     self.logging_collector.send(self.tasks[(host.get_name(), task._uuid)])
@@ -490,7 +500,7 @@ class CallbackModule(callback.CallbackBase):
       self.start_msg["check"] = context.CLIARGS["check"]
     # WLM fields
     self.start_msg["deployment_name"] = self.deployment_name
-    self.start_msg["state"] = "PLAYBOOK_START"
+    self.start_msg["state"] = "playbook_start"
     self.start_msg["timestamp"] = self.start_time
     self.start_msg["file_name"] = playbook._file_name.rpartition("/")[2]
     self.start_msg["base_dir"] = playbook._basedir
@@ -527,7 +537,7 @@ class CallbackModule(callback.CallbackBase):
             host=host.get_name(),
             start_time=time_now,
             # WLM fields
-            state="TASK_START",
+            state="task_start",
             deployment_name=self.deployment_name,
             timestamp=time_now,
             step_name=task.get_name(),
@@ -546,7 +556,7 @@ class CallbackModule(callback.CallbackBase):
         status="",
         result={},
         # WLM fields
-        state="TASK_END",
+        state="task_end",
         step_name="",
         timestamp="",
         deployment_name="",
@@ -575,14 +585,14 @@ class CallbackModule(callback.CallbackBase):
       ignore_errors: If set to True, no errors are processed. We set this to
         False on default, because we always want to process errors.
     """
-    self._store_result_in_task(result, "FAILED")
+    self._store_result_in_task(result, "failed")
 
   def v2_runner_on_ok(
       self, result: ansible.executor.task_result.TaskResult
   ) -> None:
     """Plugin function that gets called when a task succeeds."""
-    # WLM expects "SUCCESS" instead of Ansible's "OK"
-    self._store_result_in_task(result, "SUCCESS")
+    # WLM expects "success" instead of Ansible's "OK"
+    self._store_result_in_task(result, "success")
 
   def v2_runner_on_skipped(
       self, result: ansible.executor.task_result.TaskResult
@@ -592,7 +602,7 @@ class CallbackModule(callback.CallbackBase):
     Args:
       result: The result object of type ansible.executor.result.Result
     """
-    self._store_result_in_task(result, "SKIPPED")
+    self._store_result_in_task(result, "skipped")
 
   def v2_runner_on_unreachable(
       self, result: ansible.executor.task_result.TaskResult
@@ -602,8 +612,8 @@ class CallbackModule(callback.CallbackBase):
     Args:
       result: The result object of type ansible.executor.result.Result
     """
-     # WLM expects "FAILED" instead of Ansible's "UNREACHABLE"
-    self._store_result_in_task(result, "FAILED")
+     # WLM expects "failed" instead of Ansible's "UNREACHABLE"
+    self._store_result_in_task(result, "failed")
 
   def v2_playbook_on_stats(
       self, stats: ansible.executor.stats.AggregateStats
@@ -626,10 +636,11 @@ class CallbackModule(callback.CallbackBase):
         end_time="",
         stats={},
         # WLM fields
-        state="PLAYBOOK_END",
+        state="playbook_end",
         deployment_name="",
         timestamp="",
         playbook_stats={},
+        file_name="",
     )
     hosts = sorted(stats.processed.keys())
     summary = {}
@@ -644,7 +655,15 @@ class CallbackModule(callback.CallbackBase):
     # WLM fields
     msg["deployment_name"] = self.deployment_name
     msg["timestamp"] = self._time_now()
-    msg["playbook_stats"] = summary 
+    msg["playbook_stats"] = {
+      'processed': stats.processed,
+      'failures': stats.failures,
+      'ok': stats.ok,
+      'unreachable': stats.dark,
+      'changed': stats.changed,
+      'skipped': stats.skipped,
+    }
+    msg["file_name"] = self.start_msg["file_name"]
     self.logging_collector.send(msg)
     if self.enable_async_logging:
       self.logging_collector.send(None)
