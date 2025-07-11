@@ -928,23 +928,6 @@ if [ "${INSTANCE_HOSTGROUP_NAME}" != "dbasm" -a ! -r group_vars/${INSTANCE_HOSTG
 fi
 
 #
-# Build the inventory file if no inventory file specified on the command line
-#
-if [[ -z ${INVENTORY_FILE_PARAM} ]]; then
-  source common/build_inventory_file.sh
-  if ! INVENTORY_FILE=$(build_inventory_file); then
-    echo "Failed to generate Ansible inventory file"
-  fi
-else
-  INVENTORY_FILE="${INVENTORY_FILE_PARAM}"
-fi
-if [[ -f "${INVENTORY_FILE}" ]]; then
-  printf "\n\033[1;36m%s\033[m\n\n" "Inventory file for this execution: ${INVENTORY_FILE}."
-else
-  printf "\n\033[1;31m%s\033[m\n\n" "Cannot find the inventory file ${INVENTORY_FILE}; cannot continue."
-  exit 124
-fi
-#
 # Build the logfile for this session
 #
 if [[ "${CLUSTER_TYPE}" = "RAC" ]] || [[ "${CLUSTER_TYPE}" = "DG" ]]; then
@@ -992,6 +975,7 @@ export CLUSTER_CONFIG
 export CLUSTER_CONFIG_JSON
 export COMPATIBLE_RDBMS
 export INSTANCE_IP_ADDR
+export INSTANCE_HOSTNAME
 export NTP_PREF
 export ORA_DATA_DESTINATION
 export ORA_DB_CHARSET
@@ -1028,6 +1012,37 @@ export SWAP_BLK_DEVICE
 export DB_PASSWORD_SECRET
 export INSTALL_WORKLOAD_AGENT
 export ORACLE_METRICS_SECRET
+export INSTANCE_HOSTGROUP_NAME
+export INSTANCE_SSH_USER
+export INSTANCE_SSH_EXTRA_ARGS
+export INSTANCE_SSH_KEY
+
+#
+# Build the inventory file if no inventory file specified on the command line
+#
+if [[ -z ${INVENTORY_FILE_PARAM} ]]; then
+  INV_OUTPUT="$(python3 common/inventory_generator.py --output-dir ${INVENTORY_DIR} 2>&1)"
+  RC=$?
+  if [[ $RC -ne 0 ]]; then
+    echo "inventory_generator script failed with exit code $RC"
+    echo "Output: ${INV_OUTPUT}"
+    exit $RC
+  fi
+  INVENTORY_FILE=$(echo "$INV_OUTPUT" | grep "Successfully generated YAML inventory file:" | awk -F': ' '{print $2}')
+  if [[ -z "$INVENTORY_FILE" ]]; then
+    echo "Could not find generated file path in inventory_generator.py script output."
+    echo "Output: ${INV_OUTPUT}"
+    exit 1
+  fi
+else
+  INVENTORY_FILE="${INVENTORY_FILE_PARAM}"
+fi
+if [[ -f "${INVENTORY_FILE}" ]]; then
+  printf "\n\033[1;36m%s\033[m\n\n" "Inventory file for this execution: ${INVENTORY_FILE}."
+else
+  printf "\n\033[1;31m%s\033[m\n\n" "Cannot find the inventory file ${INVENTORY_FILE}; cannot continue."
+  exit 124
+fi
 
 echo -e "Running with parameters from command line or environment variables:\n"
 set | grep -E '^(ORA_|BACKUP_|GCS_|ARCHIVE_|INSTANCE_|PB_|ANSIBLE_|CLUSTER|PRIMARY)' | grep -v '_PARAM='
