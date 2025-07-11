@@ -1003,7 +1003,6 @@ export CLUSTER_CONFIG
 export CLUSTER_CONFIG_JSON
 export COMPATIBLE_RDBMS
 export INSTANCE_IP_ADDR
-export INSTANCE_HOSTNAME
 export NTP_PREF
 export ORA_DATA_DESTINATION
 export ORA_DB_CHARSET
@@ -1040,16 +1039,17 @@ export SWAP_BLK_DEVICE
 export DB_PASSWORD_SECRET
 export INSTALL_WORKLOAD_AGENT
 export ORACLE_METRICS_SECRET
-export INSTANCE_HOSTGROUP_NAME
-export INSTANCE_SSH_USER
-export INSTANCE_SSH_EXTRA_ARGS
-export INSTANCE_SSH_KEY
 
 #
 # Build the inventory file if no inventory file specified on the command line
 #
 if [[ -z ${INVENTORY_FILE_PARAM} ]]; then
-  INV_OUTPUT="$(python3 common/inventory_generator.py --output-dir ${INVENTORY_DIR} 2>&1)"
+  INV_OUTPUT="$(INSTANCE_HOSTNAME=${INSTANCE_HOSTNAME} \
+  INSTANCE_HOSTGROUP_NAME=${INSTANCE_HOSTGROUP_NAME} \
+  INSTANCE_SSH_USER=${INSTANCE_SSH_USER} \
+  INSTANCE_SSH_KEY=${INSTANCE_SSH_KEY} \
+  INSTANCE_SSH_EXTRA_ARGS=${INSTANCE_SSH_EXTRA_ARGS} \
+  python3 common/inventory_generator.py --output-dir ${INVENTORY_DIR} 2>&1)"
   RC=$?
   if [[ $RC -ne 0 ]]; then
     echo "inventory_generator script failed with exit code $RC"
