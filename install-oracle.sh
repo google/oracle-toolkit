@@ -928,86 +928,6 @@ if [ "${INSTANCE_HOSTGROUP_NAME}" != "dbasm" -a ! -r group_vars/${INSTANCE_HOSTG
 fi
 
 #
-# Build the inventory file if no inventory file specified on the command line
-#
-if [[ -z ${INVENTORY_FILE_PARAM} ]]; then
-  COMMON_OPTIONS="ansible_ssh_user=${INSTANCE_SSH_USER} ansible_ssh_private_key_file=${INSTANCE_SSH_KEY} ansible_ssh_extra_args=${INSTANCE_SSH_EXTRA_ARGS}"
-  #
-  # If $CLUSTER_TYPE = RAC then we use $CLUSTER_CONFIG[_JSON] to build the inventory file
-  #
-  if [[ "${CLUSTER_TYPE}" = "RAC" ]]; then
-    # We will be using jq to process the JSON configuration so we check if jq is installed on the system first
-    command -v jq >/dev/null 2>&1 || {
-      echo >&2 "jq is needed for the RAC feature but has not been detected in this system; cannot continue."
-      exit 2
-    }
-
-    # Verify that the cluster configuration exists
-    if [[ -z "${CLUSTER_CONFIG_JSON}" ]]; then
-      if [[ -f "${CLUSTER_CONFIG}" ]]; then
-        CLUSTER_CONFIG_JSON=$(<"${CLUSTER_CONFIG}")
-      else
-        printf "\n\033[1;31m%s\033[m\n\n" "Cluster type is set to ${CLUSTER_TYPE} but we cannot find the configuration file ${CLUSTER_CONFIG} and --cluster-config-json is empty; cannot continue."
-        exit 2
-      fi
-    fi
-
-    # Name of the inventory file
-    INVENTORY_FILE="${INVENTORY_FILE}_${ORA_DB_NAME}_${CLUSTER_TYPE}"
-
-    # We can now fill the inventory file with the information from the JSON file
-    echo "[${INSTANCE_HOSTGROUP_NAME}]" >"${INVENTORY_FILE}"
-
-    # jq filters for better visibility
-    OLDIFS="${IFS}"
-    IFS='' read -r -d '' JQF <<EOF
-    .[] | .nodes[] | .node_name + " ansible_ssh_host=" + .host_ip
-    + " vip_name=" + .vip_name + " vip_ip=" + .vip_ip
-EOF
-    IFS="${OLDIFS}"
-    echo "${CLUSTER_CONFIG_JSON}" | jq -rc "${JQF}" | awk -v COMMON_OPTIONS="${COMMON_OPTIONS}" '{print $0" " COMMON_OPTIONS}' >>"${INVENTORY_FILE}"
-
-    printf "\n" >>"${INVENTORY_FILE}"
-
-    echo "[${INSTANCE_HOSTGROUP_NAME}:vars]" >>"${INVENTORY_FILE}"
-
-    # jq filters for better visibility
-    OLDIFS="${IFS}"
-    IFS='' read -r -d '' JQF <<EOF
-    .[] |
-    with_entries(.value = if .value|type != "array" then .value else empty end) |
-    with_entries(select(.value != "")) |
-    to_entries[] | .key + "=" + .value
-EOF
-    IFS="${OLDIFS}"
-    echo "${CLUSTER_CONFIG_JSON}" | jq -rc "${JQF}" >>"${INVENTORY_FILE}"
-
-  elif [[ ! -z ${PRIMARY_IP_ADDR} ]]; then
-    INVENTORY_FILE="${INVENTORY_FILE}_${INSTANCE_HOSTNAME}_${ORA_DB_NAME}"
-    cat <<EOF >"${INVENTORY_FILE}"
-[${INSTANCE_HOSTGROUP_NAME}]
-${INSTANCE_HOSTNAME} ansible_ssh_host=${INSTANCE_IP_ADDR} ${COMMON_OPTIONS}
-
-[primary]
-primary1 ansible_ssh_host=${PRIMARY_IP_ADDR} ${COMMON_OPTIONS}
-EOF
-  else # Non RAC
-    INVENTORY_FILE="${INVENTORY_FILE}_${INSTANCE_HOSTNAME}_${ORA_DB_NAME}"
-    cat <<EOF >"${INVENTORY_FILE}"
-[${INSTANCE_HOSTGROUP_NAME}]
-${INSTANCE_HOSTNAME} ansible_ssh_host=${INSTANCE_IP_ADDR} ${COMMON_OPTIONS}
-EOF
-  fi # End of if RAC
-else
-  INVENTORY_FILE="${INVENTORY_FILE_PARAM}"
-fi
-if [[ -f "${INVENTORY_FILE}" ]]; then
-  printf "\n\033[1;36m%s\033[m\n\n" "Inventory file for this execution: ${INVENTORY_FILE}."
-else
-  printf "\n\033[1;31m%s\033[m\n\n" "Cannot find the inventory file ${INVENTORY_FILE}; cannot continue."
-  exit 124
-fi
-#
 # Build the logfile for this session
 #
 if [[ "${CLUSTER_TYPE}" = "RAC" ]] || [[ "${CLUSTER_TYPE}" = "DG" ]]; then
@@ -1091,6 +1011,38 @@ export SWAP_BLK_DEVICE
 export DB_PASSWORD_SECRET
 export INSTALL_WORKLOAD_AGENT
 export ORACLE_METRICS_SECRET
+
+#
+# Build the inventory file if no inventory file specified on the command line
+#
+if [[ -z ${INVENTORY_FILE_PARAM} ]]; then
+  INV_OUTPUT="$(INSTANCE_HOSTNAME=${INSTANCE_HOSTNAME} \
+  INSTANCE_HOSTGROUP_NAME=${INSTANCE_HOSTGROUP_NAME} \
+  INSTANCE_SSH_USER=${INSTANCE_SSH_USER} \
+  INSTANCE_SSH_KEY=${INSTANCE_SSH_KEY} \
+  INSTANCE_SSH_EXTRA_ARGS=${INSTANCE_SSH_EXTRA_ARGS} \
+  python3 common/inventory_generator.py --output-dir ${INVENTORY_DIR} 2>&1)"
+  RC=$?
+  if [[ $RC -ne 0 ]]; then
+    echo "inventory_generator script failed with exit code $RC"
+    echo "Output: ${INV_OUTPUT}"
+    exit $RC
+  fi
+  INVENTORY_FILE=$(echo "$INV_OUTPUT" | grep "Successfully generated YAML inventory file:" | awk -F': ' '{print $2}')
+  if [[ -z "$INVENTORY_FILE" ]]; then
+    echo "Could not find generated file path in inventory_generator.py script output."
+    echo "Output: ${INV_OUTPUT}"
+    exit 1
+  fi
+else
+  INVENTORY_FILE="${INVENTORY_FILE_PARAM}"
+fi
+if [[ -f "${INVENTORY_FILE}" ]]; then
+  printf "\n\033[1;36m%s\033[m\n\n" "Inventory file for this execution: ${INVENTORY_FILE}."
+else
+  printf "\n\033[1;31m%s\033[m\n\n" "Cannot find the inventory file ${INVENTORY_FILE}; cannot continue."
+  exit 124
+fi
 
 echo -e "Running with parameters from command line or environment variables:\n"
 set | grep -E '^(ORA_|BACKUP_|GCS_|ARCHIVE_|INSTANCE_|PB_|ANSIBLE_|CLUSTER|PRIMARY)' | grep -v '_PARAM='
