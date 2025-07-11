@@ -150,3 +150,18 @@
         name: patch-vulns
         tasks_from: main
   tags: patch-vulns
+  
+- hosts: dbasm
+  remote_user: "{{ oracle_user }}"
+  become: true
+  become_user: root
+
+  tasks:
+    - name: Ensure /u01/swlib is owned by oracle:oinstall
+      ansible.builtin.file:
+        path: "{{ swlib_path }}" # /u01/swlib
+        owner: "{{ oracle_user }}" # 'oracle'
+        group: "{{ oracle_group }}" # 'oinstall'
+        recurse: yes
+        state: directory
+  tags: fix_swlib_ownership
