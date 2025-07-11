@@ -150,6 +150,8 @@ and then specify its path using the `--cluster-config` parameter
 
 ## Command quick reference for DR deployments
 
+> **NOTE:** For additional background and further details on implementing Oracle Database Disaster Recovery (DR) using this toolkit, see the complementary document [Oracle Toolkit for Google Cloud - Disaster Recovery Configurations](disaster-recovery-configurations.md).
+
 The primary database must exist before you can create a standby database.
 
 When you create the primary database, omit the `--cluster-type` option or set it to `NONE`. To create the primary database, see [Single Instance Deployments section](#command-quick-reference-for-single-instance-deployments).
