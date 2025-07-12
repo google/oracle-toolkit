@@ -93,3 +93,33 @@
         tasks_from: dg_mode
       when: cluster_type == "DG"
       tags: dg-create,dg-mode
+
+- name: Get and Log Oracle DBID for All Databases
+  hosts: dbasm
+  remote_user: "{{ oracle_user }}"
+  become: true
+  become_user: oracle
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:{{ ansible_env.PATH }}"
+  tasks:
+    - name: Execute SQL query to get DBID
+      ansible.builtin.shell: |
+        set -o pipefail
+        sqlplus -s / as sysdba <<EOF
+        SELECT dbid FROM v\$database;
+        EXIT;
+        EOF
+      register: dbid_query_result
+      changed_when: false
+      failed_when: "'ORA-' in dbid_query_result.stderr"
+
+    - name: Extract DBID from query result
+      ansible.builtin.set_fact:
+        oracle_dbid: "{{ dbid_query_result.stdout_lines | select('match', '^\\d+$') | first | default('') | trim }}"
+
+    - name: Output DBID for Cloud Logging pipeline (example for stdout)
+      ansible.builtin.debug:
+        msg: "ORACLE_DBID: {{ oracle_dbid }}"
+      when: oracle_dbid is defined and oracle_dbid | length > 0

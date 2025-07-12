@@ -16,10 +16,7 @@
 # Variables used by more than one role
 pkg_mgr_lock_timeout: 180
 
-oracle_ver_dir: "{% if free_edition %}{% if oracle_ver[:4] == '23.2' or oracle_ver[:4] == '23.3' %}23c{% else %}{{ oracle_ver[:2] }}ai{% endif %}{% else %}{{ oracle_ver[:6] }}{% endif %}"
 oracle_inventory: "{{ oracle_root }}/oraInventory"
-oracle_base: "{% if free_edition %}/opt/oracle{% else %}{{ oracle_root }}/oracle{% endif %}"
-oracle_home: "{{ oracle_base }}/product/{{ oracle_ver_dir }}/{{ home_name }}"
 grid_home: "{{ oracle_root }}/{{ oracle_ver_dir }}/grid"
 grid_base: "{{ oracle_root }}/grid"
 

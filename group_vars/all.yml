@@ -141,6 +141,10 @@ oracle_sid: "{% if db_config_type == 'SI' %}{{ db_name }}{% else %}{{ db_name }}
 asm_sid: "{% if db_config_type == 'SI' %}+ASM{% else %}+ASM{{ instance_num }}{% endif %}"
 run_initial_bu: true
 password_pattern: "^[a-zA-Z0-9@+~*]{1,30}$"
+oracle_ver_dir: "{% if free_edition %}{% if oracle_ver[:4] == '23.2' or oracle_ver[:4] == '23.3' %}23c{% else %}{{ oracle_ver[:2] }}ai{% endif %}{% else %}{{ oracle_ver[:6] }}{% endif %}"
+oracle_base: "{% if free_edition %}/opt/oracle{% else %}{{ oracle_root }}/oracle{% endif %}"
+oracle_home: "{{ oracle_base }}/product/{{ oracle_ver_dir }}/{{ home_name }}"
+
 
 # Installation options:
 create_db: true
