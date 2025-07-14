@@ -58,7 +58,13 @@ class TestAnsibleInventoryGenerator(unittest.TestCase):
                         'ansible_ssh_host': '192.168.0.1',
                         'ansible_ssh_user': 'ansible',
                         'ansible_ssh_private_key_file': '/home/ansible/.ssh/ansible',
-                        'ansible_ssh_extra_args': '-o ServerAliveInterval=60 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o IdentityAgent=no'
+                        'ansible_ssh_extra_args': [
+                                '-o ServerAliveInterval=60',
+                                '-o ServerAliveCountMax=3',
+                                '-o StrictHostKeyChecking=no',
+                                '-o UserKnownHostsFile=/dev/null',
+                                '-o IdentityAgent=no'
+                        ]
                     }
                 }
             }
@@ -75,7 +81,13 @@ class TestAnsibleInventoryGenerator(unittest.TestCase):
                         'vip_ip': '192.168.0.101',
                         'ansible_ssh_user': 'ansible',
                         'ansible_ssh_private_key_file': '/home/ansible/.ssh/ansible',
-                        'ansible_ssh_extra_args': '-o ServerAliveInterval=60 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o IdentityAgent=no'
+                        'ansible_ssh_extra_args': [
+                                '-o ServerAliveInterval=60',
+                                '-o ServerAliveCountMax=3',
+                                '-o StrictHostKeyChecking=no',
+                                '-o UserKnownHostsFile=/dev/null',
+                                '-o IdentityAgent=no'
+                        ]
                     }
                 },
                 'vars': {
@@ -138,7 +150,8 @@ class TestAnsibleInventoryGenerator(unittest.TestCase):
             'INSTANCE_SSH_USER': 'ansible',
             'INSTANCE_SSH_KEY': '/home/ansible/.ssh/ansible',
             'INSTANCE_HOSTGROUP_NAME': 'gce',
-            'CLUSTER_TYPE': 'NONE'
+            'CLUSTER_TYPE': 'NONE',
+            'INSTANCE_SSH_EXTRA_ARGS': '-o ServerAliveInterval=60 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o IdentityAgent=no',
         }
         with patch.dict(os.environ, env_vars, clear=True):
             generator = inventory_generator.AnsibleInventoryGenerator()
@@ -155,6 +168,7 @@ class TestAnsibleInventoryGenerator(unittest.TestCase):
             'CLUSTER_TYPE': 'RAC',
             'INSTANCE_SSH_USER': 'ansible',
             'INSTANCE_SSH_KEY': '/home/ansible/.ssh/ansible',
+            'INSTANCE_SSH_EXTRA_ARGS': '-o ServerAliveInterval=60 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o IdentityAgent=no',
         }
         with patch.dict(os.environ, env_vars, clear=True):
             generator = inventory_generator.AnsibleInventoryGenerator()

@@ -1040,6 +1040,7 @@ export DB_PASSWORD_SECRET
 export INSTALL_WORKLOAD_AGENT
 export ORACLE_METRICS_SECRET
 
+
 #
 # Build the inventory file if no inventory file specified on the command line
 #
