@@ -322,3 +322,20 @@ variable "deployment_name" {
   type        = string
   default     = ""
 }
+
+variable "data_guard_protection_mode" {
+  description = "Data Guard protection mode: one of 'Maximum Performance', 'Maximum Availability', or 'Maximum Protection'."
+  type        = string
+  validation {
+    condition     = contains(["Maximum Performance", "Maximum Availability", "Maximum Protection"], var.data_guard_protection_mode)
+    error_message = "data_guard_protection_mode must be one of: 'Maximum Performance', 'Maximum Availability', or 'Maximum Protection'."
+  }
+  default = "Maximum Availability"
+}
+
+
+variable "real_time_apply" {
+  description = "Whether to enable Real-Time Apply on the standby."
+  type        = bool
+  default     = true
+}

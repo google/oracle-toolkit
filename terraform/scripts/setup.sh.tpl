@@ -93,4 +93,5 @@ bash install-oracle.sh \
 %{ if ora_sga_target_mb != ""}--ora-sga-target-mb "${ora_sga_target_mb}" %{ endif } \
 %{ if install_workload_agent }--install-workload-agent %{ endif } \
 %{ if oracle_metrics_secret != "" }--oracle-metrics-secret "${oracle_metrics_secret}" %{ endif } \
-%{ if db_password_secret != "" }--db-password-secret "${db_password_secret}" %{ endif }
+%{ if data_guard_protection_mode != "" }--data-guard-protection-mode "${data_guard_protection_mode}" %{ endif } \
+%{ if real_time_apply }--real-time-apply %{ endif }

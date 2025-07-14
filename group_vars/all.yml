@@ -118,6 +118,11 @@ arch_bu_start_min: "{{ lookup('env','ARCHIVE_BACKUP_MIN')|default('30',true) }}"
 install_workload_agent: "{{ lookup('env','INSTALL_WORKLOAD_AGENT')|lower|default(false) }}"
 oracle_metrics_secret: "{{ lookup('env','ORACLE_METRICS_SECRET')|lower|default('', true)}}"
 
+# Data Guard modes
+real_time_apply: "{{ lookup('env','REAL_TIME_APPLY')|lower|default(true) }}"
+data_guard_protection_mode: "{{ lookup('env','DATA_GUARD_PROTECTION_MODE')|lower|default('Maximum Availability', true)}}"
+log_transport_mode: "{{ 'ASYNC' if data_guard_protection_mode | upper == 'MAXIMUM PERFORMANCE' else 'SYNC' }}"
+
 
 ## End of customizable Global Variables
 

@@ -13,7 +13,3 @@
 # limitations under the License.
 
 ---
-# Specify one of the Data Guard protection modes: "Maximum Performance", "Maximum Availability", or "Maximum Protection"
-data_guard_protection_mode: "Maximum Availability"
-real_time_apply: true
-log_transport_mode: "{{ 'ASYNC' if data_guard_protection_mode | upper == 'MAXIMUM PERFORMANCE' else 'SYNC' }}"
