@@ -211,7 +211,8 @@ locals {
     var.install_workload_agent ? "--install-workload-agent" : "",
     var.skip_database_config ? "--skip-database-config" : "",
     var.ora_pga_target_mb != "" ? "--ora-pga-target-mb ${var.ora_pga_target_mb}" : "",
-    var.ora_sga_target_mb != "" ? "--ora-sga-target-mb ${var.ora_pga_target_mb}": ""
+    var.ora_sga_target_mb != "" ? "--ora-sga-target-mb ${var.ora_pga_target_mb}": "",
+    var.data_guard_protection_mode != "" ? "--data-guard-protection-mode ${var.data_guard_protection_mode}": ""
   ]))
 }
 
