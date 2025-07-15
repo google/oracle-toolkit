@@ -297,7 +297,7 @@ variable "subnetwork1" {
   description = "The Resource URI of the GCP subnetwork to attach the instance to. Used for single-instance deployments and for the primary node in multi-instance Data Guard deployments."
   type        = string
   validation {
-    condition = can(regex("^projects/.+/regions/.+/subnetworks/.+$", var.subnetwork1))
+    condition = var.subnetwork1 == "" || can(regex("^projects/.+/regions/.+/subnetworks/.+$", var.subnetwork1))
     error_message = "Must be in the format: 'projects/<PROJECT_ID>/regions/<REGION>/subnetworks/<SUBNETWORK_NAME>'."
   }
   default     = ""
