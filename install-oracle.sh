@@ -875,7 +875,7 @@ if [[ -n "$ORACLE_METRICS_SECRET" && "$INSTALL_WORKLOAD_AGENT" == false ]]; then
   exit 1
 fi
 
-if [[ ! "$DATA_GUARD_PROTECTION_MODE" =~ $DATA_GUARD_PROTECTION_MODE_PARAM ]] && {
+[[ ! "$DATA_GUARD_PROTECTION_MODE" =~ $DATA_GUARD_PROTECTION_MODE_PARAM ]] && {
   echo "Incorrect parameter provided for data-guard-protection-mode: $DATA_GUARD_PROTECTION_MODE"
   echo "data-guard-protection-mode must be one of: 'Maximum Performance', 'Maximum Availability', or 'Maximum Protection'."
   exit 1
