@@ -254,6 +254,7 @@ resource "google_compute_instance" "control_node" {
     oracle_nodes_json = jsonencode(local.oracle_nodes)
     common_flags = local.common_flags
     deployment_name = var.deployment_name
+    data_guard_protection_mode = var.data_guard_protection_mode
   })
 
   metadata = {

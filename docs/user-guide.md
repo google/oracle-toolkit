@@ -2268,6 +2268,14 @@ enabled, passwords appear in logfiles.</td>
 <td></td>
 <td>Fully qualified name of the Secret Manager secret that stores the Oracle database user's password. This user is specifically configured for the workload-agent to enable metric collection. Expected format: "projects/your-project/secrets/your-secret-name/versions/your-version"</td>
 </tr>
+<tr>
+<td></td>
+<td><p><pre>
+--data-guard-protection-mode
+</pre></p></td>
+<td></td>
+<td>Specify one of the Data Guard protection modes: "Maximum Performance", "Maximum Availability", or "Maximum Protection".</td>
+</tr>
 </tbody>
 </table>
 
