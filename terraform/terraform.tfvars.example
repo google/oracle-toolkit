@@ -22,11 +22,11 @@ control_node_service_account = "your-control-node-service-account@your-project-i
 
 # Primary node for the Single-instance deployment
 zone1 = "us-central1-b"
-subnetwork1 = "default"
+subnetwork1 = "projects/your-project/regions/us-central1/subnetworks/default"
 
 # Standby node for the Multi-instance Data Guard deployment
 zone2 = "us-central1-c"
-subnetwork2 = "default"
+subnetwork2 = "projects/your-project/regions/us-central1/subnetworks/default"
 
 # Instance settings
 instance_name        = "orcl"
