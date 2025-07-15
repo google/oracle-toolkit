@@ -198,7 +198,6 @@ resource "google_compute_instance" "control_node" {
     ora_sga_target_mb = var.ora_sga_target_mb
     deployment_name = var.deployment_name
     data_guard_protection_mode = var.data_guard_protection_mode
-    real_time_apply = var.real_time_apply
   })
 
   metadata = {

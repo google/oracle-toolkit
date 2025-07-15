@@ -332,10 +332,3 @@ variable "data_guard_protection_mode" {
   }
   default = "Maximum Availability"
 }
-
-
-variable "real_time_apply" {
-  description = "Whether to enable Real-Time Apply on the standby."
-  type        = bool
-  default     = true
-}

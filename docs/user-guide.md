@@ -2276,14 +2276,6 @@ enabled, passwords appear in logfiles.</td>
 <td></td>
 <td>Specify one of the Data Guard protection modes: "Maximum Performance", "Maximum Availability", or "Maximum Protection".</td>
 </tr>
-<tr>
-<td></td>
-<td><p><pre>
---real-time-apply
-</pre></p></td>
-<td></td>
-<td>Whether to enable Real-Time Apply on the standby.</td>
-</tr>
 </tbody>
 </table>
 
