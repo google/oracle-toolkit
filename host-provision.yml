@@ -25,6 +25,20 @@
 # Inventory file may be updated with: ansible_ssh_private_key_file and ansible_ssh_user=ansible
 # Prior to calling the next steps (i.e.: install-oracle.sh)
 
+- name: Playbook pre_tasks
+  hosts: dbasm
+  gather_facts: false
+  pre_tasks:
+    - name: Check environment readiness
+      include_role:
+        name: common
+        tasks_from: readiness_checks.yml
+      vars:
+        control_node_checks: true
+        managed_host_checks: true
+        become_user_check: root
+      tags: readiness_checks
+
 - name: Create private public key pair locally
   hosts: localhost
   tasks:
@@ -42,12 +56,6 @@
     # ansible_ssh_extra_args can be input as a command line or the following reasonable default may be used:
     ansible_ssh_extra_args: "-o IdentityAgent=no"
   become: true
-  pre_tasks:
-    - name: Verify that Ansible on control node meets the version requirements
-      assert:
-        that: "ansible_version.full is version_compare('2.8', '>=')"
-        fail_msg: "You must update Ansible to at least 2.8 to use these playbooks"
-        success_msg: "Ansible version is {{ ansible_version.full }}, continuing"
   tasks:
     - include_role:
         name: host-provision

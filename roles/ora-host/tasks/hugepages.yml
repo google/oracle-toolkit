@@ -18,14 +18,28 @@
   register: v_Hugepagesize
   changed_when: false
 
+- name: hugepages | Calculate number of hugepages required
+  set_fact:
+    v_hugepages_required:  "{{ ((ora_sga_target_mb | int) * 1024 / (v_Hugepagesize.stdout | int) * (hugepages_ratio | float)) | round(0,'ceil') | int }}"
+
 - name: hugepages | Update the vm.nr_hugepages sysctl value
   sysctl:
     name: "vm.nr_hugepages"
-    value: "{{ (((ansible_memtotal_mb + 1) * (ram_pct_used | int) / 100) * 1024 / (v_Hugepagesize.stdout | int)) | round(0,'ceil') | int }}"
+    value: "{{ v_hugepages_required | string }}"
     state: present
     sysctl_set: true
     reload: true
-    ignoreerrors: true
+
+- name: hugepages | Fetch actual value of vm.nr_hugepages
+  command: sysctl -n vm.nr_hugepages
+  register: v_actual_hugepages_allocated
+  changed_when: false
+
+- name: hugepages | Assert that vm.nr_hugepages matches the expected value of {{ v_hugepages_required }}
+  assert:
+    that:
+      - v_actual_hugepages_allocated.stdout | int == v_hugepages_required | int
+    fail_msg: "Requested {{ v_hugepages_required }} hugepages to accommodate ora_sga_target_mb={{ ora_sga_target_mb }}, but only got {{ v_actual_hugepages_allocated.stdout }}.  Your requested SGA memory size is likely too large for the available memory."
 
 - name: hugepages | Capture transparent hugepage status
   shell: ( cat /sys/kernel/mm/transparent_hugepage/enabled ) || true

@@ -13,22 +13,19 @@
 # limitations under the License.
 
 ---
-- hosts: dbasm
+- name: Playbook pre_tasks
+  hosts: dbasm
   gather_facts: false
   pre_tasks:
-    - name: Verify that Ansible on control node meets the version requirements
-      assert:
-        that: "ansible_version.full is version_compare('2.8', '>=')"
-        fail_msg: "You must update Ansible to at least 2.8 to use these playbooks"
-        success_msg: "Ansible version is {{ ansible_version.full }}, continuing"
-    - block:
-        - name: Confirm JSON parsing works
-          assert:
-            that: "{{ '{}' | json_query('[0]') == None }}"
-      rescue:
-        - name: Check for JSON parse failure
-          fail:
-            msg: "You probably need to install Python jmespath on the control node"
+    - name: Check environment readiness
+      include_role:
+        name: common
+        tasks_from: readiness_checks.yml
+      vars:
+        control_node_checks: true
+        managed_host_checks: true
+        become_user_check: root
+      tags: readiness_checks
 
   tasks:
     - name: Test connectivity to target instance via ping

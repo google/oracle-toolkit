@@ -13,10 +13,21 @@
 # limitations under the License.
 
 ---
-- name: Populate variables
+- name: Playbook pre_tasks
   hosts: dbasm
-  tasks:
-    - include_role:
+  gather_facts: false
+  pre_tasks:
+    - name: Check environment readiness
+      include_role:
+        name: common
+        tasks_from: readiness_checks.yml
+      vars:
+        control_node_checks: true
+        managed_host_checks: true
+        become_user_check: root
+      tags: readiness_checks
+    - name: Determine specific release
+      include_role:
         name: common
         tasks_from: populate-vars.yml
 

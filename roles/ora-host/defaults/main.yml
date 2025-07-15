@@ -18,6 +18,9 @@ disable_firewall: false
 disable_selinux: true
 firewall_service: "{% if ansible_distribution_major_version | int == 6 %}iptables{% elif ansible_distribution_major_version | int >= 7 %}firewalld{% else %}0{% endif %}"
 
+# Ratio of hugepage size to SGA size.  A value of 1.05 allocates 5% more hugepage memory than SGA size would dictate.
+hugepages_ratio: 1.05
+
 package_repository_files:
   - "redhat.repo"
   - "rh-cloud.repo"
@@ -100,12 +103,6 @@ oracle_required_rpms_el9:
   - libXrender
   - policycoreutils
   - policycoreutils-python-utils
-
-# Set parameter for kernel shared memory segments, related to but independent from memory_pct which is used to calculate SGA_TARGET:
-#   - If memory_pct is set and is less than 50 percent, then use 50 percent
-#   - If memory_pct is set and is 50 percent or more, then use memory_pct
-#   - If memory_pct is not defined, use 65 percent
-ram_pct_used: "{{ (50 if memory_pct is defined and memory_pct < 50 else memory_pct) if memory_pct is defined else 65 }}"
 
 # Kernel parameters to check and report on pre-adjustment values when verbosity=1:
 sysctl_params:

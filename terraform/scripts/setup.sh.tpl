@@ -3,12 +3,12 @@
 set -Eeuo pipefail
 
 control_node_name="$(curl -s http://metadata.google.internal/computeMetadata/v1/instance/name -H 'Metadata-Flavor: Google')"
-# The zone value from the metadata server is in the format 'projects/PROJECT_NUMBER/zones/ZONE'. 
+# The zone value from the metadata server is in the format 'projects/PROJECT_NUMBER/zones/ZONE'.
 # extracting the last part
 control_node_zone_full="$(curl -s http://metadata.google.internal/computeMetadata/v1/instance/zone -H 'Metadata-Flavor: Google')"
 control_node_zone="$(basename "$control_node_zone_full")"
 control_node_project_id="$(curl -s http://metadata.google.internal/computeMetadata/v1/project/project-id -H 'Metadata-Flavor: Google')"
-  
+
 cleanup() {
   # https://cloud.google.com/compute/docs/troubleshooting/troubleshoot-os-login#invalid_argument
   echo "Deleting the public SSH key from the control node's service account OS Login profile to prevent exceeding the 32KiB limit"
@@ -24,7 +24,7 @@ trap cleanup EXIT
 DEST_DIR="/oracle-toolkit"
 
 apt-get update
-apt-get install -y ansible python3-jmespath unzip
+apt-get install -y ansible python3-jmespath unzip python3-google-auth
 
 control_node_sa="$(curl -s http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email -H 'Metadata-Flavor: Google')"
 echo "Downloading '${gcs_source}' to /tmp"
@@ -51,6 +51,18 @@ if [[ "$num_nodes" > 1 ]]; then
 fi
 
 cd "$DEST_DIR"
+
+# Enable logging of Ansible tasks in JSON format to Google Cloud Logging
+cat <<EOF >> ./ansible.cfg
+callback_plugins = ./tools/callback_plugins
+
+[cloud_logging]
+project = $control_node_project_id
+ignore_gcp_api_errors = false
+enable_async_logging = true
+EOF
+
+export DEPLOYMENT_NAME="${deployment_name}"
 
 for node in $(echo '${oracle_nodes_json}' | jq -c '.[]'); do
   node_name="$(echo "$node" | jq -r '.name')"

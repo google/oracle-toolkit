@@ -13,18 +13,6 @@
 # limitations under the License.
 
 ---
-- name: Validate OS family and version
-  assert:
-    that:
-      - "ansible_os_family == os_family_supported"
-      - "ansible_distribution_version is version_compare(os_min_supported_version, '>=')"
-  tags: oscheck
-
-- name: Validate architecture
-  assert:
-    that: "ansible_userspace_architecture == 'x86_64'"
-  tags: oscheck
-
 - name: Ensure yum is not running, send Ctrl-C if it is
   shell: pidof -x /usr/bin/yum /bin/yum | xargs -t -r -n 1 kill -INT
   when: install_os_packages
