@@ -18,9 +18,22 @@
     file: install.yml
   tags: workload-agent
 
-- name: Configure Google Cloud Agent for Compute Workloads to collect Oracle metrics and send them to Google Cloud Monitoring
+- name: Create a database user for the Google Cloud Agent for Compute Workloads to collect Oracle metrics
   include_tasks:
-    file: metric_collection.yml
+    file: create_db_user.yml
   when:
     - oracle_metrics_secret | length > 0
+    - "'primary1' in group_names"
+  tags: workload-agent
+
+- name: Copy workload-agent's configuration file to the database VM
+  template:
+    src: "configuration.json.j2"
+    dest: "/etc/google-cloud-workload-agent/configuration.json"
+    owner: root
+    group: root
+    mode: u=rw,go=r
+  when:
+    - oracle_metrics_secret | length > 0
+  notify: Restart workload-agent
   tags: workload-agent
