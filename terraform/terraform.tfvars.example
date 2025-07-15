@@ -20,21 +20,13 @@ project_id                   = "your-project-id"
 vm_service_account           = "your-vm-service-account@your-project-id.iam.gserviceaccount.com"
 control_node_service_account = "your-control-node-service-account@your-project-id.iam.gserviceaccount.com"
 
-# Either the single-instance or the multi-instance input variables must be specified.
-
-# Single-instance deployment
-region                       = "us-central1"
-zone                         = "us-central1-b"
-network                      = "default"
-subnetwork                   = "default"
-
-# Multi-instance Data Guard deployment
-region1 = "us-central1"
-region2 = "us-central1"
-subnetwork1 = "default"
-subnetwork2 = "default"
+# Primary node for the Single-instance deployment
 zone1 = "us-central1-b"
+subnetwork1 = "default"
+
+# Standby node for the Multi-instance Data Guard deployment
 zone2 = "us-central1-c"
+subnetwork2 = "default"
 
 # Instance settings
 instance_name        = "orcl"

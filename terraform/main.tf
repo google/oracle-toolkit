@@ -81,33 +81,25 @@ locals {
   project_id = var.project_id
 
   is_multi_instance = (
-    var.zone1 != "" && var.zone2 != ""
+    var.zone1 != "" && var.zone2 != "" && var.subnetwork1 != "" && var.subnetwork2 != ""
   )
 
   instances = local.is_multi_instance ? {
     node1 = {
       name       = "${var.instance_name}-1"
       zone       = var.zone1
-      region     = var.region1
-      network    = null
-      subnetwork = "projects/${var.project_id}/regions/${var.region1}/subnetworks/${var.subnetwork1}"
+      subnetwork = var.subnetwork1
     }
     node2 = {
       name       = "${var.instance_name}-2"
       zone       = var.zone2
-      region     = var.region2
-      network    = null
-      subnetwork = "projects/${var.project_id}/regions/${var.region2}/subnetworks/${var.subnetwork2}"
+      subnetwork = var.subnetwork2
     }
   } : {
     default = {
       name       = var.instance_name
-      zone       = var.zone
-      region     = var.region
-
-      # Include exactly one of these - never both
-      network    = var.network
-      subnetwork = var.network == "" && var.subnetwork != "" ? "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.subnetwork}": null
+      zone       = var.zone1
+      subnetwork = var.subnetwork1
     }
   }
 }
@@ -174,19 +166,12 @@ resource "google_compute_instance_from_template" "database_vm" {
   project = var.project_id
   source_instance_template = google_compute_instance_template.default.self_link
 
-  # Only one of network or subnetwork is expected to be set per instance, not both.
-  # Otherwise, Terraform will return an error:
-  # Exactly one of 'network' or 'subnetwork' must be provided.
-  dynamic "network_interface" {
-    for_each = (each.value.network != "" || each.value.subnetwork != "") ? [1] : []
-    content {
-      network    = each.value.network
-      subnetwork = each.value.subnetwork
+  network_interface {
+    subnetwork = each.value.subnetwork
 
-      dynamic "access_config" {
-        for_each = var.assign_public_ip ? [1] : []
-        content {}
-      }
+    dynamic "access_config" {
+      for_each = var.assign_public_ip ? [1] : []
+      content {}
     }
   }
 
@@ -224,7 +209,9 @@ locals {
     var.db_password_secret != "" ? "--db-password-secret ${var.db_password_secret}" : "",
     var.oracle_metrics_secret != "" ? "--oracle-metrics-secret ${var.oracle_metrics_secret}" : "",
     var.install_workload_agent ? "--install-workload-agent" : "",
-    var.skip_database_config ? "--skip-database-config" : ""
+    var.skip_database_config ? "--skip-database-config" : "",
+    var.ora_pga_target_mb != "" ? "--ora-pga-target-mb ${var.ora_pga_target_mb}" : "",
+    var.ora_sga_target_mb != "" ? "--ora-sga-target-mb ${var.ora_pga_target_mb}": ""
   ]))
 }
 
@@ -232,7 +219,7 @@ resource "google_compute_instance" "control_node" {
   project      = var.project_id
   name         = "${var.control_node_name_prefix}-${random_id.suffix.hex}"
   machine_type = var.control_node_machine_type
-  zone         = var.zone
+  zone         = var.zone1
   
   scheduling {
     max_run_duration {
@@ -248,8 +235,7 @@ resource "google_compute_instance" "control_node" {
   }
 
   network_interface {
-    network            = coalesce(var.network, var.subnetwork)
-    subnetwork         = coalesce(var.subnetwork, var.network)
+    subnetwork         = var.subnetwork1
     subnetwork_project = local.project_id
 
     dynamic "access_config" {
@@ -267,6 +253,7 @@ resource "google_compute_instance" "control_node" {
     gcs_source = var.gcs_source
     oracle_nodes_json = jsonencode(local.oracle_nodes)
     common_flags = local.common_flags
+    deployment_name = var.deployment_name
   })
 
   metadata = {

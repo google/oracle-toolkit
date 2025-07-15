@@ -281,65 +281,35 @@ variable "skip_database_config" {
   default     = false
 }
 
-# Single-instance input variables
-variable "region" {
-  description = "The GCP region where the instance and related resources will be deployed (e.g., us-central1)."
-  type        = string
-  default     = "us-central1"
-}
-
-variable "zone" {
-  description = "The specific availability zone within the selected GCP region (e.g., us-central1-b)."
+variable "zone1" {
+  description = "The GCP zone for deploying the instance in single-instance deployments, or for the primary node in multi-instance Data Guard deployments."
   type        = string
   default     = "us-central1-b"
 }
 
-variable "network" {
-  description = "The name of the GCP network to which the instance will be attached."
-  type        = string
-  default     = "default"
-}
-
-variable "subnetwork" {
-  description = "The name of the GCP subnetwork to which the instance will be attached; customize if using custom subnet creation mode."
-  type        = string
-  default     = ""
-}
-
-# Multi-instance input variables
-variable "region1" {
-  description = "The region of the first VM in multi-instance setup. Used to build the subnetwork self-link."
-  type        = string
-  default     = ""
-}
-
-variable "region2" {
-  description = "The region of the second VM in multi-instance setup. Used to build the subnetwork self-link."
-  type        = string
-  default     = ""
-}
-
-variable "zone1" {
-  description = "The GCP zone to deploy the first VM in multi-instance setup. Must be within region1."
-  type        = string
-  default     = ""
-}
-
 variable "zone2" {
-  description = "The GCP zone to deploy the second VM in multi-instance setup. Must be within region2."
+  description = "The GCP zone for deploying the secondary node in a multi-instance Data Guard deployment."
   type        = string
   default     = ""
 }
 
 variable "subnetwork1" {
-  description = "The name of the subnetwork to use for the first VM in multi-instance setup. Must exist in region1."
+  description = "The Resource URI of the GCP subnetwork to attach the instance to. Used for single-instance deployments and for the primary node in multi-instance Data Guard deployments."
   type        = string
+  validation {
+    condition = can(regex("^projects/.+/regions/.+/subnetworks/.+$", var.subnetwork1))
+    error_message = "Must be in the format: 'projects/<PROJECT_ID>/regions/<REGION>/subnetworks/<SUBNETWORK_NAME>'."
+  }
   default     = ""
 }
 
 variable "subnetwork2" {
-  description = "The name of the subnetwork to use for the second VM in multi-instance setup. Must exist in region2."
+  description = "The Resource URI of the GCP subnetwork to attach the secondary node to in a multi-instance Data Guard deployment."
   type        = string
+  validation {
+    condition = var.subnetwork2 == "" || can(regex("^projects/.+/regions/.+/subnetworks/.+$", var.subnetwork2))
+    error_message = "Must be in the format: 'projects/<PROJECT_ID>/regions/<REGION>/subnetworks/<SUBNETWORK_NAME>'."
+  }
   default     = ""
 }
 
