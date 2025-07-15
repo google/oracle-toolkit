@@ -14,7 +14,6 @@
 
 ---
 - name: Fetch workload agent user password from Secret Manager
-  delegate_to: primary1
   command: gcloud --quiet secrets versions access {{ oracle_metrics_secret }}
   register: result
   changed_when: false
@@ -25,14 +24,12 @@
   tags: workload-agent
 
 - name: Validate password format
-  delegate_to: primary1
   fail:
     msg: "Invalid password format. It must match this pattern: {{ password_pattern }}"
   when: not (result.stdout is match(password_pattern))
   tags: workload-agent
 
 - name: Create Oracle user for Google Cloud Agent for Compute Workloads
-  delegate_to: primary1
   become: true
   become_user: "{{ oracle_user }}"
   shell: |
@@ -48,14 +45,4 @@
     ORACLE_SID: "{{ oracle_sid }}"
     PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
   no_log: true
-  tags: workload-agent
-
-- name: Copy workload-agent's configuration file to the database VM
-  template:
-    src: "configuration.json.j2"
-    dest: "/etc/google-cloud-workload-agent/configuration.json"
-    owner: root
-    group: root
-    mode: u=rw,go=r
-  notify: Restart workload-agent
   tags: workload-agent
