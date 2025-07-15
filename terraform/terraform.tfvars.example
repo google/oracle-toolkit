@@ -65,4 +65,3 @@ install_workload_agent = true
 oracle_metrics_secret  = ""
 db_password_secret     = ""
 data_guard_protection_mode = "Maximum Availability"
-real_time_apply        = true
