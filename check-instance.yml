@@ -13,10 +13,60 @@
 # limitations under the License.
 
 ---
-- name: Playbook pre_tasks
+- name: Playbook main tasks
   hosts: dbasm
   gather_facts: false
-  pre_tasks:
+
+  tasks:
+    - name: Test connectivity to target instance using the ping module
+      ping:
+      register: ping_result
+      ignore_unreachable: true
+
+    - name: If reachable, ensure that the ping result was "pong"
+      fail:
+        msg: "The target server did not reply properly to the ping test. Details: {{ ping_result }}"
+      when: ping_result is not defined or 'ping' not in ping_result or ping_result.ping != "pong"
+
+    - name: Show the Control Node Python interpreter
+      debug:
+        var: ansible_playbook_python
+        verbosity: 1
+
+    - name: Show the Managed Node (target host) Python interpreter
+      debug:
+        var: discovered_interpreter_python
+        verbosity: 1
+
+    - name: Check that Python is installed in the target
+      raw: |-
+        if command -v python &> /dev/null || command -v python3 &> /dev/null; then
+          exit 0
+        else
+          echo "A python installation was not detected"
+          exit 1
+        fi
+      changed_when: false
+      failed_when: false
+      register: check_python
+
+    - name: Install Python if required
+      raw: |-
+        if command -v yum &> /dev/null; then
+          sudo yum install -y python3
+        else
+          echo "The yum utility was not detected - cannot install Python"
+          exit 1
+        fi
+      when: check_python.rc != 0
+      register: python_installation
+
+    - name: Python installation output
+      debug:
+        var: python_installation
+        verbosity: 1
+
+  post_tasks:
     - name: Check environment readiness
       include_role:
         name: common
@@ -26,40 +76,3 @@
         managed_host_checks: true
         become_user_check: root
       tags: readiness_checks
-
-  tasks:
-    - name: Test connectivity to target instance via ping
-      ping:
-      register: pingrc
-
-    - name: Abort if ping module fails
-      assert:
-        that: "pingrc.ping == 'pong'"
-        fail_msg: >-
-          The instance does not have an usable python distribution
-        success_msg: >-
-          The instance has an usable python installation, continuing
-
-    - name: Collect facts from target
-      setup:
-
-    - name: Test privilege escalation on target
-      raw: sudo -u root whoami
-      register: rawrc
-      changed_when: false
-
-    - name: Fail if unable to sudo to root on target
-      assert:
-        that: "'root' in rawrc.stdout_lines"
-        fail_msg: "The account {{ ansible_user }} used to connect does not have sudo privileges to root"
-        success_msg: "The account {{ ansible_user }} used to connect has sudo root privileges, continuing"
-
-    - name: Check for Python installation
-      raw: test -e /usr/bin/python || test -e /usr/bin/python3
-      changed_when: false
-      failed_when: false
-      register: check_python
-
-    - name: Install Python if required
-      raw: sudo yum -y install python3
-      when: check_python.rc != 0

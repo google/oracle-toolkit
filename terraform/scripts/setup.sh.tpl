@@ -10,6 +10,10 @@ control_node_zone="$(basename "$control_node_zone_full")"
 control_node_project_id="$(curl -s http://metadata.google.internal/computeMetadata/v1/project/project-id -H 'Metadata-Flavor: Google')"
 
 cleanup() {
+  if [[ -n "$heartbeat_pid" ]]; then
+    echo "Stopping heartbeat process $heartbeat_pid"
+    kill -9 "$heartbeat_pid" 2>/dev/null
+  fi
   # https://cloud.google.com/compute/docs/troubleshooting/troubleshoot-os-login#invalid_argument
   echo "Deleting the public SSH key from the control node's service account OS Login profile to prevent exceeding the 32KiB limit"
   if ! gcloud --quiet compute os-login ssh-keys remove --key-file=/root/.ssh/google_compute_engine.pub; then
@@ -20,6 +24,34 @@ cleanup() {
 }
 
 trap cleanup EXIT
+
+CLOUD_LOG_NAME="Ansible_logs"
+HEARTBEAT_INTERVAL=60
+
+send_heartbeat() {
+  while true; do
+    timestamp=$(date --rfc-3339=seconds)
+    payload=$(cat <<EOF
+{
+  "heartbeat": "true",
+  "state": "heartbeat",
+  "timestamp": "$timestamp",
+  "deployment_name": "${deployment_name}",
+  "instanceName": "$control_node_name",
+  "zone": "$control_node_zone"
+}
+EOF
+)
+    gcloud logging write "$CLOUD_LOG_NAME" "$payload" --payload-type=json
+    sleep "$HEARTBEAT_INTERVAL"
+  done
+}
+
+send_heartbeat &
+heartbeat_pid=$!
+
+echo "Heartbeat started with PID $heartbeat_pid"
+
 
 DEST_DIR="/oracle-toolkit"
 
@@ -67,6 +99,7 @@ callback_plugins = ./tools/callback_plugins
 project = $control_node_project_id
 ignore_gcp_api_errors = false
 enable_async_logging = true
+log_name = $CLOUD_LOG_NAME
 EOF
 
 export DEPLOYMENT_NAME="${deployment_name}"
@@ -94,3 +127,26 @@ bash install-oracle.sh \
 %{ if install_workload_agent }--install-workload-agent %{ endif } \
 %{ if oracle_metrics_secret != "" }--oracle-metrics-secret "${oracle_metrics_secret}" %{ endif } \
 %{ if data_guard_protection_mode != "" }--data-guard-protection-mode "${data_guard_protection_mode}" %{ endif }
+
+if [[ $? -eq 0 ]]; then
+  state="ansible_completed_success"
+else
+  state="ansible_completed_failure"
+fi
+
+timestamp=$(date --rfc-3339=seconds)
+payload=$(cat <<EOF
+{
+  "state": "$state",
+  "event_type": "ANSIBLE_RUNNER_SCRIPT_END",
+  "timestamp": "$timestamp",
+  "deployment_name": "${deployment_name}",
+  "instanceName": "$control_node_name",
+  "zone": "$control_node_zone"
+}
+EOF
+)
+
+echo "Sending a signal to Cloud Logging to indicate Ansible completion status"
+echo "JSON payload to be sent: $payload"
+gcloud logging write "$CLOUD_LOG_NAME" "$payload" --payload-type=json
