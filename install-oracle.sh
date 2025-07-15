@@ -267,7 +267,7 @@ ORACLE_METRICS_SECRET="${ORACLE_METRICS_SECRET}"
 ORACLE_METRICS_SECRET_PARAM="^projects/[^/]+/secrets/[^/]+/versions/[^/]+$"
 
 DATA_GUARD_PROTECTION_MODE="${DATA_GUARD_PROTECTION_MODE}"
-DATA_GUARD_PROTECTION_MODE_PARAM=^(Maximum\ Performance|Maximum\ Availability|Maximum\ Protection)$
+DATA_GUARD_PROTECTION_MODE_PARAM="^(Maximum\ Performance|Maximum\ Availability|Maximum\ Protection)$"
 
 
 export ANSIBLE_DISPLAY_SKIPPED_HOSTS=false
