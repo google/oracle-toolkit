@@ -21,10 +21,11 @@
 - name: Create a database user for the Google Cloud Agent for Compute Workloads to collect Oracle metrics
   include_tasks:
     file: create_db_user.yml
+  # Run for single-instance setup or for the primary in multi-node Data Guard setup.
+  # For standby setup, install-oracle.sh generates the [primary] group in the inventory file.
   when:
     - oracle_metrics_secret | length > 0
-    - "'primary1' in group_names"
-  tags: workload-agent
+    - "groups['primary'] is not defined"
 
 - name: Copy workload-agent's configuration file to the database VM
   template:

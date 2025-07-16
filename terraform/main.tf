@@ -16,7 +16,6 @@ locals {
   fs_disks = [
     {
       auto_delete  = true
-      boot         = false
       device_name  = "oracle_home"
       disk_size_gb = var.oracle_home_disk.size_gb
       disk_type    = var.oracle_home_disk.type
@@ -26,7 +25,6 @@ locals {
   asm_disks = [
     {
       auto_delete  = true
-      boot         = false
       device_name  = "data"
       disk_size_gb = var.data_disk.size_gb
       disk_type    = var.data_disk.type
@@ -34,7 +32,6 @@ locals {
     },
     {
       auto_delete  = true
-      boot         = false
       device_name  = "reco"
       disk_size_gb = var.reco_disk.size_gb
       disk_type    = var.reco_disk.type
@@ -42,7 +39,6 @@ locals {
     },
     {
       auto_delete  = true
-      boot         = false
       device_name  = "swap"
       disk_size_gb = var.swap_disk_size_gb
       disk_type    = var.swap_disk_type
@@ -85,21 +81,21 @@ locals {
   )
 
   instances = local.is_multi_instance ? {
-    node1 = {
-      name       = "${var.instance_name}-1"
-      zone       = var.zone1
+    "${var.instance_name}-1" = {
+      zone = var.zone1
       subnetwork = var.subnetwork1
+      role = "primary"
     }
-    node2 = {
-      name       = "${var.instance_name}-2"
-      zone       = var.zone2
+    "${var.instance_name}-2" = {
+      zone = var.zone2
       subnetwork = var.subnetwork2
+      role = "standby"
     }
   } : {
-    default = {
-      name       = var.instance_name
-      zone       = var.zone1
+    "${var.instance_name}-1" = {
+      zone = var.zone1
       subnetwork = var.subnetwork1
+      role = "primary"
     }
   }
 }
@@ -123,7 +119,7 @@ resource "google_compute_instance_template" "default" {
 
   network_interface {
     # gets overridden during instance creation
-    network = "default"
+    subnetwork = var.subnetwork1
   }
   disk {
     boot = true
@@ -136,12 +132,12 @@ resource "google_compute_instance_template" "default" {
   dynamic "disk" {
     for_each = local.additional_disks
     content {
-      auto_delete       = lookup(disk.value, "auto_delete", null)
-      boot              = lookup(disk.value, "boot", null)
-      device_name       = lookup(disk.value, "device_name", null)
-      disk_size_gb      = lookup(disk.value, "disk_size_gb", null)
-      disk_type         = lookup(disk.value, "disk_type", null)
-      labels            = lookup(disk.value, "disk_labels", null)
+      boot = false
+      auto_delete = disk.value.auto_delete
+      device_name = disk.value.device_name
+      disk_size_gb = disk.value.disk_size_gb
+      disk_type = disk.value.disk_type
+      labels = disk.value.disk_labels
     }
   }
 
@@ -161,7 +157,7 @@ resource "google_compute_instance_template" "default" {
 resource "google_compute_instance_from_template" "database_vm" {
   for_each = local.instances
 
-  name = each.value.name
+  name = each.key
   zone = each.value.zone
   project = var.project_id
   source_instance_template = google_compute_instance_template.default.self_link
@@ -182,11 +178,12 @@ resource "random_id" "suffix" {
 }
 
 locals {
-  oracle_nodes = [
+  database_vm_nodes = [
     for vm in google_compute_instance_from_template.database_vm : {
       name = vm.name
       zone = vm.zone
-      ip   = vm.network_interface[0].network_ip
+      ip = vm.network_interface[0].network_ip
+      role = local.instances[vm.name].role
     }
   ]
 }
@@ -212,7 +209,7 @@ locals {
     var.skip_database_config ? "--skip-database-config" : "",
     var.ora_pga_target_mb != "" ? "--ora-pga-target-mb ${var.ora_pga_target_mb}" : "",
     var.ora_sga_target_mb != "" ? "--ora-sga-target-mb ${var.ora_pga_target_mb}": "",
-    var.data_guard_protection_mode != "" ? "--data-guard-protection-mode ${var.data_guard_protection_mode}": ""
+    var.data_guard_protection_mode != "" ? "--data-guard-protection-mode '${var.data_guard_protection_mode}'": ""
   ]))
 }
 
@@ -252,10 +249,9 @@ resource "google_compute_instance" "control_node" {
 
   metadata_startup_script = templatefile("${path.module}/scripts/setup.sh.tpl", {
     gcs_source = var.gcs_source
-    oracle_nodes_json = jsonencode(local.oracle_nodes)
+    database_vm_nodes_json = jsonencode(local.database_vm_nodes)
     common_flags = local.common_flags
     deployment_name = var.deployment_name
-    data_guard_protection_mode = var.data_guard_protection_mode
   })
 
   metadata = {

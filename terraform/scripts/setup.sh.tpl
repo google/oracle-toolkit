@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -Eeuo pipefail
-
 control_node_name="$(curl -s http://metadata.google.internal/computeMetadata/v1/instance/name -H 'Metadata-Flavor: Google')"
 # The zone value from the metadata server is in the format 'projects/PROJECT_NUMBER/zones/ZONE'.
 # extracting the last part
@@ -47,6 +45,31 @@ EOF
   done
 }
 
+send_ansible_completion_status() {
+  exit_code=$1
+  if [[ $exit_code -eq 0 ]]; then
+    state="ansible_completed_success"
+  else
+    state="ansible_completed_failure"
+  fi
+
+  timestamp=$(date --rfc-3339=seconds)
+  payload=$(cat <<EOF
+{
+  "state": "$state",
+  "event_type": "ANSIBLE_RUNNER_SCRIPT_END",
+  "timestamp": "$timestamp",
+  "deployment_name": "${deployment_name}",
+  "instanceName": "$control_node_name",
+  "zone": "$control_node_zone"
+}
+EOF
+  )
+echo "Sending a signal to Cloud Logging to indicate Ansible completion status"
+echo "JSON payload to be sent: $payload"
+gcloud logging write "$CLOUD_LOG_NAME" "$payload" --payload-type=json
+}
+
 send_heartbeat &
 heartbeat_pid=$!
 
@@ -69,14 +92,14 @@ mkdir -p "$DEST_DIR"
 echo "Extracting files from '$zip_file' to '$DEST_DIR'"
 unzip -o "/tmp/$zip_file" -d "$DEST_DIR"
 
-num_nodes="$(echo '${oracle_nodes_json}' | jq "length")"
+num_nodes="$(echo '${database_vm_nodes_json}' | jq "length")"
 echo "num_nodes=$num_nodes"
 
+primary_ip=""
 if [[ "$num_nodes" > 1 ]]; then
-  # extract the IP of the VM whose name ends with "-1"
-  primary_ip="$(echo '${oracle_nodes_json}' | jq -r '.[] | select(.name | endswith("-1")) | .ip')"
+  primary_ip="$(echo '${database_vm_nodes_json}' | jq -r '.[] | select(.role == "primary") | .ip')"
   if [[ -z "$primary_ip" ]]; then
-    echo "ERROR: Could not find a primary node ending with '-1'."
+    echo "ERROR: Could not find a primary node with role 'primary'."
     exit 1
   fi
   echo "PRIMARY_IP: $primary_ip"
@@ -97,7 +120,8 @@ EOF
 
 export DEPLOYMENT_NAME="${deployment_name}"
 
-for node in $(echo '${oracle_nodes_json}' | jq -c '.[]'); do
+ssh_user=""
+for node in $(echo '${database_vm_nodes_json}' | jq -c '.[] | select(.role == "primary")'); do
   node_name="$(echo "$node" | jq -r '.name')"
   node_ip="$(echo "$node" | jq -r '.ip')"
   node_zone="$(echo "$node" | jq -r '.zone')"
@@ -122,15 +146,40 @@ for node in $(echo '${oracle_nodes_json}' | jq -c '.[]'); do
     exit 1
   fi
 
-  if [[ "$num_nodes" -eq 1 || "$node_name" == *"-1" ]]; then
-    echo "Configuring PRIMARY or SINGLE instance: $node_name, IP: $node_ip, Zone: $node_zone"
+    echo "Configuring PRIMARY node: $node_name, IP: $node_ip, Zone: $node_zone"
     bash install-oracle.sh \
     --cluster-type NONE \
     --instance-ip-addr "$node_ip" \
     --instance-ssh-user "$ssh_user" \
     --instance-ssh-key /root/.ssh/google_compute_engine \
     ${common_flags}
-  elif [[ "$node_name" == *"-2" ]]; then
+    
+    exit_code=$?
+
+    if [[ $exit_code -ne 0 ]]; then
+      echo "Error: Primary setup failed for $node_name. Exiting."
+      send_ansible_completion_status $exit_code
+      exit 1
+    fi
+done
+
+
+if [[ "$num_nodes" -gt 1 ]]; then
+  for node in $(echo '${database_vm_nodes_json}' | jq -c '.[] | select(.role == "standby")'); do
+    node_name="$(echo "$node" | jq -r '.name')"
+    node_ip="$(echo "$node" | jq -r '.ip')"
+    node_zone="$(echo "$node" | jq -r '.zone')"
+
+    echo "Verifying primary node is reachable at $primary_ip..."
+
+    if ping -c 3 "$primary_ip"; then
+      echo "Primary node is reachable. Proceeding with standby setup."
+    else
+      echo "Error: Primary node $primary_ip is not reachable. Cannot continue with standby setup."
+      send_ansible_completion_status 1
+      exit 1
+    fi
+
     echo "Configuring STANDBY node: $node_name, IP: $node_ip, Zone: $node_zone"
     bash install-oracle.sh \
     --cluster-type DG \
@@ -139,29 +188,14 @@ for node in $(echo '${oracle_nodes_json}' | jq -c '.[]'); do
     --instance-ssh-user "$ssh_user" \
     --instance-ssh-key /root/.ssh/google_compute_engine \
     ${common_flags}
-  fi
-done
 
-
-if [[ $? -eq 0 ]]; then
-  state="ansible_completed_success"
-else
-  state="ansible_completed_failure"
+    exit_code=$?
+    if [[ $exit_code -ne 0 ]]; then
+      echo "Error: Standby setup failed for $node_name. Exiting."
+      send_ansible_completion_status $exit_code
+      exit $exit_code
+    fi
+  done
 fi
 
-timestamp=$(date --rfc-3339=seconds)
-payload=$(cat <<EOF
-{
-  "state": "$state",
-  "event_type": "ANSIBLE_RUNNER_SCRIPT_END",
-  "timestamp": "$timestamp",
-  "deployment_name": "${deployment_name}",
-  "instanceName": "$control_node_name",
-  "zone": "$control_node_zone"
-}
-EOF
-)
-
-echo "Sending a signal to Cloud Logging to indicate Ansible completion status"
-echo "JSON payload to be sent: $payload"
-gcloud logging write "$CLOUD_LOG_NAME" "$payload" --payload-type=json
+send_ansible_completion_status 0
