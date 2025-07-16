@@ -96,7 +96,7 @@ num_nodes="$(echo '${database_vm_nodes_json}' | jq "length")"
 echo "num_nodes=$num_nodes"
 
 primary_ip=""
-if [[ "$num_nodes" > 1 ]]; then
+if [[ "$num_nodes" -gt 1 ]]; then
   primary_ip="$(echo '${database_vm_nodes_json}' | jq -r '.[] | select(.role == "primary") | .ip')"
   if [[ -z "$primary_ip" ]]; then
     echo "ERROR: Could not find a primary node with role 'primary'."
@@ -159,7 +159,7 @@ for node in $(echo '${database_vm_nodes_json}' | jq -c '.[] | select(.role == "p
     if [[ $exit_code -ne 0 ]]; then
       echo "Error: Primary setup failed for $node_name. Exiting."
       send_ansible_completion_status $exit_code
-      exit 1
+      exit $exit_code
     fi
 done
 
