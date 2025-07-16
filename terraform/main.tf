@@ -100,7 +100,6 @@ locals {
   }
 }
 
-
 data "google_compute_image" "os_image" {
   family  = var.source_image_family
   project = var.source_image_project
@@ -265,4 +264,3 @@ output "control_node_log_url" {
   description = "Logs Explorer URL with Oracle Toolkit output"
   value       = "https://console.cloud.google.com/logs/query;query=resource.labels.instance_id%3D${urlencode(google_compute_instance.control_node.instance_id)};duration=P30D?project=${urlencode(var.project_id)}"
 }
-
