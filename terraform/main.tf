@@ -264,3 +264,8 @@ output "control_node_log_url" {
   description = "Logs Explorer URL with Oracle Toolkit output"
   value       = "https://console.cloud.google.com/logs/query;query=resource.labels.instance_id%3D${urlencode(google_compute_instance.control_node.instance_id)};duration=P30D?project=${urlencode(var.project_id)}"
 }
+
+output "database_vm_names" {
+  description = "Names of the created database VMs from instance templates"
+  value       = [for vm in google_compute_instance_from_template.database_vm : vm.name]
+}

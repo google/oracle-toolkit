@@ -20,7 +20,14 @@ This setup supports the deployment of the following configurations:
 This approach is particularly suitable for deploying and configuring:
 
 - Oracle databases on RHEL or Oracle Linux
-- High-availability configurations for database and application clusters
+- Two-node Oracle Data Guard deployments, where:
+
+   The user provides:
+
+   * zone1 and subnetwork1 for the primary node
+   * zone2 and subnetwork2 for the standby node
+
+   Only 2-node Data Guard setups are currently supported.
 
 ---
 
@@ -42,6 +49,22 @@ The Terraform module deploys the following elements:
 This infrastructure is modular and customizable, allowing you to tailor it to specific application needs or organizational requirements.
 
 ---
+
+## Instance naming convention
+For single-instance deployments, the VM will be named using the pattern:
+"<instance_name>-1".
+Example: If instance_name = "oracle-db", the resulting VM will be oracle-db-1.
+
+For multi-node Oracle Data Guard deployments:
+
+* Primary node: "<instance_name>-1"
+* Standby node: "<instance_name>-2"
+
+Example: If instance_name = "oracle-db", the primary VM will be oracle-db-1 and the standby VM will be oracle-db-2.
+
+
+---
+
 
 ## Pre-requisites
 
