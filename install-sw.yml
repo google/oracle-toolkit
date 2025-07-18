@@ -150,3 +150,14 @@
         name: patch-vulns
         tasks_from: main
   tags: patch-vulns
+  
+- hosts: dbasm
+  remote_user: "{{ oracle_user }}"
+  become: true
+  become_user: root
+  tasks:
+    - name: Run swlib post-installation ownership fix
+      include_role:
+        name: swlib
+        tasks_from: post-installation.yml
+      tags: fix-swlib-ownership
