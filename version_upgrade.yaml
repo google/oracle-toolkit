@@ -1,0 +1,26 @@
+rdbms_software:
+  - name: 23ai_free_23_8
+    version: 23.8.0.25.05
+    edition: FREE
+    files:
+      - { name: "oracle-database-preinstall-23ai-1.0-3.el8.x86_64.rpm", sha256sum: "4578e6d1cf566e04541e0216b07a0372725726a7c339423ee560255cb918xxxx", md5sum: "TmjqUT87XXwv7NbXGECpTA=="}
+      - { name: "oracle-database-free-23ai-23.8-2.el8.x86_64.rpm", sha256sum: "cd0d16939150e6ec5e70999a762a13687bfa99b05c4f310593e7ca3892e1xxxx", md5sum: "hkL/hxeYbXXz5lz+3r3kww=="}
+  - name: 23ai_free_23_9
+    version: 23.8.0.25.05
+    edition: FREE
+    files:
+      - { name: "oracle-database-preinstall-23ai-1.0-3.el8.x86_64.rpm", sha256sum: "4578e6d1cf566e04541e0216b07a0372725726a7c339423ee560255cb918xxxx", md5sum: "TmjqUT87XXwv7NbXGECpTA=="}
+      - { name: "oracle-database-free-23ai-23.8-2.el8.x86_64.rpm", sha256sum: "cd0d16939150e6ec5e70999a762a13687bfa99b05c4f310593e7ca3892e1xxxx", md5sum: "hkL/hxeYbXXz5lz+3r3kww=="}
+ 
+# 21c x86-64 uses 12.2.0.1 opatch as per the docs
+opatch_patches:
+  - { category: "OPatch", release: "11.2.0.4.0", patchnum: "6880880", patchfile: "p6880880_112000_Linux-x86-64.zip", md5sum: "" }
+  - { category: "OPatch", release: "12.1.0.2.0", patchnum: "6880880", patchfile: "p6880880_121010_Linux-x86-64.zip", md5sum: "" }
+  - { category: "OPatch", release: "12.2.0.1.0", patchnum: "6880880", patchfile: "p6880880_122010_Linux-x86-64.zip", md5sum: "" }
+  - { category: "OPatch", release: "18.0.0.0.0", patchnum: "6880880", patchfile: "p6880880_180000_Linux-x86-64.zip", md5sum: "" }
+  - { category: "OPatch", release: "19.3.0.0.0", patchnum: "6880880", patchfile: "p6880880_190000_Linux-x86-64.zip", md5sum: "" }
+  - { category: "OPatch", release: "21.3.0.0.0", patchnum: "6880880", patchfile: "p6880880_210000_Linux-x86-64.zip", md5sum: "" }
+
+gi_patches:
+  - { category: "RU", base: "19.3.0.0.0", release: "19.28.0.0.250715", patchnum: "37952382", patchfile: "p37952382_190000_Linux-x86-64.zip", patch_subdir: "/37957391", prereq_check: false, method: "opatchauto apply", ocm: false, upgrade: false, md5sum: "GL89d7Hnfe+fG0kVCgcwSw==" }
+  - { category: "RU", base: "21.3.0.0.0", release: "21.19.0.0.0", patchnum: "38068887", patchfile: "p38068887_210000_Linux-x86-64.zip", patch_subdir: "/", prereq_check: false, method: "opatchauto apply", ocm: false, upgrade: false, md5sum: "9Y/ZQTg7zv7QuW+3t8hCNw==" }

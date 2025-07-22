@@ -150,12 +150,18 @@ gi_software:
       - { name: "p13390677_112040_Linux-x86-64_3of7.zip", sha256sum: "09C08AD3E1EE03DB1707F01C6221C7E3E75EC295316D0046CC5D82A65C7B928C", md5sum: "BM7zeZHbGPgZD31KGbJpEg==" }
 
 rdbms_software:
-  - name: 23ai_free_23_8
-    version: 23.8.0.25.04
-    edition: FREE
+  - name: 23ai_free_23_9
+    version: 23.8.0.25.05
+    editions: FREE
     files:
-      - { name: "oracle-database-preinstall-23ai-1.0-2.el8.x86_64.rpm", sha256sum: "4578e6d1cf566e04541e0216b07a0372725726a7c339423ee560255cb918138b", md5sum: "TmjqUT878Owv7NbXGECpTA=="}
-      - { name: "oracle-database-free-23ai-23.8-1.el8.x86_64.rpm", sha256sum: "cd0d16939150e6ec5e70999a762a13687bfa99b05c4f310593e7ca3892e1d0ce", md5sum: "hkL/hxeYbB7z5lz+3r3kww=="}
+      - { name: "oracle-database-preinstall-23ai-1.0-3.el8.x86_64.rpm", sha256sum: "4578e6d1cf566e04541e0216b07a0372725726a7c339423ee560255cb918xxxx", md5sum: "TmjqUT87XXwv7NbXGECpTA==" }
+      - { name: "oracle-database-free-23ai-23.8-2.el8.x86_64.rpm", sha256sum: "cd0d16939150e6ec5e70999a762a13687bfa99b05c4f310593e7ca3892e1xxxx", md5sum: "hkL/hxeYbXXz5lz+3r3kww==" }
+  - name: 23ai_free_23_8
+    version: 23.8.0.25.05
+    editions: FREE
+    files:
+      - { name: "oracle-database-preinstall-23ai-1.0-3.el8.x86_64.rpm", sha256sum: "4578e6d1cf566e04541e0216b07a0372725726a7c339423ee560255cb918xxxx", md5sum: "TmjqUT87XXwv7NbXGECpTA==" }
+      - { name: "oracle-database-free-23ai-23.8-2.el8.x86_64.rpm", sha256sum: "cd0d16939150e6ec5e70999a762a13687bfa99b05c4f310593e7ca3892e1xxxx", md5sum: "hkL/hxeYbXXz5lz+3r3kww==" }
   - name: 23ai_free_23_7
     version: 23.7.0.25.01
     edition: FREE
@@ -245,12 +251,12 @@ rdbms_software:
 
 # 21c x86-64 uses 12.2.0.1 opatch as per the docs
 opatch_patches:
-  - { category: "OPatch", release: "11.2.0.4.0", patchnum: "6880880", patchfile: "p6880880_112000_Linux-x86-64.zip", md5sum: "" }
-  - { category: "OPatch", release: "12.1.0.2.0", patchnum: "6880880", patchfile: "p6880880_121010_Linux-x86-64.zip", md5sum: "" }
-  - { category: "OPatch", release: "12.2.0.1.0", patchnum: "6880880", patchfile: "p6880880_122010_Linux-x86-64.zip", md5sum: "" }
-  - { category: "OPatch", release: "18.0.0.0.0", patchnum: "6880880", patchfile: "p6880880_180000_Linux-x86-64.zip", md5sum: "" }
-  - { category: "OPatch", release: "19.3.0.0.0", patchnum: "6880880", patchfile: "p6880880_190000_Linux-x86-64.zip", md5sum: "" }
   - { category: "OPatch", release: "21.3.0.0.0", patchnum: "6880880", patchfile: "p6880880_210000_Linux-x86-64.zip", md5sum: "" }
+  - { category: "OPatch", release: "19.3.0.0.0", patchnum: "6880880", patchfile: "p6880880_190000_Linux-x86-64.zip", md5sum: "" }
+  - { category: "OPatch", release: "18.0.0.0.0", patchnum: "6880880", patchfile: "p6880880_180000_Linux-x86-64.zip", md5sum: "" }
+  - { category: "OPatch", release: "12.2.0.1.0", patchnum: "6880880", patchfile: "p6880880_122010_Linux-x86-64.zip", md5sum: "" }
+  - { category: "OPatch", release: "12.1.0.2.0", patchnum: "6880880", patchfile: "p6880880_121010_Linux-x86-64.zip", md5sum: "" }
+  - { category: "OPatch", release: "11.2.0.4.0", patchnum: "6880880", patchfile: "p6880880_112000_Linux-x86-64.zip", md5sum: "" }
 
 gi_interim_patches:
   - category: "HAS_interim_patch"
