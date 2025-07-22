@@ -1,3 +1,5 @@
+connect target sys/"{{ gcloud_result.stdout }}"@//{{ lookup('env', 'PRIMARY_IP_ADDR') }}:{{ listener_port | default(1521) }}/{{ db_name }}{% if db_domain | default('') | length > 0 %}.{{ db_domain }}{% endif %};
+connect auxiliary sys/"{{ gcloud_result.stdout }}"@//{{ lookup('env', 'INSTANCE_IP_ADDR') }}:{{ listener_port | default(1521) }}/{{ standby_name }}{% if db_domain | default('') | length > 0 %}.{{ db_domain }}{% endif %};
 DUPLICATE TARGET DATABASE
   FOR STANDBY
   FROM ACTIVE DATABASE
