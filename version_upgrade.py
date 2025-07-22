@@ -107,14 +107,14 @@ def insert_rdbms_software_block(tf_yml, rdbms_software_blocks):
 
 def format_opatch_patches_block(opatch_patches):
     block_list = []
+    pprint(opatch_patches)
     for patch in opatch_patches:
         block = ""
-        block += (
-            f"  - {{ category: \"{patch['category'].strip()}\", "
-            f"release: \"{patch['release'].strip()}\", "
-            f"patchnum: \"{patch['patchnum'].strip()}\", "
-            f"patchfile: \"{patch['patchfile'].strip()}\", "
-            f"md5sum: \"{patch['md5sum'].strip()}\" }}\n"
+        block +=  "  - {{ category: \"OPatch\", release: \"{0}\", patchnum: \"{1}\", patchfile: \"{2}\", md5sum: \"{3}\" }}\n".format(
+            patch['release'].strip(),
+            patch['patchnum'].strip(),
+            patch['patchfile'].strip(),
+            patch['md5sum'].strip()
         )
         block_list.append(block)
     return block_list
@@ -125,7 +125,7 @@ def check_opatch_patches_exists(opatch_patches, tf_yml):
         patchnum = patch['patchnum'].strip()
         with open(tf_yml, 'r') as file:
             lines = file.readlines()
-            for idx, line in enumerate(lines, 1):
+            for idx, line in enumerate(lines):
                 release_match = re.search(r'release\s*:\s*"?([^",}]+)"?', line)
                 patchnum_match = re.search(r'patchnum\s*:\s*"?([^",}]+)"?', line)
 
@@ -143,21 +143,39 @@ def remove_existing_opatch_patches(match_line, tf_yml):
         file.writelines(lines)  
 
 def insert_opatch_patches_block(tf_yml, opatch_patches_block):
-    tf_yml = open(tf_yml, 'r')
-    lines = tf_yml.readlines()
+    with open(tf_yml, 'r') as file:
+        lines = file.readlines()
+
+    opatch_start = None
+    opatch_end = None
+
+    # Find the start of the opatch_patches block
     for i, line in enumerate(lines):
         if line.strip() == 'opatch_patches:':
-            for opatch_patches_block in opatch_patches_block:
-                # Insert the block after the 'opatch_patches:' line
-                lines.insert(i + 1, opatch_patches_block)
+            opatch_start = i
             break
-    else:
+
+    if opatch_start is None:
         print("Error: 'opatch_patches:' not found in the file.\n\n")
         sys.exit(1)
 
+    # Find the end of the opatch_patches block
+    for j in range(opatch_start + 1, len(lines)):
+        if re.match(r'^\S', lines[j]) and not lines[j].strip().startswith('-'):
+            opatch_end = j-1
+            break
+    if opatch_end is None:
+        opatch_end = len(lines)
+
+    # Insert at the end of the opatch_patches block
+    insert_pos = opatch_end
+    for block in opatch_patches_block:
+        lines.insert(insert_pos, block)
+        insert_pos += 1
+
     with open('./roles/common/defaults/main.yml', 'w') as file:
         file.writelines(lines)
-    print("OPatch patches block inserted successfully.\n\n")
+    print("OPatch patches block appended successfully.\n\n")
 
 def main():
     version_data = load_yaml('version_upgrade.yaml')
