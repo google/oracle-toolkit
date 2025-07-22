@@ -27,12 +27,8 @@ gi_software:
 
 # 21c x86-64 uses 12.2.0.1 opatch as per the docs
 opatch_patches:
-  - { category: "OPatch", release: "11.2.0.4.0", patchnum: "6880880", patchfile: "p6880880_112000_Linux-x86-64.zip", md5sum: "" }
-  - { category: "OPatch", release: "12.1.0.2.0", patchnum: "6880880", patchfile: "p6880880_121010_Linux-x86-64.zip", md5sum: "" }
-  - { category: "OPatch", release: "12.2.0.1.0", patchnum: "6880880", patchfile: "p6880880_122010_Linux-x86-64.zip", md5sum: "" }
-  - { category: "OPatch", release: "18.0.0.0.0", patchnum: "6880880", patchfile: "p6880880_180000_Linux-x86-64.zip", md5sum: "" }
-  - { category: "OPatch", release: "19.3.0.0.0", patchnum: "6880880", patchfile: "p6880880_190000_Linux-x86-64.zip", md5sum: "" }
-  - { category: "OPatch", release: "21.3.0.0.0", patchnum: "6880880", patchfile: "p6880880_210000_Linux-x86-64.zip", md5sum: "" }
+  - { category: "OPatch", release: "21.4.0.0.0", patchnum: "6880880", patchfile: "p6880880_190000_Linux-x86-64.zip", md5sum: "" }
+  - { category: "OPatch", release: "21.5.0.0.0", patchnum: "6880880", patchfile: "p6880880_210000_Linux-x86-64.zip", md5sum: "" }
 
 gi_interim_patches:
   - category: "HAS_interim_patch"
