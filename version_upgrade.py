@@ -16,48 +16,6 @@ def load_yaml(file_path):
         print(f"Error parsing YAML file: {exc}\n\n")
         sys.exit(1)
 
-def gi_software_search_duplicates(gi_software, output_yml):
-    duplicate_indices = []
-    with open(output_yml, 'r') as file:
-        lines = file.readlines()
-    for each_patch in gi_software:
-        name = each_patch['name'].strip()
-        version = each_patch['version'].strip()
-        
-        for idx, line in enumerate(lines):
-            if idx==0:
-                skip = True
-                skip_next_line = False
-                continue
-
-            if skip_next_line:
-                skip_next_line = False
-                continue
-
-
-            # Match lines for gi_software name and version
-            name_match = re.match(r'^\s*-\s*name\s*:\s*(.+)$', line)
-            version_match = re.match(r'^\s*version\s*:\s*(.+)$', line)
-
-            if skip:
-                if line.strip() == 'gi_software:':
-                    skip = False
-                continue
-
-            if line.strip() == "":
-                break
-
-            if name_match and name_match.group(1).strip() == name:
-                print(f"GI software '{name}' already exists at line {idx+1}.\n\n")
-                duplicate_indices.append(idx)
-                skip_next_line = True
-            elif version_match and version_match.group(1).strip() == version:
-                print(f"GI software version '{version}' already exists at line {idx+1}.\n\n")
-                duplicate_indices.append(idx)
-    # Remove duplicates in reverse order to avoid index shifting
-    software_delete_duplicates(duplicate_indices, output_yml)
-
-
 def software_delete_duplicates(match_lines, output_yml):
     if not match_lines:
         return
@@ -117,6 +75,47 @@ def patch_delete_duplicates(match_lines, output_yml):
     with open(output_yml, 'w') as file:
         file.writelines(lines)
 
+def gi_software_search_duplicates(gi_software, output_yml):
+    duplicate_indices = []
+    with open(output_yml, 'r') as file:
+        lines = file.readlines()
+    for each_patch in gi_software:
+        name = each_patch['name'].strip()
+        version = each_patch['version'].strip()
+        
+        for idx, line in enumerate(lines):
+            if idx==0:
+                skip = True
+                skip_next_line = False
+                continue
+
+            if skip_next_line:
+                skip_next_line = False
+                continue
+
+
+            # Match lines for gi_software name and version
+            name_match = re.match(r'^\s*-\s*name\s*:\s*(.+)$', line)
+            version_match = re.match(r'^\s*version\s*:\s*(.+)$', line)
+
+            if skip:
+                if line.strip() == 'gi_software:':
+                    skip = False
+                continue
+
+            if line.strip() == "":
+                break
+
+            if name_match and name_match.group(1).strip() == name:
+                print(f"GI software '{name}' already exists at line {idx+1}.\n\n")
+                duplicate_indices.append(idx)
+                skip_next_line = True
+            elif version_match and version_match.group(1).strip() == version:
+                print(f"GI software version '{version}' already exists at line {idx+1}.\n\n")
+                duplicate_indices.append(idx)
+    # Remove duplicates in reverse order to avoid index shifting
+    software_delete_duplicates(duplicate_indices, output_yml)
+
 def gi_software_compile_patch(gi_software):
     patches_list = []
     for each_patch in gi_software:
@@ -161,6 +160,138 @@ def gi_software_insert_patch(gi_software_patches, output_yml):
     with open(output_yml, 'w') as file:
         file.writelines(lines)
     print("GI software patch inserted successfully.\n\n")
+
+def gi_interim_search_duplicates(gi_interim_patches, output_yml):
+    duplicate_indices = []
+    with open(output_yml, 'r') as file:
+        lines = file.readlines()
+    for each_patch in gi_interim_patches:
+        version = each_patch['version'].strip()
+        patchnum = each_patch['patchnum'].strip()
+
+        for idx, line in enumerate(lines):
+            if idx==0:
+                skip = True
+                skip_next_line = False
+                continue
+
+            if skip_next_line:
+                skip_next_line = False
+                continue
+
+
+            # Match lines for gi_interim_patches name and version
+            version_match = re.match(r'^\s*version\s*:\s*(.+)$', line)
+            patchnum_match = re.match(r'^\s*patchnum\s*:\s*"?([^"\n]+)"?$', line) 
+
+            if skip:
+                if line.strip() == 'gi_interim_patches:':
+                    skip = False
+                continue
+
+            if line.strip() == "":
+                break
+
+            if version_match and version_match.group(1).strip() == version:
+                print(f"GI interim patch version '{version}' already exists at line {idx+1}.\n\n")
+                duplicate_indices.append(idx)
+                skip_next_line = True
+                continue
+
+            if patchnum_match and patchnum_match.group(1).strip() == patchnum:
+                print(f"GI interim patch '{patchnum}' already exists at line {idx+1}.\n\n")
+                duplicate_indices.append(idx)
+
+    # Remove duplicates in reverse order to avoid index shifting
+    gi_interim_delete_duplicates(duplicate_indices, output_yml)
+
+def gi_interim_delete_duplicates(match_lines, output_yml):
+    if not match_lines:
+        return
+    with open(output_yml, 'r') as file:
+        lines = file.readlines()
+
+    # For each match_line, find the start and end of the patch, then remove
+    # Remove in reverse order to avoid index shifting
+    removed_ranges = []
+    for match_line in sorted(set(match_lines), reverse=True):
+        # Find beginning of gi_interim_patches patch
+        start = None
+        for find_range in range(0, 10):
+            idx = match_line - find_range
+            if idx < 0:
+                break
+            if re.match(r'^  - category:', lines[idx]):
+                start = idx
+                break
+
+        end = None
+        for find_range in range(1, 20):
+            idx = match_line + find_range
+            if idx >= len(lines):
+                break
+            if re.match(r'^  - category:', lines[idx]):
+                end = idx
+                break
+            elif lines[idx].strip() == "":
+                end = idx
+                break
+
+        if start is not None:
+            print(f"Removing GI interim patch from line {start} to {end}.\n\n")
+            removed_ranges.append((start, end))
+        else:
+            print("Error: Could not find the start of the GI interim patch.\n\n")
+
+    # Remove all ranges in reverse order
+    for start, end in sorted(removed_ranges, reverse=True):
+        del lines[start:end]
+
+    with open(output_yml, 'w') as file:
+        file.writelines(lines)
+
+def gi_interim_compile_patch(gi_interim_patches):
+    patches_list = []
+    for each_patch in gi_interim_patches:
+        category = each_patch['category'].strip()
+        version = each_patch['version'].strip()
+        patchnum = each_patch['patchnum'].strip()
+        patchutil = each_patch['patchutil'].strip()
+        files = each_patch['files']
+
+        patch = "  - category: \"{0}\"\n    version: {1}\n    patchnum: \"{2}\"\n    patchutil: \"{3}\"\n    files:\n".format(
+            category, version, patchnum, patchutil
+        )
+
+        for file in files:
+            patch += "      - {{ name: \"{0}\", sha256sum: \"{1}\", md5sum: \"{2}\" }}\n".format(
+                file['name'].strip(),
+                file['sha256sum'].strip(),
+                file['md5sum'].strip()
+            )
+        patches_list.append("\n".join(patch.splitlines()))
+
+    return patches_list
+
+def gi_interim_insert_patch(gi_interim_patches, output_yml):
+    read_yml = open(output_yml, 'r')
+    lines = read_yml.readlines()
+    gi_interim_start = False
+    for i, line in enumerate(lines):
+        if line.strip() == 'gi_interim_patches:':
+            gi_interim_start = True
+            
+        if gi_interim_start:
+            # Insert the patch after the 'gi_interim_patches:' line
+            if line.strip() == "":
+                for gi_interim_patch in gi_interim_patches:
+                    # Insert the patch after the 'gi_interim_patches:' line
+                    lines.insert(i, gi_interim_patch + "\n")
+                break
+
+    with open(output_yml, 'w') as file:
+        file.writelines(lines)
+    print("GI interim patches patch inserted successfully.\n\n")
 
 def rdbms_software_search_duplicates(rdbms_software, output_yml):
     duplicate_indices = []
@@ -277,7 +408,6 @@ def opatch_patch_search_duplicates(opatch_patches, output_yml):
                     continue
 
         patch_delete_duplicates(duplicate_indices, output_yml)
-  
 
 def opatch_patch_compile_patch(opatch_patches):
     patches_list = []
@@ -333,6 +463,10 @@ def main():
     gi_software_search_duplicates(patch_data['gi_software'], output_yml)
 
     gi_software_insert_patch(gi_software_compile_patch(patch_data['gi_software']), './roles/common/defaults/main.yml')
+
+    gi_interim_search_duplicates(patch_data['gi_interim_patches'], output_yml)
+
+    gi_interim_insert_patch(gi_interim_compile_patch(patch_data['gi_interim_patches']), output_yml)    
 
     rdbms_software_search_duplicates(patch_data['rdbms_software'], output_yml)
 
