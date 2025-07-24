@@ -135,6 +135,43 @@
       set_fact:
         password_file_name: "{{ password_file if password_file | length > 0 else (oracle_home + '/dbs/orapw' + db_name) if orapw_home_stat.stat.exists else (oracle_base + '/dbs/orapw' + db_name) }}"
 
+    - name: Active-copy | Back up password file from file system
+      copy:
+        src: "{{ password_file_name }}"
+        dest: "{{ oracle_home }}/dbs/orapw{{ db_name }}.{{ lookup('pipe', 'date +%Y-%m-%d-%H-%M') }}"
+        owner: "{{ oracle_user }}"
+        group: "{{ oracle_group }}"
+        mode: "u=wr,go="
+        remote_src: true
+      delegate_to: primary1
+      become: true
+      become_user: "{{ oracle_user }}"
+      when:
+        - password_file is not search('^\\+')
+        - (orapw_home_stat.stat.exists or orapw_base_stat.stat.exists)
+        - db_password_secret | length == 0
+
+    - name: Active-copy | Back up password file from ASM
+      shell: |
+        set -o pipefail
+        asmcmd cp {{ password_file }} {{ grid_home }}/dbs/orapw{{ db_name }}.{{ lookup('pipe', 'date +%Y-%m-%d-%H-%M') }}
+      environment:
+        ORACLE_HOME: "{{ grid_home }}"
+        ORACLE_SID: "{{ asm_sid }}"
+        PATH: "{{ grid_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+      delegate_to: primary1
+      become: true
+      become_user: "{{ grid_user }}"
+      when:
+        - password_file is search('^\\+')
+        - db_password_secret | length == 0
+
+    - name: Active-copy | Generate random password
+      set_fact:
+        sys_pass: "{{ lookup('password', '/dev/null length=16 chars=ascii_letters,digits') }}0#_"
+      no_log: true
+      when: db_password_secret | length == 0
+
     - name: Active-copy | Retrieve DB password from Secret Manager
       command: gcloud --quiet secrets versions access {{ db_password_secret }}
       register: gcloud_result
@@ -142,8 +179,13 @@
       # the failure reason won't be shown because no_log is enabled
       # DB password validation is already handled earlier in roles/ora-host/tasks/main.yml
       no_log: true
-      when:
-        - db_password_secret | length > 0
+      when: db_password_secret | length > 0
+
+    - name: Active-copy | Set sys_pass fact from gcloud_result
+      set_fact:
+        sys_pass: "{{ gcloud_result.stdout }}"
+      no_log: true
+      when: db_password_secret | length > 0
 
     - name: Active-copy | Set sys password for auxiliary instance
       command:
@@ -151,7 +193,7 @@
           - "{{ oracle_home }}/bin/orapwd"
           - "file={{ password_file_name }}"
           - "force=y"
-          - "password={{ gcloud_result.stdout }}"
+          - "password={{ sys_pass }}"
       environment:
         ORACLE_HOME: "{{ oracle_home }}"
         ORACLE_SID: "{{ oracle_sid }}"
@@ -183,6 +225,13 @@
       become: true
       become_user: "{{ oracle_user }}"
       no_log: true
+
+    - name: Delete duplicate.cmd file
+      file:
+        path: "{{ oracle_home }}/dbs/duplicate.cmd"
+        state: absent
+      become: true
+      become_user: "{{ oracle_user }}"
 
     - name: Active-copy | Add Oracle Restart configuration
       shell: |
