@@ -200,12 +200,6 @@ variable "project_id" {
   type        = string
 }
 
-variable "region" {
-  description = "The GCP region where the instance and related resources will be deployed (e.g., us-central1)."
-  type        = string
-  default     = "us-central1"
-}
-
 variable "vm_service_account" {
   description = "The service account used for managing compute instance permissions."
   type        = string
@@ -236,24 +230,6 @@ variable "source_image_project" {
   description = "The project where the source image is located."
   type        = string
   default     = "oracle-linux-cloud"
-}
-
-variable "network" {
-  description = "The name of the GCP network to which the instance will be attached."
-  type        = string
-  default     = "default"
-}
-
-variable "subnetwork" {
-  description = "The name of the GCP subnetwork to which the instance will be attached; customize if using custom subnet creation mode."
-  type        = string
-  default     = ""
-}
-
-variable "zone" {
-  description = "The specific availability zone within the selected GCP region (e.g., us-central1-b)."
-  type        = string
-  default     = "us-central1-b"
 }
 
 variable "assign_public_ip" {
@@ -305,6 +281,38 @@ variable "skip_database_config" {
   default     = false
 }
 
+variable "zone1" {
+  description = "The GCP zone for deploying the instance in single-instance deployments, or for the primary node in multi-instance Data Guard deployments."
+  type        = string
+  default     = "us-central1-b"
+}
+
+variable "zone2" {
+  description = "The GCP zone for deploying the secondary node in a multi-instance Data Guard deployment."
+  type        = string
+  default     = ""
+}
+
+variable "subnetwork1" {
+  description = "The Resource URI of the GCP subnetwork to attach the instance to. Used for single-instance deployments and for the primary node in multi-instance Data Guard deployments."
+  type        = string
+  validation {
+    condition = var.subnetwork1 == "" || can(regex("^projects/([a-z0-9-]+)/regions/([a-z0-9-]+)/subnetworks/([a-z0-9-]+)$", var.subnetwork1))
+    error_message = "Must be in the format: 'projects/<PROJECT_ID>/regions/<REGION>/subnetworks/<SUBNETWORK_NAME>'."
+  }
+  default     = ""
+}
+
+variable "subnetwork2" {
+  description = "The Resource URI of the GCP subnetwork to attach the secondary node to in a multi-instance Data Guard deployment."
+  type        = string
+  validation {
+    condition = var.subnetwork2 == "" || can(regex("^projects/([a-z0-9-]+)/regions/([a-z0-9-]+)/subnetworks/([a-z0-9-]+)$", var.subnetwork2))
+    error_message = "Must be in the format: 'projects/<PROJECT_ID>/regions/<REGION>/subnetworks/<SUBNETWORK_NAME>'."
+  }
+  default     = ""
+}
+
 variable "ora_pga_target_mb" {
   description = "Oracle session private memory aggregate target, in MB."
   type        = number
@@ -321,4 +329,14 @@ variable "deployment_name" {
   description = "Name of the deployment provided by WLM"
   type        = string
   default     = ""
+}
+
+variable "data_guard_protection_mode" {
+  description = "Data Guard protection mode: one of 'Maximum Performance', 'Maximum Availability', or 'Maximum Protection'."
+  type        = string
+  validation {
+    condition     = contains(["Maximum Performance", "Maximum Availability", "Maximum Protection"], var.data_guard_protection_mode)
+    error_message = "data_guard_protection_mode must be one of: 'Maximum Performance', 'Maximum Availability', or 'Maximum Protection'."
+  }
+  default = "Maximum Availability"
 }

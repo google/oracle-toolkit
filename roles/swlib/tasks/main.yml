@@ -32,6 +32,18 @@
       include_tasks: gcsfuse.yml
       when: swlib_mount_type == "gcsfuse"
 
-- name: swlib | gcscopy
-  include_tasks: gcscopy.yml
-  when: swlib_mount_type == "gcs"
+- name: swlib | Check if gcloud is available on the Managed Host and the storage bucket is accessible
+  shell: |
+    gcloud storage ls gs://{{ swlib_mount_src }} >/dev/null 2>&1
+    echo $?
+  when: swlib_mount_type == "gcs" or swlib_mount_type == "gcsdirect"
+  register: gcloud_found
+  changed_when: false
+
+- name: swlib | Copy files from GCS directly on the Managed Host instance
+  include_tasks: gcsdirect.yml
+  when: (swlib_mount_type == "gcsdirect" or swlib_mount_type == "gcs") and (gcloud_found is defined and gcloud_found.stdout == "0")
+
+- name: swlib | Use the Ansible Control Node to transfer files from GCS to the Managed Host instance
+  include_tasks: gcstransfer.yml
+  when: swlib_mount_type == "gcstransfer" or gcloud_found is not defined or (gcloud_found is defined and gcloud_found.stdout != "0")

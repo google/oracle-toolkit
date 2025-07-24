@@ -16,13 +16,17 @@
 # General settings
 gcs_source                   = "gs://your-gcs-bucket/oracle-toolkit.zip"
 ora_swlib_bucket             = "gs://your-oracle-software-bucket"
-region                       = "us-central1"
-zone                         = "us-central1-b"
 project_id                   = "your-project-id"
-network                      = "default"
-subnetwork                   = "default"
 vm_service_account           = "your-vm-service-account@your-project-id.iam.gserviceaccount.com"
 control_node_service_account = "your-control-node-service-account@your-project-id.iam.gserviceaccount.com"
+
+# Primary node for the Single-instance deployment
+zone1 = "us-central1-b"
+subnetwork1 = "projects/your-project/regions/us-central1/subnetworks/default"
+
+# Standby node for the Multi-instance Data Guard deployment
+zone2 = "us-central1-c"
+subnetwork2 = "projects/your-project/regions/us-central1/subnetworks/default"
 
 # Instance settings
 instance_name        = "orcl"
@@ -64,3 +68,4 @@ skip_database_config   = false
 install_workload_agent = true
 oracle_metrics_secret  = ""
 db_password_secret     = ""
+data_guard_protection_mode = "Maximum Availability"

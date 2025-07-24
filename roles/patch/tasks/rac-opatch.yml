@@ -14,12 +14,10 @@
 
 ---
 - name: rac-opatch | Unzip GI patch
-  unarchive:
-    src: "{{ swlib_path }}/{{ item.patchfile }}"
-    dest: "{{ swlib_unzip_path }}"
-    remote_src: true
-    owner: "{{ grid_user }}"
-    group: "{{ oracle_group }}"
+  # Using the "shell" module instead of "unarchive" for unzip performance
+  shell: |
+    unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
+    chown -R {{ grid_user }}:{{ oracle_group }} "{{ swlib_unzip_path }}"
   with_items:
     - "{{ gi_patches }}"
   when: item.release == oracle_rel and item.category != "HAS_interim_patch"
@@ -192,12 +190,10 @@
   tags: rac-opatch
 
 - name: rac-opatch | Unzip RDBMS patch
-  unarchive:
-    src: "{{ swlib_path }}/{{ item.patchfile }}"
-    dest: "{{ swlib_unzip_path }}"
-    remote_src: true
-    owner: "{{ oracle_user }}"
-    group: "{{ oracle_group }}"
+  # Using the "shell" module instead of "unarchive" for unzip performance
+  shell: |
+    unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
+    chown -R {{ oracle_user }}:{{ oracle_group }} "{{ swlib_unzip_path }}"
   with_items:
     - "{{ rdbms_patches }}"
   when: item.release == oracle_rel

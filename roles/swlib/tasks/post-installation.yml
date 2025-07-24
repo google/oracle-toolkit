@@ -1,4 +1,4 @@
-# Copyright 2025 Google LLC
+# Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,3 +13,14 @@
 # limitations under the License.
 
 ---
+- name: "swlib | Ensure {{ swlib_path }} and its contents are owned by {{ oracle_user }}:{{ oracle_group }}"
+  ansible.builtin.file:
+    path: "{{ swlib_path }}"
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
+    recurse: yes
+    state: directory
+  become: true
+  become_user: root
+  when: swlib_mount_type == "gcs"
+  tags: fix-swlib-ownership

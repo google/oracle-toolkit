@@ -1,0 +1,104 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+# files with alt_name are stored as name for simplicity
+- name: gcsdirect | Copy RDBMS and GI software from GCS to target instance
+  shell: |
+    set -o pipefail
+    {% for f in item.files %}
+    if gcloud storage ls gs://{{ swlib_mount_src }}/{{ f.name }} >/dev/null 2>&1; then
+      f_name="{{ f.name }}"
+    else
+      f_name="{{ f.alt_name | default('x') }}"
+    fi
+    if ! unzip -l "{{ swlib_path }}/{{ f.name }}"
+      then
+        gcloud storage cp gs://{{ swlib_mount_src }}/${f_name} "{{ swlib_path }}/{{ f.name }}"
+    fi
+    {% endfor %}
+  register: shell_result
+  args:
+    executable: /bin/bash
+  with_items:
+    - "{{ rdbms_software }}"
+    - "{{ gi_software }}"
+    - "{{ gi_interim_patches }}"
+  when:
+    - item.version == oracle_ver
+    - patch_only is not defined
+    - not free_edition
+  changed_when: "'Date    Time    Name' not in shell_result.stdout"
+
+- name: gcsdirect | Copy GI patches from GCS to target instance
+  shell: |
+    set -o pipefail
+    if ! unzip -l "{{ swlib_path }}/{{ item.patchfile }}"
+      then
+        gcloud storage cp gs://{{ swlib_mount_src }}/{{ item.patchfile }} "{{ swlib_path }}/{{ item.patchfile }}"
+    fi
+  register: shell_result
+  args:
+    executable: /bin/bash
+  with_items: "{{ gi_patches }}"
+  when: item.release == oracle_rel
+  changed_when: "'Date    Time    Name' not in shell_result.stdout"
+
+# overwrite OPatch zipfile on database host from gcs every time that may be cached currently in {{ swlib_path }}
+# reason to overwrite is that the OPatch zipfile in MOS is named the same, example: p6880880_190000_Linux-x86-64.zip
+# this change downloads OPatch from GCS bucket every time with negligible overhead as OPatch zip file is typically ~120M
+- name: gcsdirect | Copy OPatch update files from GCS to target instance
+  shell: |
+    set -o pipefail
+    gcloud storage cp gs://{{ swlib_mount_src }}/{{ item.patchfile }} "{{ swlib_path }}/{{ item.patchfile }}"
+  register: shell_result
+  args:
+    executable: /bin/bash
+  with_items: "{{ opatch_patches }}"
+  when:
+    - item.release == oracle_ver
+    - oracle_rel != "base"
+  changed_when: "'Date    Time    Name' not in shell_result.stdout"
+
+- name: gcsdirect | Copy RDBMS patches from GCS to target instance
+  shell: |
+    set -o pipefail
+    if ! unzip -l "{{ swlib_path }}/{{ item.patchfile }}"
+      then
+        gcloud storage cp gs://{{ swlib_mount_src }}/{{ item.patchfile }} "{{ swlib_path }}/{{ item.patchfile }}"
+    fi
+  register: shell_result
+  args:
+    executable: /bin/bash
+  with_items: "{{ rdbms_patches }}"
+  when: item.release == oracle_rel
+  changed_when: "'Date    Time    Name' not in shell_result.stdout"
+
+- name: gcsdirect | Copy RPM software from GCS to target instance
+  shell: |
+    set -o pipefail
+    {% for f in item.files %}
+    if ! rpm -qp "{{ swlib_path }}/{{ f.name }}"
+      then
+        gcloud storage cp gs://{{ swlib_mount_src }}/{{ f.name }} "{{ swlib_path }}/{{ f.name }}" && echo "File copied"
+    fi
+    {% endfor %}
+  register: shell_result
+  args:
+    executable: /bin/bash
+  with_items: "{{ rdbms_software }}"
+  when:
+    - item.version == oracle_ver
+    - free_edition
+  changed_when: "'File copied' in shell_result.stdout"

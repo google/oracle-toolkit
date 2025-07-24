@@ -28,13 +28,12 @@
   tags: rac-gi
 
 - name: rac-gi-install | Unzip GI patch
-  unarchive:
-    src: "{{ swlib_path }}/{{ item.patchfile }}"
-    dest: "{{ swlib_unzip_path }}"
-    remote_src: true
+  # Using the "shell" module instead of "unarchive" for unzip performance
+  shell: |
+    unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
+    chown -R {{ grid_user }}:{{ oracle_group }} "{{ swlib_unzip_path }}"
+  args:
     creates: .gi_patch_{{ oracle_rel }}
-    owner: "{{ grid_user }}"
-    group: "{{ oracle_group }}"
   with_items:
     - "{{ gi_patches }}"
   when: item.release == oracle_rel and item.category == 'RU' and item.category != "HAS_interim_patch"
@@ -65,10 +64,9 @@
 - name: rac-gi-install | Unzip HA interim patches
   become: true
   become_user: "{{ grid_user }}"
-  unarchive:
-    src: "{{ swlib_path }}/{{ item | json_query('.files[*].name') | join() }}"
-    dest: "{{ swlib_unzip_path }}"
-    remote_src: true
+  # Using the "shell" module instead of "unarchive" for unzip performance
+  shell: unzip -o -q "{{ swlib_path }}/{{ item | json_query('.files[*].name') | join() }}" -d "{{ swlib_unzip_path }}"
+  args:
     creates: .ha_patch_{{ oracle_ver }}
   with_items:
     - "{{ gi_interim_patches }}"
@@ -86,10 +84,8 @@
 - name: rac-gi-install | Unzip software
   become: true
   become_user: "{{ grid_user }}"
-  unarchive:
-    src: "{{ swlib_path }}/{{ item }}"
-    dest: "{{ install_unzip_path }}"
-    remote_src: true
+  # Using the "shell" module instead of "unarchive" for unzip performance
+  shell: unzip -o -q "{{ swlib_path }}/{{ item }}" -d "{{ install_unzip_path }}"
   with_items:
     - "{{ osw_files }}"
   tags: rac-gi,sw-unzip

@@ -39,12 +39,10 @@
   tags: rdbms-setup,rel-patch
 
 - name: rdbms-install | Unzip OneOff patch
-  unarchive:
-    src: "{{ swlib_path }}/{{ item.patchfile }}"
-    dest: "{{ swlib_unzip_path }}"
-    remote_src: true
-    owner: "{{ oracle_user }}"
-    group: "{{ oracle_group }}"
+  # Using the "shell" module instead of "unarchive" for unzip performance
+  shell: |
+    unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
+    chown -R {{ oracle_user }}:{{ oracle_group }} "{{ swlib_unzip_path }}"
   with_items:
     - "{{ rdbms_patches }}"
   when: item.release == oracle_rel
@@ -54,10 +52,8 @@
 - name: rdbms-install | Unzipping software
   become: true
   become_user: "{{ oracle_user }}"
-  unarchive:
-    src: "{{ swlib_path }}/{{ item.name }}"
-    dest: "{{ install_unzip_path }}"
-    remote_src: true
+  # Using the "shell" module instead of "unarchive" for unzip performance
+  shell: unzip -o -q "{{ swlib_path }}/{{ item.name }}" -d "{{ install_unzip_path }}"
   with_items:
     - "{{ osw.files }}"
   tags: rdbms-setup,sw-unzip

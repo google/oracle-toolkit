@@ -14,11 +14,11 @@
 
 ---
 # files with alt_name are stored as name for simplicity
-- name: gcscopy | Copy RDBMS and GI software from GCS to target instance
+- name: gcstransfer | Transfer RDBMS and GI software from GCS to target instance
   shell: |
     set -o pipefail
     {% for f in item.files %}
-    if gsutil ls gs://{{ swlib_mount_src }}/{{ f.name }} >/dev/null 2>&1; then
+    if gcloud storage ls gs://{{ swlib_mount_src }}/{{ f.name }} >/dev/null 2>&1; then
       f_name="{{ f.name }}"
     else
       f_name="{{ f.alt_name | default('x') }}"
@@ -26,7 +26,7 @@
     if ! ssh -i {{ ansible_ssh_private_key_file }} {{ ansible_ssh_extra_args }} {{ ansible_ssh_user }}@{{ ansible_ssh_host }} \
       "unzip -l {{ swlib_path }}/{{ f.name }}"
       then
-        gsutil cat gs://"{{ swlib_mount_src }}"/"${f_name}" | ssh -i {{ ansible_ssh_private_key_file }} {{ ansible_ssh_extra_args }} \
+        gcloud storage cat gs://"{{ swlib_mount_src }}"/"${f_name}" | ssh -i {{ ansible_ssh_private_key_file }} {{ ansible_ssh_extra_args }} \
           {{ ansible_ssh_user }}@{{ ansible_ssh_host }} "cat > {{ swlib_path }}/{{ f.name }}"
     fi
     {% endfor %}
@@ -44,79 +44,73 @@
   changed_when: "'Date    Time    Name' not in shell_result.stdout"
   delegate_to: 127.0.0.1
 
-- name: gcscopy | Copy GI patches from GCS to target instance
+- name: gcstransfer | Transfer GI patches from GCS to target instance
   shell: |
     set -o pipefail
     if ! ssh -i {{ ansible_ssh_private_key_file }} {{ ansible_ssh_extra_args }} {{ ansible_ssh_user }}@{{ ansible_ssh_host }} \
       "unzip -l {{ swlib_path }}/{{ item.patchfile }}"
       then
-        gsutil cat gs://{{ swlib_mount_src }}/{{ item.patchfile }} | ssh -i {{ ansible_ssh_private_key_file }} {{ ansible_ssh_extra_args }} \
+        gcloud storage cat gs://{{ swlib_mount_src }}/{{ item.patchfile }} | ssh -i {{ ansible_ssh_private_key_file }} {{ ansible_ssh_extra_args }} \
           {{ ansible_ssh_user }}@{{ ansible_ssh_host }} "cat > {{ swlib_path }}/{{ item.patchfile }}"
     fi
   register: shell_result
   args:
     executable: /bin/bash
-  with_items:
-    - "{{ gi_patches }}"
-  when:
-    - item.release == oracle_rel
+  with_items: "{{ gi_patches }}"
+  when: item.release == oracle_rel
   changed_when: "'Date    Time    Name' not in shell_result.stdout"
   delegate_to: 127.0.0.1
 
-# overwrite opatch zipfile on database host from gcs every time that may be cached currently in {{ swlib_path }}
-# reason to overwrite is that the opatch zipfile in MOS is named the same, example: p6880880_190000_Linux-x86-64.zip
-# this change downloads OPatch from GCS bucket every time with neglible overhead as opatch zip file is typically ~120M
-- name: gcscopy | Copy GI OPatch update files from GCS to target instance
+# overwrite OPatch zipfile on database host from gcs every time that may be cached currently in {{ swlib_path }}
+# reason to overwrite is that the OPatch zipfile in MOS is named the same, example: p6880880_190000_Linux-x86-64.zip
+# this change downloads OPatch from GCS bucket every time with negligible overhead as OPatch zip file is typically ~120M
+- name: gcstransfer | Transfer OPatch update files from GCS to target instance
   shell: |
     set -o pipefail
-    gsutil cat gs://{{ swlib_mount_src }}/{{ item.patchfile }} | ssh -i {{ ansible_ssh_private_key_file }} {{ ansible_ssh_extra_args }} \
+    gcloud storage cat gs://{{ swlib_mount_src }}/{{ item.patchfile }} | ssh -i {{ ansible_ssh_private_key_file }} {{ ansible_ssh_extra_args }} \
       {{ ansible_ssh_user }}@{{ ansible_ssh_host }} "cat > {{ swlib_path }}/{{ item.patchfile }}"
   register: shell_result
   args:
     executable: /bin/bash
-  with_items:
-    - "{{ opatch_patches }}"
+  with_items: "{{ opatch_patches }}"
   when:
     - item.release == oracle_ver
     - oracle_rel != "base"
   changed_when: "'Date    Time    Name' not in shell_result.stdout"
   delegate_to: 127.0.0.1
 
-- name: gcscopy | Copy RDBMS patches from GCS to target instance
+- name: gcstransfer | Transfer RDBMS patches from GCS to target instance
   shell: |
     set -o pipefail
     if ! ssh -i {{ ansible_ssh_private_key_file }} {{ ansible_ssh_extra_args }} {{ ansible_ssh_user }}@{{ ansible_ssh_host }} \
       "unzip -l {{ swlib_path }}/{{ item.patchfile }}"
       then
-        gsutil cat gs://{{ swlib_mount_src }}/{{ item.patchfile }} | ssh -i {{ ansible_ssh_private_key_file }} {{ ansible_ssh_extra_args }} \
+        gcloud storage cat gs://{{ swlib_mount_src }}/{{ item.patchfile }} | ssh -i {{ ansible_ssh_private_key_file }} {{ ansible_ssh_extra_args }} \
           {{ ansible_ssh_user }}@{{ ansible_ssh_host }} "cat > {{ swlib_path }}/{{ item.patchfile }}"
     fi
   register: shell_result
   args:
     executable: /bin/bash
-  with_items:
-    - "{{ rdbms_patches }}"
-  when:
-    - item.release == oracle_rel
+  with_items: "{{ rdbms_patches }}"
+  when: item.release == oracle_rel
   changed_when: "'Date    Time    Name' not in shell_result.stdout"
   delegate_to: 127.0.0.1
 
-- name: gcscopy | Copy RPM software from GCS to target instance
+- name: gcstransfer | Transfer RPM software from GCS to target instance
   shell: |
     set -o pipefail
     {% for f in item.files %}
     if ! ssh -i {{ ansible_ssh_private_key_file }} {{ ansible_ssh_extra_args }} {{ ansible_ssh_user }}@{{ ansible_ssh_host }} \
       "rpm -qp {{ swlib_path }}/{{ f.name }}"
       then
-        gsutil cat gs://"{{ swlib_mount_src }}"/"{{ f.name }}" | ssh -i {{ ansible_ssh_private_key_file }} {{ ansible_ssh_extra_args }} \
+        gcloud storage cat gs://"{{ swlib_mount_src }}"/"{{ f.name }}" | ssh -i {{ ansible_ssh_private_key_file }} {{ ansible_ssh_extra_args }} \
           {{ ansible_ssh_user }}@{{ ansible_ssh_host }} "cat > {{ swlib_path }}/{{ f.name }}" && echo "File copied"
     fi
     {% endfor %}
   register: shell_result
   args:
     executable: /bin/bash
-  with_items:
-    - "{{ rdbms_software }}"
+  with_items: "{{ rdbms_software }}"
   when:
     - item.version == oracle_ver
     - free_edition

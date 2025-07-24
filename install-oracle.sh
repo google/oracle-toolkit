@@ -104,7 +104,7 @@ ORA_SWLIB_BUCKET="${ORA_SWLIB_BUCKET}"
 ORA_SWLIB_BUCKET_PARAM="^.+[^/]"
 
 ORA_SWLIB_TYPE="${ORA_SWLIB_TYPE:-GCS}"
-ORA_SWLIB_TYPE_PARAM="^(\"\"|GCS|GCSFUSE|NFS)$"
+ORA_SWLIB_TYPE_PARAM="^(\"\"|GCS|GCSFUSE|NFS|GCSDIRECT|GCSTRANSFER)$"
 
 ORA_SWLIB_PATH="${ORA_SWLIB_PATH:-/u01/swlib}"
 ORA_SWLIB_PATH_PARAM="^/.*"
@@ -266,6 +266,9 @@ COMPATIBLE_RDBMS_PARAM="^[0-9][0-9]\.[0-9].*"
 ORACLE_METRICS_SECRET="${ORACLE_METRICS_SECRET}"
 ORACLE_METRICS_SECRET_PARAM="^projects/[^/]+/secrets/[^/]+/versions/[^/]+$"
 
+DATA_GUARD_PROTECTION_MODE="${DATA_GUARD_PROTECTION_MODE}"
+DATA_GUARD_PROTECTION_MODE_PARAM="^(Maximum\ Performance|Maximum\ Availability|Maximum\ Protection)$"
+
 
 export ANSIBLE_DISPLAY_SKIPPED_HOSTS=false
 ###
@@ -282,7 +285,7 @@ GETOPT_OPTIONAL="$GETOPT_OPTIONAL,backup-start-hour:,backup-start-min:,archive-b
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-swlib-type:,ora-swlib-path:,ora-swlib-credentials:,instance-ip-addr:,primary-ip-addr:,instance-ssh-user:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,instance-ssh-key:,instance-hostname:,ntp-pref:,inventory-file:,compatible-rdbms:,instance-ssh-extra-args:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,help,validate,check-instance,prep-host,install-sw,config-db,debug,allow-install-on-vm,skip-database-config,swap-blk-device:"
-GETOPT_OPTIONAL="$GETOPT_OPTIONAL,install-workload-agent,oracle-metrics-secret:,db-password-secret:"
+GETOPT_OPTIONAL="$GETOPT_OPTIONAL,install-workload-agent,oracle-metrics-secret:,db-password-secret:,data-guard-protection-mode:"
 GETOPT_LONG="$GETOPT_MANDATORY,$GETOPT_OPTIONAL"
 GETOPT_SHORT="h"
 
@@ -548,6 +551,10 @@ while true; do
     ;;
   --install-workload-agent)
     INSTALL_WORKLOAD_AGENT=true
+    ;;
+  --data-guard-protection-mode)
+    DATA_GUARD_PROTECTION_MODE="$2"
+    shift
     ;;
   --oracle-metrics-secret)
     ORACLE_METRICS_SECRET="$2"
@@ -865,6 +872,12 @@ if [[ -n "$ORACLE_METRICS_SECRET" && "$INSTALL_WORKLOAD_AGENT" == false ]]; then
   exit 1
 fi
 
+[[ -n "$DATA_GUARD_PROTECTION_MODE" && ! "$DATA_GUARD_PROTECTION_MODE" =~ $DATA_GUARD_PROTECTION_MODE_PARAM ]] && {
+  echo "Incorrect parameter provided for data-guard-protection-mode: $DATA_GUARD_PROTECTION_MODE"
+  echo "data-guard-protection-mode must be one of: 'Maximum Performance', 'Maximum Availability', or 'Maximum Protection'."
+  exit 1
+}
+
 # Parameter overrides for features that Free Edition does not support
 # (incl. RAC, ASM, role separation, and customized database name)
 if [ "${ORA_EDITION}" = "FREE" ]; then
@@ -1091,6 +1104,7 @@ export SWAP_BLK_DEVICE
 export DB_PASSWORD_SECRET
 export INSTALL_WORKLOAD_AGENT
 export ORACLE_METRICS_SECRET
+export DATA_GUARD_PROTECTION_MODE
 
 echo -e "Running with parameters from command line or environment variables:\n"
 set | grep -E '^(ORA_|BACKUP_|GCS_|ARCHIVE_|INSTANCE_|PB_|ANSIBLE_|CLUSTER|PRIMARY)' | grep -v '_PARAM='

@@ -23,11 +23,17 @@ PWSYM="${2:-@+~*}"
 
 # must start with alpha
 FCHAR="$(cat /dev/urandom | tr -dc [:alpha:] | head -c1)"
+# have an uppercase letter
+UCHAR="$(cat /dev/urandom | tr -dc [:upper:] | head -c1)"
+# have a lowercase letter
+LCHAR="$(cat /dev/urandom | tr -dc [:lower:] | head -c1)"
+# have a digit
+DCHAR="$(cat /dev/urandom | tr -dc [:digit:] | head -c1)"
 # have a symbol
 SCHAR="$(cat /dev/urandom | tr -dc ${PWSYM} | head -c1)"
 # upper, lower, digit, some symbols
-RCHAR="$(cat /dev/urandom | tr -dc [:alnum:]${PWSYM} | head -c$((PWLEN - 3)))"
+RCHAR="$(cat /dev/urandom | tr -dc [:alnum:]${PWSYM} | head -c$((PWLEN - 6)))"
 # wrap the symbol into the password
-RPASS="$(echo "${SCHAR}${RCHAR}" | fold -c -w1 | shuf | tr -d '\n')"
+RPASS="$(echo "${UCHAR}${LCHAR}${DCHAR}${SCHAR}${RCHAR}" | fold -c -w1 | shuf | tr -d '\n')"
 
 echo "${FCHAR}${RPASS}${FCHAR}"

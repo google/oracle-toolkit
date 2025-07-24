@@ -45,7 +45,7 @@
       file:
         path: "{{ grid_home }}/OPatch"
         state: absent
-    
+
     - name: (GI) Create empty OPatch directory
       file:
         path: "{{ grid_home }}/OPatch"
@@ -86,10 +86,8 @@
   tags: update-opatch-db
 
 - name: (GI) Unzip patch
-  unarchive:
-    src: "{{ swlib_path }}/{{ item.patchfile }}"
-    dest: "{{ swlib_unzip_path }}"
-    remote_src: true
+  # Using the "shell" module instead of "unarchive" for unzip performance
+  shell: unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
   with_items:
     - "{{ gi_patches }}"
   when: item.release == oracle_rel and item.category != "HAS_interim_patch"
@@ -144,10 +142,8 @@
   tags: patch-grid,sw-remove
 
 - name: (RDBMS) Unzip patch
-  unarchive:
-    src: "{{ swlib_path }}/{{ item.patchfile }}"
-    dest: "{{ swlib_unzip_path }}"
-    remote_src: true
+  # Using the "shell" module instead of "unarchive" for unzip performance
+  shell: unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
   with_items:
     - "{{ rdbms_patches }}"
   when: item.release == oracle_rel
