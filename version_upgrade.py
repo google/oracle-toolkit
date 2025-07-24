@@ -456,25 +456,144 @@ def opatch_patch_insert_patch(opatch_patches_patch, output_yml):
         file.writelines(lines)
     print("OPatch patches patch appended successfully.\n\n")
 
+def gi_patch_search_duplicates(gi_patches, output_yml):
+    for patch in gi_patches:
+        release = patch['release'].strip()
+        patchnum = patch['patchnum'].strip()
+        duplicate_indices = []
+        skip = True
+
+        with open(output_yml, 'r') as file:
+            lines = file.readlines()
+            for idx, line in enumerate(lines):
+                if line.strip().startswith('#'):
+                    continue
+
+                if skip:
+                    if line.strip() == 'gi_patches:':
+                        skip = False
+                    continue
+
+                if line.strip()=="":
+                    skip = True
+                    break
+                
+                line_yaml = yaml.safe_load(line.strip())
+
+                if line_yaml[0]['release'].strip() == patch['release'].strip():
+                    print(f"GI patch with release '{release}' already exists at line {idx}.\n\n")
+                    duplicate_indices.append(idx)
+                if line_yaml[0]['patchnum'].strip() == patch['patchnum'].strip():
+                    print(f"GI patch with patchnum '{patchnum}' already exists at line {idx}.\n\n")
+                    duplicate_indices.append(idx)
+                    
+        patch_delete_duplicates(set(duplicate_indices), output_yml)
+
+
+def gi_patches_insert_patch(gi_patches, output_yml):
+    with open(output_yml, 'r') as file:
+        lines = file.readlines()
+    gi_patch_start = None
+    
+    for idx, line in enumerate(lines):
+        if line.strip() == 'gi_patches:':
+            gi_patch_start = idx + 1
+        
+        if gi_patch_start is not None and line.strip() == "":
+            # Insert the patch after the 'gi_patches:' line
+            gi_patch_end = idx + 2
+            break
+
+
+    category_match_found = False
+    category_base_match_found = False
+    idx = gi_patch_start
+
+    for patch in gi_patches:
+        print("run")
+        while idx < gi_patch_end:
+            if category_base_match_found is False and lines[idx].strip() == "":
+                print("Error: Empty line found in gi_patches block.\n\n")
+                return
+
+            if idx == gi_patch_end:
+                print("Error: Reached end of gi_patches block without finding a match.\n\n")
+                return
+            
+            line = yaml.safe_load(lines[idx])
+
+            if line != None and line[0]['category'] == patch['category'].strip():
+                category_match_found = True
+
+            if line != None and category_match_found and line[0]['base'] == patch['base'].strip():
+                category_base_match_found = True
+
+            
+            if category_base_match_found and lines[idx].strip() == "" or category_base_match_found and lines[idx].startswith('#') or category_base_match_found and lines[idx].strip() == "":
+                # Insert the patch at the current index
+                lines.insert(idx, "  - {{ category: \"{category}\", base: \"{base}\", release: \"{release}\", patchnum: \"{patchnum}\", patchfile: \"{patchfile}\", patch_subdir: \"{patch_subdir}\", prereq_check: {prereq_check}, method: \"{method}\", ocm: {ocm}, upgrade: {upgrade}, md5sum: \"{md5sum}\" }}\n".format(
+                        category=patch['category'].strip(),
+                        base=patch['base'].strip(),
+                        release=patch['release'].strip(),
+                        patchnum=patch['patchnum'].strip(),
+                        patchfile=patch['patchfile'].strip(),
+                        patch_subdir=patch['patch_subdir'].strip(),
+                        prereq_check=str(patch['prereq_check']).lower(),
+                        method=patch['method'].strip(),
+                        ocm=str(patch['ocm']).lower(),
+                        upgrade=str(patch['upgrade']).lower(),
+                        md5sum=patch['md5sum'].strip(),
+                    ))
+                print("Inserted GI patch at line {0}.\n\n".format(idx + 1))
+                category_match_found = False
+                category_base_match_found = False
+                idx = gi_patch_start
+                break
+
+            idx += 1
+            if idx == gi_patch_end:
+                print("Error: Reached end of gi_patches block without finding a match.\n\n")
+                return
+
+        with open(output_yml, 'w') as file:
+            file.writelines(lines)
+    print("GI patches patch inserted successfully.\n\n")
+
 def main():
     patch_data = load_yaml('version_upgrade.yaml')
     output_yml = "./roles/common/defaults/main.yml"
 
-    gi_software_search_duplicates(patch_data['gi_software'], output_yml)
+    try:
+        yaml.safe_load(open(output_yml, 'r'))
+    except yaml.YAMLError as exc:
+        print(f"Error parsing YAML file: {exc}\n\n")
+        sys.exit(1)
 
-    gi_software_insert_patch(gi_software_compile_patch(patch_data['gi_software']), './roles/common/defaults/main.yml')
+    if patch_data is None:
+        print("No patch data found in the YAML file.\n\n")
+        sys.exit(1)
+    
+    # if patch_data.get('gi_software') is not None:
+    #     gi_software_search_duplicates(patch_data['gi_software'], output_yml)
+    #     gi_software_insert_patch(gi_software_compile_patch(patch_data['gi_software']), './roles/common/defaults/main.yml')
 
-    gi_interim_search_duplicates(patch_data['gi_interim_patches'], output_yml)
+    # if patch_data.get('gi_interim_patches') is not None:
+    #     gi_interim_search_duplicates(patch_data['gi_interim_patches'], output_yml)
+    #     gi_interim_insert_patch(gi_interim_compile_patch(patch_data['gi_interim_patches']), output_yml)    
 
-    gi_interim_insert_patch(gi_interim_compile_patch(patch_data['gi_interim_patches']), output_yml)    
+    # if patch_data.get('rdbms_software') is not None:
+    #     rdbms_software_search_duplicates(patch_data['rdbms_software'], output_yml)
+    #     rdbms_software_insert_patch(rdbms_software_compile_patch(patch_data['rdbms_software']),output_yml)
 
-    rdbms_software_search_duplicates(patch_data['rdbms_software'], output_yml)
+    # if patch_data.get('opatch_patches') is not None:
+    #     opatch_patch_search_duplicates(patch_data['opatch_patches'], output_yml)
+    #     opatch_patch_insert_patch(opatch_patch_compile_patch(patch_data['opatch_patches']),output_yml)
 
-    rdbms_software_insert_patch(rdbms_software_compile_patch(patch_data['rdbms_software']),output_yml)
+    if patch_data.get('gi_patches') is not None:
+        gi_patch_search_duplicates(patch_data['gi_patches'], output_yml)
+        gi_patches_insert_patch(patch_data['gi_patches'], output_yml)
 
-    opatch_patch_search_duplicates(patch_data['opatch_patches'], output_yml)
-
-    opatch_patch_insert_patch(opatch_patch_compile_patch(patch_data['opatch_patches']),output_yml)
+    #rdbms_patch_search_duplicates(patch_data['rdbms_patches'], output_yml)
 
 if __name__ == "__main__":
     main()
