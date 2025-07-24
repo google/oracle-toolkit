@@ -23,6 +23,12 @@ variable "control_node_name_prefix" {
   default     = "control-node"
 }
 
+variable "delete_control_node" {
+  description = "Controls whether the control node deletes itself after deployment. Set to false to preserve the node for debugging purposes."
+  type        = bool
+  default     = true
+}
+
 variable "machine_type" {
   description = "The machine type to be used for the instance (e.g., n4-standard-2)."
   type        = string

@@ -251,6 +251,7 @@ resource "google_compute_instance" "control_node" {
     database_vm_nodes_json = jsonencode(local.database_vm_nodes)
     common_flags = local.common_flags
     deployment_name = var.deployment_name
+    delete_control_node = var.delete_control_node
   })
 
   metadata = {

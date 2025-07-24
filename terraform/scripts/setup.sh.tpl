@@ -17,8 +17,10 @@ cleanup() {
   if ! gcloud --quiet compute os-login ssh-keys remove --key-file=/root/.ssh/google_compute_engine.pub; then
     echo "WARNING: Failed to remove SSH key. Continuing with instance deletion."
   fi
-  echo "Deleting '$control_node_name' GCE instance in zone '$control_node_zone' in project '$control_node_project_id'..."
-  gcloud --quiet compute instances delete "$control_node_name" --zone="$control_node_zone" --project="$control_node_project_id"
+  if [[ ${delete_control_node} == "true" ]]; then
+    echo "Deleting '$control_node_name' GCE instance in zone '$control_node_zone' in project '$control_node_project_id'..."
+    gcloud --quiet compute instances delete "$control_node_name" --zone="$control_node_zone" --project="$control_node_project_id"
+  fi
 }
 
 trap cleanup EXIT
