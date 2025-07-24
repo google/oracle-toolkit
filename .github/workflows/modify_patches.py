@@ -1,7 +1,8 @@
 import yaml
-import sys
+import sys, os
 import re
-from pprint import pprint
+import pathlib
+
 
 def load_yaml(file_path):
     try:
@@ -674,8 +675,17 @@ def rdbms_patches_insert_patch(rdbms_patches, output_yml):
 
 
 def main():
-    patch_data = load_yaml('version_upgrade.yaml')
-    output_yml = "./roles/common/defaults/main.yml"
+    # # the root of the git repo
+    # dir_path = pathlib.Path(__file__).parent.parent.parent
+
+    # input_yml = dir_path / 'version_upgrade.yaml'
+    # output_yml = dir_path / 'roles/common/defaults/main.yml'
+    # patch_data = load_yaml(input_yml)
+
+    dir_path = pathlib.Path(__file__).parent.parent.parent
+    input_yml = os.path.join(dir_path, 'modify_patchlist.yaml')
+    output_yml = os.path.join(dir_path, 'roles/common/defaults/main.yml')
+    patch_data = load_yaml(input_yml)
 
     try:
         yaml.safe_load(open(output_yml, 'r'))
@@ -689,7 +699,7 @@ def main():
     
     if patch_data.get('gi_software') is not None:
         gi_software_search_duplicates(patch_data['gi_software'], output_yml)
-        gi_software_insert_patch(gi_software_compile_patch(patch_data['gi_software']), './roles/common/defaults/main.yml')
+        gi_software_insert_patch(gi_software_compile_patch(patch_data['gi_software']), output_yml)
 
     if patch_data.get('gi_interim_patches') is not None:
         gi_interim_search_duplicates(patch_data['gi_interim_patches'], output_yml)
