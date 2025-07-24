@@ -172,6 +172,23 @@
       no_log: true
       when: db_password_secret | length == 0
 
+    - name: Active-copy | Set sys password for primary databsase
+      command:
+        argv:
+          - "{{ oracle_home }}/bin/orapwd"
+          - "file={{ password_file_name }}"
+          - "force=y"
+          - "password={{ sys_pass }}"
+      environment:
+        ORACLE_HOME: "{{ oracle_home }}"
+        ORACLE_SID: "{{ oracle_sid }}"
+        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+      delegate_to: primary1
+      become: true
+      become_user: "{{ oracle_user }}"
+      no_log: true
+      when: db_password_secret | length == 0
+
     - name: Active-copy | Retrieve DB password from Secret Manager
       command: gcloud --quiet secrets versions access {{ db_password_secret }}
       register: gcloud_result
