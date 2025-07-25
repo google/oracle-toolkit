@@ -294,6 +294,7 @@
         state: absent
       become: true
       become_user: "{{ oracle_user }}"
+      ignore_errors: true
 
 - name: Active-copy | Capture standby database state
   shell: |
