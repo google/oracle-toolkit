@@ -241,14 +241,6 @@
         PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
       become: true
       become_user: "{{ oracle_user }}"
-      no_log: true
-
-    - name: Delete duplicate.cmd file
-      file:
-        path: "{{ oracle_home }}/dbs/duplicate.cmd"
-        state: absent
-      become: true
-      become_user: "{{ oracle_user }}"
 
     - name: Active-copy | Add Oracle Restart configuration
       shell: |
@@ -292,6 +284,14 @@
         ORACLE_HOME: "{{ oracle_home }}"
         ORACLE_SID: "{{ oracle_sid }}"
         PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+      become: true
+      become_user: "{{ oracle_user }}"
+
+  always:
+    - name: Delete duplicate.cmd file
+      file:
+        path: "{{ oracle_home }}/dbs/duplicate.cmd"
+        state: absent
       become: true
       become_user: "{{ oracle_user }}"
 
