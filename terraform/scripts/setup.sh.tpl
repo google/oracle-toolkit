@@ -1,21 +1,39 @@
 #!/bin/bash
 
-control_node_name="$(curl -s http://metadata.google.internal/computeMetadata/v1/instance/name -H 'Metadata-Flavor: Google')"
-# The zone value from the metadata server is in the format 'projects/PROJECT_NUMBER/zones/ZONE'.
-# extracting the last part
-control_node_zone_full="$(curl -s http://metadata.google.internal/computeMetadata/v1/instance/zone -H 'Metadata-Flavor: Google')"
-control_node_zone="$(basename "$control_node_zone_full")"
-control_node_project_id="$(curl -s http://metadata.google.internal/computeMetadata/v1/project/project-id -H 'Metadata-Flavor: Google')"
+control_node_name="$(curl -fsS http://metadata.google.internal/computeMetadata/v1/instance/name -H 'Metadata-Flavor: Google')" || {
+  echo "Error: Failed to retrieve control node's instance name"
+  exit 1
+}
+control_node_zone_full="$(curl -fsS http://metadata.google.internal/computeMetadata/v1/instance/zone -H 'Metadata-Flavor: Google')" || {
+  echo "Error: Failed to retrieve control's node zone"
+  exit 1
+}
+control_node_zone="$(basename "$control_node_zone_full")" || {
+  echo "Error: Failed to extract zone name from: $control_node_zone_full"
+  exit 1
+}
+control_node_project_id="$(curl -fsS http://metadata.google.internal/computeMetadata/v1/project/project-id -H 'Metadata-Flavor: Google')" || {
+  echo "Error: Failed to retrieve project ID"
+  exit 1
+}
+control_node_sa="$(curl -fsS http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email -H 'Metadata-Flavor: Google')" || {
+  echo "Error: Failed to retrieve service account email"
+  exit 1
+}
 
 cleanup() {
   if [[ -n "$heartbeat_pid" ]]; then
     echo "Stopping heartbeat process $heartbeat_pid"
-    kill -9 "$heartbeat_pid" 2>/dev/null
+    kill "$heartbeat_pid" >/dev/null 2>&1
   fi
   # https://cloud.google.com/compute/docs/troubleshooting/troubleshoot-os-login#invalid_argument
-  echo "Deleting the public SSH key from the control node's service account OS Login profile to prevent exceeding the 32KiB limit"
-  if ! gcloud --quiet compute os-login ssh-keys remove --key-file=/root/.ssh/google_compute_engine.pub; then
-    echo "WARNING: Failed to remove SSH key. Continuing with instance deletion."
+  echo "Deleting public SSH key from the control node's service account OS Login profile to prevent exceeding the 32KiB limit"
+  if [[ -f "/root/.ssh/google_compute_engine.pub" ]]; then
+    echo "Public SSH key found. Attempting to remove it from OS Login..."
+    if ! gcloud --quiet compute os-login ssh-keys remove --key-file=/root/.ssh/google_compute_engine.pub; then
+      echo "WARNING: Failed to remove SSH key."
+    fi
+    echo "Public SSH key has been removed from the control node's service account OS Login profile"
   fi
   %{ if delete_control_node }
   echo "Deleting '$control_node_name' GCE instance in zone '$control_node_zone' in project '$control_node_project_id'..."
@@ -23,10 +41,10 @@ cleanup() {
   %{ endif }
 }
 
-trap cleanup EXIT
+trap cleanup SIGINT SIGTERM EXIT
 
-CLOUD_LOG_NAME="Ansible_logs"
-HEARTBEAT_INTERVAL=60
+cloud_log_name="Ansible_logs"
+heartbeat_interval=60
 
 send_heartbeat() {
   while true; do
@@ -42,8 +60,8 @@ send_heartbeat() {
 }
 EOF
 )
-    gcloud logging write "$CLOUD_LOG_NAME" "$payload" --payload-type=json
-    sleep "$HEARTBEAT_INTERVAL"
+    gcloud logging write "$cloud_log_name" "$payload" --payload-type=json || exit 1
+    sleep "$heartbeat_interval"
   done
 }
 
@@ -69,7 +87,25 @@ EOF
   )
 echo "Sending a signal to Cloud Logging to indicate Ansible completion status"
 echo "JSON payload to be sent: $payload"
-gcloud logging write "$CLOUD_LOG_NAME" "$payload" --payload-type=json
+gcloud logging write "$cloud_log_name" "$payload" --payload-type=json || exit 1
+}
+
+send_startup_script_failure_status() {
+  error_message=$1
+  timestamp=$(date --rfc-3339=seconds)
+  payload=$(cat <<EOF
+{
+  "state": "ansible_start_failure",
+  "step_name": "bootstrap Ansible scripts",
+  "error_message": "$error_message",
+  "timestamp": "$timestamp",
+  "deployment_name": "${deployment_name}",
+  "instanceName": "$control_node_name",
+  "zone": "$control_node_zone"
+}
+EOF
+  )
+gcloud logging write "$cloud_log_name" "$payload" --payload-type=json || exit 1
 }
 
 send_heartbeat &
@@ -80,19 +116,22 @@ echo "Heartbeat started with PID $heartbeat_pid"
 
 DEST_DIR="/oracle-toolkit"
 
-apt-get update
-apt-get install -y ansible python3-jmespath unzip python3-google-auth
+export DEBIAN_FRONTEND=noninteractive
+apt-get --quiet update || exit 1
+apt-get install --quiet --assume-yes ansible python3-jmespath unzip python3-google-auth || exit 1
 
-control_node_sa="$(curl -s http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email -H 'Metadata-Flavor: Google')"
-echo "Downloading '${gcs_source}' to /tmp"
-if ! gsutil cp "${gcs_source}" /tmp/; then
-  echo "ERROR: Failed to download '${gcs_source}'. Make sure the file exists and that the service account '$control_node_sa' has 'roles/storage.objectViewer' role on the bucket."
+
+echo "Downloading ${gcs_source} to /tmp"
+if ! gcloud --quiet storage cp "${gcs_source}" /tmp/; then
+  error_message="ERROR: Failed to download ${gcs_source}. Make sure the file exists and that the service account $control_node_sa has 'roles/storage.objectViewer' role on the bucket."
+  echo "$error_message"
+  send_startup_script_failure_status "$error_message"
   exit 1
 fi
 zip_file="$(basename "${gcs_source}")"
 mkdir -p "$DEST_DIR"
-echo "Extracting files from '$zip_file' to '$DEST_DIR'"
-unzip -o "/tmp/$zip_file" -d "$DEST_DIR"
+echo "Extracting files from $zip_file to $DEST_DIR"
+unzip -qq -o "/tmp/$zip_file" -d "$DEST_DIR"
 
 num_nodes="$(echo '${database_vm_nodes_json}' | jq "length")"
 echo "num_nodes=$num_nodes"
@@ -101,7 +140,9 @@ primary_ip=""
 if [[ "$num_nodes" -gt 1 ]]; then
   primary_ip="$(echo '${database_vm_nodes_json}' | jq -r '.[] | select(.role == "primary") | .ip')"
   if [[ -z "$primary_ip" ]]; then
-    echo "ERROR: Could not find a primary node with role 'primary'."
+    error_message="ERROR: Could not find a primary node with role 'primary'."
+    echo "$error_message"
+    send_startup_script_failure_status "$error_message"
     exit 1
   fi
   echo "PRIMARY_IP: $primary_ip"
@@ -117,7 +158,7 @@ callback_plugins = ./tools/callback_plugins
 project = $control_node_project_id
 ignore_gcp_api_errors = false
 enable_async_logging = true
-log_name = $CLOUD_LOG_NAME
+log_name = $cloud_log_name
 EOF
 
 export DEPLOYMENT_NAME="${deployment_name}"
@@ -132,21 +173,24 @@ for node in $(echo '${database_vm_nodes_json}' | jq -c '.[] | select(.role == "p
   echo "This ensures that a persistent SSH key pair is created and associated with your Google Account."
   echo "The private auto-generated ssh key (~/.ssh/google_compute_engine) will be used by Ansible to connect to the VM and run playbooks remotely."
   echo "Command:"
-  echo "gcloud compute ssh '$node_name' --zone='$node_zone' --internal-ip --quiet --command whoami"
+  echo "gcloud --quiet compute ssh '$node_name' --zone='$node_zone' --internal-ip --command whoami"
 
-  timeout 2m bash -c "until gcloud compute ssh \"$node_name\" --zone=\"$node_zone\" --internal-ip --quiet --command whoami; do
+  timeout 2m bash -c "until gcloud --quiet compute ssh \"$node_name\" --zone=\"$node_zone\" --internal-ip --command whoami; do
     echo \"Waiting for SSH to become available on '$node_name'...\"
     sleep 5
   done" || {
-    echo "ERROR: Timed out waiting for SSH"
+    error_message="ERROR: Timed out waiting for SSH"
+    echo "$error_message"
+    send_startup_script_failure_status "$error_message"
     exit 1
   }
 
-  ssh_user="$(gcloud compute os-login describe-profile --format='value(posixAccounts[0].username)')"
-  if [[ -z "$ssh_user" ]]; then
-    echo "ERROR: Failed to extract the POSIX username. This may be due to OS Login not being enabled or missing IAM permissions."
+  ssh_user="$(gcloud --quiet compute os-login describe-profile --format='value(posixAccounts[0].username)')" || {
+    error_message="ERROR: Failed to extract the POSIX username. This may be due to OS Login not being enabled or missing IAM permissions."
+    echo "$error_message"
+    send_startup_script_failure_status "$error_message"
     exit 1
-  fi
+  }
 
     echo "Configuring PRIMARY node: $node_name, IP: $node_ip, Zone: $node_zone"
     bash install-oracle.sh \
