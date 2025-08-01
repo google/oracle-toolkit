@@ -129,7 +129,7 @@
   when:
     - ansible_os_family == "RedHat"
     - install_workload_agent | bool
-    - oracle_metrics_secret | length > 0
+    - oracle_metrics_secret | length > 0 or db_password_secret | length > 0
   tags: install-google-cloud-cli
 
 - name: Fetch and validate DB passwords

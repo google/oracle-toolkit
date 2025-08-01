@@ -169,6 +169,7 @@ class PlaybookTaskEndMessage(TypedDict):
     end_time: Timestamp when the task execution ended.
     status: Status of the task (OK, FAILED, SKIPPED, etc.)
     result: Dictionary containing the execution result.
+    error_message: either result.stderr or result.msg depending on what ansible module failed.
   """
 
   id: str
@@ -180,6 +181,7 @@ class PlaybookTaskEndMessage(TypedDict):
   end_time: str
   status: str
   result: dict[str, Any]
+  error_message: str
 
 
 class PlaybookEndMessage(TypedDict):
@@ -473,6 +475,16 @@ class CallbackModule(callback.CallbackBase):
     self.tasks[(host.get_name(), task._uuid)]["result"] = result_data
     self.tasks[(host.get_name(), task._uuid)]["end_time"] = self._time_now()
     self.tasks[(host.get_name(), task._uuid)]["status"] = status
+     # Setting WLM fields
+    if status == "failed":
+      self.tasks[(host.get_name(), task._uuid)]["state"] = "failed"
+      self.tasks[(host.get_name(), task._uuid)]["error_message"] = result_data.get("stderr") or result_data.get("msg") or "No error message found in result (neither 'stderr' nor 'msg' present)."
+    elif status == "unreachable":
+      self.tasks[(host.get_name(), task._uuid)]["state"] = "failed"
+      self.tasks[(host.get_name(), task._uuid)]["error_message"] = "unreachable host"
+    elif status == "ok" or status == "skipped":
+      self.tasks[(host.get_name(), task._uuid)]["state"] = "success"
+
     self.logging_collector.send(self.tasks[(host.get_name(), task._uuid)])
 
   def v2_playbook_on_start(self, playbook: ansible.playbook.Playbook) -> None:
@@ -556,10 +568,11 @@ class CallbackModule(callback.CallbackBase):
         status="",
         result={},
         # WLM fields
-        state="task_end",
+        state="",
         step_name="",
         timestamp="",
         deployment_name="",
+        error_message="",
     )
     t["id"] = self.id
     t["task_id"] = task._uuid
@@ -570,7 +583,6 @@ class CallbackModule(callback.CallbackBase):
     t["step_name"] = task.get_name()
     t["timestamp"] = time_now
     t["deployment_name"] = self.deployment_name
-    t["step_name"] = task.get_name()
     self.tasks[(host.get_name(), task._uuid)] = t
 
   def v2_runner_on_failed(
@@ -591,8 +603,7 @@ class CallbackModule(callback.CallbackBase):
       self, result: ansible.executor.task_result.TaskResult
   ) -> None:
     """Plugin function that gets called when a task succeeds."""
-    # WLM expects "success" instead of Ansible's "OK"
-    self._store_result_in_task(result, "success")
+    self._store_result_in_task(result, "ok")
 
   def v2_runner_on_skipped(
       self, result: ansible.executor.task_result.TaskResult
@@ -612,8 +623,7 @@ class CallbackModule(callback.CallbackBase):
     Args:
       result: The result object of type ansible.executor.result.Result
     """
-     # WLM expects "failed" instead of Ansible's "UNREACHABLE"
-    self._store_result_in_task(result, "failed")
+    self._store_result_in_task(result, "unreachable")
 
   def v2_playbook_on_stats(
       self, stats: ansible.executor.stats.AggregateStats
