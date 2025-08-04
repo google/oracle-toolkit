@@ -23,7 +23,7 @@
 
 - name: Fail if gcloud command failed
   fail:
-    msg: "Command failed: stderr={{ result.stderr }}"
+    msg: "Command failed with rc={{ sys_pass_result.rc }}: stderr={{ result.stderr }}"
   when: result.rc != 0
   tags: workload-agent
 
