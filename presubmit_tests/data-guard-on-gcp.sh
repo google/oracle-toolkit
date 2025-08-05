@@ -13,34 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-usage() {
-  echo "Usage: $0 [single-instance | data-guard]"
-  exit 1
-}
-
-if [[ $# -ne 1 ]]; then
-  echo "Expected exactly one argument."
-  usage
-fi
-
-input="$1"
-
-case "$input" in
-  single-instance)
-    tfvars_file="./presubmit_tests/single-instance.tfvars"
-    instance_name="github-presubmit-si-${BUILD_ID}"
-    deployment_name="presubmit-si-${BUILD_ID}"
-    ;;
-  data-guard)
-    tfvars_file="./presubmit_tests/data-guard.tfvars"
-    instance_name="github-presubmit-dg-${BUILD_ID}"
-    deployment_name="presubmit-dg-${BUILD_ID}"
-    ;;
-  *)
-    echo "Unsupported input: $input"
-    usage
-    ;;
-esac
 
 apk add --no-cache zip curl py3-pip expect || exit 1
 
@@ -50,6 +22,9 @@ gcs_bucket="gs://oracle-toolkit-presubmit-artifacts"
 # For available Prow-injected environment variables, see:
 # https://docs.prow.k8s.io/docs/jobs/#job-environment-variables
 toolkit_zip_file_name="oracle-toolkit-${BUILD_ID}.zip"
+tfvars_file="./presubmit_tests/data-guard.tfvars"
+instance_name="github-presubmit-dg-${BUILD_ID}"
+deployment_name="presubmit-dg-${BUILD_ID}"
 location="us-central1"
 project_id="$(curl -fsS -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/project/project-id")" || {
   echo "Error: Failed to retrieve project ID"
