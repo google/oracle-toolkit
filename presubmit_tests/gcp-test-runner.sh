@@ -13,6 +13,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+usage() {
+  echo "Usage: $0 [single-instance | data-guard]"
+  exit 1
+}
+
+if [[ $# -ne 1 ]]; then
+  echo "Expected exactly one argument."
+  usage
+fi
+
+input="$1"
+
+case "$input" in
+  single-instance)
+    tfvars_file="./presubmit_tests/single-instance.tfvars"
+    instance_name="github-presubmit-si-${BUILD_ID}"
+    deployment_name="presubmit-si-${BUILD_ID}"
+    ;;
+  data-guard)
+    tfvars_file="./presubmit_tests/data-guard.tfvars"
+    instance_name="github-presubmit-dg-${BUILD_ID}"
+    deployment_name="presubmit-dg-${BUILD_ID}"
+    ;;
+  *)
+    echo "Unsupported input: $input"
+    usage
+    ;;
+esac
 
 apk add --no-cache zip curl py3-pip expect || exit 1
 
@@ -22,15 +50,11 @@ gcs_bucket="gs://oracle-toolkit-presubmit-artifacts"
 # For available Prow-injected environment variables, see:
 # https://docs.prow.k8s.io/docs/jobs/#job-environment-variables
 toolkit_zip_file_name="oracle-toolkit-${BUILD_ID}.zip"
-tfvars_file="./presubmit_tests/single-instance.tfvars"
-instance_name="github-presubmit-si-${BUILD_ID}"
-deployment_name="presubmit-si-${BUILD_ID}"
 location="us-central1"
-project_id="$(curl -s -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/project/project-id")"
-if [[ -z "${project_id}" ]]; then
-  echo "Could not get the project ID"
+project_id="$(curl -fsS -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/project/project-id")" || {
+  echo "Error: Failed to retrieve project ID"
   exit 1
-fi
+}
 gcs_source="${gcs_bucket}/${toolkit_zip_file_name}"
 deployment_id="projects/${project_id}/locations/${location}/deployments/${deployment_name}"
 
@@ -48,7 +72,10 @@ trap cleanup SIGINT SIGTERM EXIT
 
 echo "Zipping CWD into /tmp/${toolkit_zip_file_name} and uploading to ${gcs_bucket}/..."
 zip -r /tmp/"${toolkit_zip_file_name}" . -x ".git*" -x ".terraform*" -x "terraform*" -x OWNERS > /dev/null
-gcloud storage cp /tmp/"${toolkit_zip_file_name}" "${gcs_bucket}/"
+if ! gcloud --quiet storage cp /tmp/"${toolkit_zip_file_name}" "${gcs_bucket}/"; then 
+  echo "ERROR: Failed to upload /tmp/"${toolkit_zip_file_name}" to "${gcs_bucket}/". Make sure the service account has write permissions on the bucket."
+  exit 1
+fi
 
 sed -i "s|@deployment_name@|$deployment_name|g" "${tfvars_file}"
 sed -i "s|@gcs_source@|$gcs_source|g" "${tfvars_file}"
@@ -60,12 +87,6 @@ gcloud infra-manager deployments apply "${deployment_id}" \
   --local-source="./terraform" \
   --inputs-file="${tfvars_file}" || exit 1
 
-echo "Resources created by the ${deployment_name} deployment"
-gcloud infra-manager resources list \
---deployment="${deployment_name}" \
---location="${location}" \
---revision=r-0 || exit 1
-
 # Extract the id of the control node resource
 # The format is: projects/<project>/zones/<zone>/instances/control-node-<random-suffix>
 control_node_resource_id="$(gcloud infra-manager resources list \
@@ -73,18 +94,16 @@ control_node_resource_id="$(gcloud infra-manager resources list \
 --location="${location}" \
 --revision=r-0 \
 --filter='terraformInfo.address=google_compute_instance.control_node' \
---format='value(terraformInfo.id)')"
-if [[ -z "${control_node_resource_id}" ]]; then
-  echo "Could not retrieve control node's resource ID."
+--format='value(terraformInfo.id)')" || {
+  echo "Error: Failed to retrieve control node's resource ID."
   exit 1
-fi
+}
 
 # Get the instance ID from the instance resource
-control_node_instance_id="$(gcloud compute instances describe "${control_node_resource_id}" --format="value(id)")"
-if [[ -z "${control_node_instance_id}" ]]; then
-  echo "Could not get control node's instance ID."
+control_node_instance_id="$(gcloud compute instances describe "${control_node_resource_id}" --format="value(id)")" || {
+  echo "Error: Failed to get control node's instance ID."
   exit 1
-fi
+}
 
 read -r -d '' query <<EOF
 resource.type="gce_instance"
@@ -102,19 +121,27 @@ echo "${console_link}"
 echo "Installing required gcloud alpha components..."
 gcloud --quiet components install alpha || exit 1
 pip3 install grpcio --break-system-packages || exit 1
-export CLOUDSDK_PYTHON_SITEPACKAGES=1
-echo "Streaming logs from the control node's startup script execution..."
-echo
 
-# The 'gcloud alpha logging tail' command may display 'SyntaxWarning: invalid escape sequence' warnings.
-# These warnings are harmless and can be safely ignored using PYTHONWARNINGS=ignore.
-# 'unbuffer' is used here to avoid delayed and missing logs caused by output buffering in non-interactive session"
-# gcloud logging tail sessions have a 1-hour maximum duration; to continue, the session must be restarted.
-PYTHONWARNINGS="ignore" unbuffer gcloud alpha logging tail \
-"resource.type=gce_instance AND \
-resource.labels.instance_id=${control_node_instance_id} \
-AND log_name=projects/${project_id}/logs/google_metadata_script_runner" \
---format='value(timestamp, json_payload.message)' &
+tail_logs() {
+  echo "Streaming logs from the control node's startup script execution..."
+  echo
+  # The 'gcloud alpha logging tail' command may display 'SyntaxWarning: invalid escape sequence' warnings.
+  # These warnings are harmless and can be safely ignored using PYTHONWARNINGS=ignore.
+  # 'unbuffer' is used here to avoid delayed and missing logs caused by output buffering in non-interactive session"
+  # gcloud logging tail has a 1-hour session limit. We run it in a loop to maintain continuous log streaming beyond that limit.
+  export CLOUDSDK_PYTHON_SITEPACKAGES=1
+  while true; do
+    echo "$(date '+%Y-%m-%d %H:%M:%S')    Starting gcloud logging tail session..."
+    PYTHONWARNINGS="ignore" unbuffer gcloud alpha logging tail \
+    "resource.type=gce_instance AND \
+    resource.labels.instance_id=${control_node_instance_id} \
+    AND log_name=projects/${project_id}/logs/google_metadata_script_runner" \
+    --format='value(timestamp.date(format="%Y-%m-%d %H:%M:%S"), json_payload.message.sub("^startup-script: ", ""))'
+    echo "$(date '+%Y-%m-%d %H:%M:%S')     Tail session ended. Restarting..."
+  done
+}
+
+tail_logs &
 
 sleep_seconds=60
 timeout_seconds=7200
