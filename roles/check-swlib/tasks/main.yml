@@ -70,8 +70,7 @@
   failed_when: opatch_repo_files.stdout <= "0"
   changed_when: false
   ignore_errors: true
-  with_items:
-    - "{{ opatch_patches }}"
+  with_items: "{{ opatch_patches }}"
   when:
     - item.release == oracle_ver
     - oracle_rel != "base"
@@ -81,8 +80,7 @@
   fail:
     msg: "ERROR locating {{ item.item.0.name }} {{ item.item.1.name }}: {{ item.stdout }}"
   when: item.failed_when_result is defined and item.failed_when_result == true
-  with_items:
-    - "{{ base_repo_files.results }}"
+  with_items: "{{ base_repo_files.results }}"
 
 - name: check-swlib | Report gsutil failures (patch)
   fail:

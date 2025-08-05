@@ -105,7 +105,6 @@
     - include_role:
         name: host-provision
         tasks_from: rhel-config-tasks.yml
-      when:
-        - ansible_distribution == 'RedHat'
+      when: ansible_distribution == 'RedHat'
   remote_user: "{{ instance_ssh_user }}"
   tags: host-provision

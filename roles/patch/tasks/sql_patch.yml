@@ -16,16 +16,17 @@
 - name: sql_patch | SID confirmation
   debug:
     msg: "Running post patch operations for SID: {{ oracle_sid }}"
+    verbosity: 0
 
 - name: sql_patch | Set default upgrade mode
   set_fact:
     startup_upgrade: ""
-  when: not patch.upgrade|bool
+  when: not patch.upgrade | bool
 
 - name: sql_patch | Determine if upgrade mode is required
   set_fact:
     startup_upgrade: "upgrade"
-  when: patch.upgrade|bool
+  when: patch.upgrade | bool
 
 - name: sql_patch | Start DB
   shell: |
@@ -147,6 +148,7 @@
 - name: sql_patch | Registry patch results
   debug:
     msg: "{{ patch_registry }}"
+    verbosity: 0
   when: oracle_ver != '11.2.0.4.0'
 
 - name: sql_patch | Shutdown DB

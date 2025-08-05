@@ -49,8 +49,7 @@
   when:
     - asm_disk_management == "asmlib"
     - created_dg is not search(item.diskgroup)
-  with_items:
-    - "{{ asm_disks }}"
+  with_items: "{{ asm_disks }}"
   register: create_dg
   failed_when: "'ERROR' in create_dg.stdout"
   become: true
@@ -77,8 +76,7 @@
   when:
     - asm_disk_management == "udev"
     - created_dg is not search(item.diskgroup)
-  with_items:
-    - "{{ asm_disks }}"
+  with_items: "{{ asm_disks }}"
   register: create_dg
   failed_when: "'ERROR' in create_dg.stdout"
   become: true

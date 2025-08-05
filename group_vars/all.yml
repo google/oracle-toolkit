@@ -138,7 +138,7 @@ ora_pga_target_mb: "{{ lookup('env','ORA_PGA_TARGET_MB')|int|default('150',true)
 ora_sga_target_mb: "{{ lookup('env','ORA_SGA_TARGET_MB')|int|default((ansible_memory_mb.real.total*memory_pct)//100,true) }}"
 oracle_user: oracle
 oracle_group: oinstall
-grid_user: "{% if role_separation|bool %}grid{% else %}{{ oracle_user }}{% endif %}"
+grid_user: "{% if role_separation | bool %}grid{% else %}{{ oracle_user }}{% endif %}"
 grid_group: asmadmin
 oracle_root: "/u01/app"
 home_name: "{% if free_edition %}dbhomeFree{% else %}dbhome_1{% endif %}"

@@ -93,8 +93,7 @@
         daemon_reload: true
       register: systemd_stop
       with_items: "{{ free_edition_systemd_services.stdout_lines }}"
-      when:
-        - free_edition_systemd_services.changed
+      when: free_edition_systemd_services.changed
       notify:
         - Run systemctl daemon-reload
         - Reset failed systemd services
@@ -116,8 +115,7 @@
         lock_timeout: "{{ pkg_mgr_lock_timeout }}"
       register: dnf_remove
       with_items: "{{ free_edition_rpm_packages.stdout_lines }}"
-      when:
-        - free_edition_rpm_packages.changed
+      when: free_edition_rpm_packages.changed
 
     - name: Force remove broken packages (if dnf module uninstall fails)
       shell:

@@ -75,8 +75,7 @@
     ORACLE_SID: "{{ asm_sid }}"
     LD_LIBRARY_PATH: "{{ grid_home }}/lib:${LD_LIBRARY_PATH}"
   when: asm_disk_management == "asmlib"
-  with_items:
-    - "{{ asm_disks }}"
+  with_items: "{{ asm_disks }}"
   register: create_dg
   failed_when: "'ERROR' in create_dg.stdout"
   become: true
@@ -101,8 +100,7 @@
     ORACLE_SID: "{{ asm_sid }}"
     LD_LIBRARY_PATH: "{{ grid_home }}/lib:${LD_LIBRARY_PATH}"
   when: asm_disk_management == "udev"
-  with_items:
-    - "{{ asm_disks }}"
+  with_items: "{{ asm_disks }}"
   register: create_dg
   failed_when: "'ERROR' in create_dg.stdout"
   become: true

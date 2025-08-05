@@ -26,6 +26,7 @@
 - name: OH Confirmation
   debug:
     msg: "Installing ORACLE_HOME - {{ oracle_home }}"
+    verbosity: 0
   when: existing_dbhome.stdout == "0"
   tags: rdbms-setup
 
@@ -41,8 +42,7 @@
   tags: rdbms-setup,os-dirs
 
 - include_tasks: rdbms-install.yml
-  with_items:
-    - "{{ rdbms_software }}"
+  with_items: "{{ rdbms_software }}"
   loop_control:
     loop_var: osw
   when:
@@ -53,8 +53,7 @@
   tags: rdbms-setup
 
 - include_tasks: rdbms-rpm-install.yml
-  with_items:
-    - "{{ rdbms_software }}"
+  with_items: "{{ rdbms_software }}"
   loop_control:
     loop_var: osw
   when:

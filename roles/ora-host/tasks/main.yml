@@ -120,6 +120,7 @@
 - name: Skip Google Cloud CLI installation if non-RHEL OS detected
   debug:
     msg: "Non-RHEL OS detected. Skipping the installation of Google Cloud CLI"
+    verbosity: 0
   when: ansible_os_family != "RedHat"
   tags: install-google-cloud-cli
 
@@ -135,8 +136,7 @@
 - name: Fetch and validate DB passwords
   include_tasks:
     file: validate_passwords.yml
-  when:
-  - ansible_os_family == "RedHat"
+  when: ansible_os_family == "RedHat"
   tags: validate-db-passwords
 
 - name: Add OS groups
@@ -223,8 +223,7 @@
 - name: Check ASM backup destination
   set_fact:
     dg_exists: "{{ asm_disks | json_query('[?diskgroup==`' + backup_dest[1:] + '`].diskgroup') }}"
-  when:
-    - backup_dest[0:1]  == "+"
+  when: backup_dest[0:1]  == "+"
   tags: backup-dest
 
 - name: Fail if ASM backup diskgroup not defined
@@ -273,13 +272,13 @@
     dest: "/home/{{ grid_user }}/.bash_profile"
     marker: "# {mark} Oracle Grid Infrastructure Settings:"
     backup: true
-  when:
-    - role_separation|bool
+  when: role_separation | bool
   tags: os-users
 
-- name: (asmlib) | ASM device managment via asmlib or udev?
+- name: (asmlib) | ASM device management via asmlib or udev?
   debug:
     msg: "asm_disk_management is set to {{ asm_disk_management }}"
+    verbosity: 0
   tags: asm-disks
 
 - name: Partition all ASM raw disks
@@ -305,6 +304,7 @@
       - asm_disks {{ asm_disks }}
       - asm_def_file {{ asm_definition_file }}
       - asm_disk_input {{ asm_disk_input }}
+    verbosity: 0
   tags: asm-disks
 
 ######## Udev rules for non-multipath disks ########
@@ -325,17 +325,14 @@
 - name: (udev) Add ASM non-multipath disk rules (init dict)
   set_fact:
     uuid_result_nonmultipath: []
-  when:
-    - udevadm_result_nonmultipath.results.0.stdout is defined
+  when: udevadm_result_nonmultipath.results.0.stdout is defined
   tags: udev-mpath
 
 - name: (udev) Add ASM non-multipath disk rules (filling dict)
   set_fact:
     uuid_result_nonmultipath: "{{ uuid_result_nonmultipath | combine({item.stdout: item.item}) }}"
-  when:
-    - udevadm_result_nonmultipath.results.0.stdout is defined
-  with_items:
-    - "{{ udevadm_result_nonmultipath.results }}"
+  when: udevadm_result_nonmultipath.results.0.stdout is defined
+  with_items: "{{ udevadm_result_nonmultipath.results }}"
   tags: udev-mpath
 
 - name: (udev) Add ASM non-multipath disk rules (udev rules file)
@@ -347,8 +344,7 @@
     marker: "# {mark} ASM disk udev rules for {{ uuid_result_nonmultipath[item.key] | json_query('[*].blk_device') | list | join(', ') }}"
     create: true
   register: udevRules_nonmultipath
-  when:
-    - uuid_result_nonmultipath is defined
+  when: uuid_result_nonmultipath is defined
   with_dict:
     - "{{ uuid_result_nonmultipath }}"
   tags: udev-mpath
@@ -369,17 +365,14 @@
 - name: (udev) Add ASM mpath disk rules (init dict)
   set_fact:
     uuid_result: []
-  when:
-    - udevadm_result.results.0.stdout is defined
+  when: udevadm_result.results.0.stdout is defined
   tags: udev-mpath
 
 - name: (udev) Add ASM mpath disk rules (filling dict)
   set_fact:
     uuid_result: "{{ uuid_result | combine({item.stdout: item.item}) }}"
-  when:
-    - udevadm_result.results.0.stdout is defined
-  with_items:
-    - "{{ udevadm_result.results }}"
+  when: udevadm_result.results.0.stdout is defined
+  with_items: "{{ udevadm_result.results }}"
   tags: udev-mpath
 
 - name: (udev) Add ASM mpath disk rules (udev rules file)
@@ -391,8 +384,7 @@
     marker: "# {mark} ASM disk udev rules for {{ uuid_result[item.key] | json_query('[*].blk_device') | list | join(', ') }}"
     create: true
   register: udevRules
-  when:
-    - uuid_result is defined
+  when: uuid_result is defined
   with_dict:
     - "{{ uuid_result }}"
   tags: udev-mpath
@@ -474,6 +466,7 @@
     msg:
       - "{{ item.stderr_lines }}"
       - "{{ item.stdout_lines }}"
+    verbosity: 0
   with_items:
     - "{{ asmconfig }}"
     - "{{ listdisks }}"

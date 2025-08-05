@@ -27,14 +27,13 @@
       - "installer dir(runinstaller_loc)          : {{ runinstaller_loc }}"
       - "Src (swlib_path)                         : {{ swlib_path }}"
       - "Dest (swlib_unzip_path)                  : {{ swlib_unzip_path }}"
-      # verbosity: 1
+    verbosity: 0
   tags: rdbms-setup
 
 - name: rdbms-install | Set variable for release patch
   set_fact:
     rel_patch: "-apply{% if oracle_ver_base == '12.2' %}PSU{% else %}RU{% endif %} {{ swlib_unzip_path }}/{{ item.patchnum }}{{ item.patch_subdir }}"
-  with_items:
-    - "{{ gi_patches }}"
+  with_items: "{{ gi_patches }}"
   when: item.release == oracle_rel and item.category == 'RU'
   tags: rdbms-setup,rel-patch
 
@@ -43,8 +42,7 @@
   shell: |
     unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
     chown -R {{ oracle_user }}:{{ oracle_group }} "{{ swlib_unzip_path }}"
-  with_items:
-    - "{{ rdbms_patches }}"
+  with_items: "{{ rdbms_patches }}"
   when: item.release == oracle_rel
   become: true
   tags: rdbms-setup,sw-unzip
@@ -54,8 +52,7 @@
   become_user: "{{ oracle_user }}"
   # Using the "shell" module instead of "unarchive" for unzip performance
   shell: unzip -o -q "{{ swlib_path }}/{{ item.name }}" -d "{{ install_unzip_path }}"
-  with_items:
-    - "{{ osw.files }}"
+  with_items: "{{ osw.files }}"
   tags: rdbms-setup,sw-unzip
 
 - name: rdbms-install | Create RDBMS response file script
@@ -85,8 +82,7 @@
     src: "{{ swlib_path }}/{{ item.patchfile }}"
     dest: "{{ oracle_home }}"
     remote_src: true
-  with_items:
-    - "{{ opatch_patches }}"
+  with_items: "{{ opatch_patches }}"
   when:
     - item.release == oracle_ver
     - item.category == "OPatch"
@@ -103,6 +99,7 @@
 - name: rdbms-install | Information
   debug:
     msg: "Using installer cmd: {{ db_installer_cmd }}"
+    verbosity: 0
   tags: rdbms-setup
 
 - name: rdbms-install | Set CV_ASSUME_DISTID to OEL7 when installing on RHEL8  # MOS Note 2878100.1
@@ -130,6 +127,7 @@
     msg:
       - "{{ db_install_result.cmd }}"
       - "{{ db_install_result.stdout_lines }}"
+    verbosity: 0
   tags: rdbms-setup
 
 - name: rdbms-install | Re-update DB OPatch post-install
@@ -137,8 +135,7 @@
     src: "{{ swlib_path }}/{{ item.patchfile }}"
     dest: "{{ oracle_home }}"
     remote_src: true
-  with_items:
-    - "{{ opatch_patches }}"
+  with_items: "{{ opatch_patches }}"
   when:
     - item.release == oracle_ver
     - item.category == "OPatch"
@@ -154,10 +151,8 @@
   environment:
     PATH: "{{ oracle_home }}/perl/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
     PERL5LIB: "{{ oracle_home }}/perl/lib"
-  with_items:
-    - "{{ rdbms_patches }}"
-  when:
-    - item.release == oracle_rel
+  with_items: "{{ rdbms_patches }}"
+  when: item.release == oracle_rel
   register: apply_oneoff
   failed_when: "('OPatch succeeded' not in apply_oneoff.stdout and 'OPatch completed with warnings' not in apply_oneoff.stdout)
                 or (apply_oneoff.rc | int not in [0, 6, 250])"
@@ -168,6 +163,7 @@
     msg:
       - "{{ item.cmd }}"
       - "{{ item.stdout_lines }}"
+    verbosity: 0
   with_items: "{{ apply_oneoff.results }}"
   when: item.changed
   tags: rdbms-setup,opatch

@@ -25,6 +25,7 @@
       - "Installing from file : {{ swlib_path }}/{{ osw_files }}"
       - "Unzipping into dir   : {{ install_unzip_path }}"
       - "Using cluvfy cmd     : {{ cluvfy_command }}"
+    verbosity: 0
   tags: rac-gi
 
 - name: rac-gi-install | Unzip GI patch
@@ -34,8 +35,7 @@
     chown -R {{ grid_user }}:{{ oracle_group }} "{{ swlib_unzip_path }}"
   args:
     creates: .gi_patch_{{ oracle_rel }}
-  with_items:
-    - "{{ gi_patches }}"
+  with_items: "{{ gi_patches }}"
   when: item.release == oracle_rel and item.category == 'RU' and item.category != "HAS_interim_patch"
   become: true
   tags: rac-gi,sw-unzip
@@ -43,8 +43,7 @@
 - name: rac-gi-install | Set variable for release patch
   set_fact:
     rel_patch: "-apply{% if oracle_ver_base == '12.2' %}PSU{% else %}RU{% endif %} {{ swlib_unzip_path }}/{{ item.patchnum }}{{ item.patch_subdir }}"
-  with_items:
-    - "{{ gi_patches }}"
+  with_items: "{{ gi_patches }}"
   when: item.release == oracle_rel and item.category == 'RU'
   tags: rac-gi,rel-patch
 
@@ -68,16 +67,14 @@
   shell: unzip -o -q "{{ swlib_path }}/{{ item | json_query('.files[*].name') | join() }}" -d "{{ swlib_unzip_path }}"
   args:
     creates: .ha_patch_{{ oracle_ver }}
-  with_items:
-    - "{{ gi_interim_patches }}"
+  with_items: "{{ gi_interim_patches }}"
   when: item.version == oracle_ver and item.category == "HAS_interim_patch"
   tags: rac-gi,sw-unzip
 
 - name: rac-gi-install | Set variable for HA interim patch
   set_fact:
     has_patch: "-applyOneOffs {{ swlib_unzip_path }}/{{ item.patchnum | join() }}"
-  with_items:
-    - "{{ gi_interim_patches }}"
+  with_items: "{{ gi_interim_patches }}"
   when: item.version == oracle_ver and item.category == "HAS_interim_patch"
   tags: rac-gi,has-patch
 
@@ -86,8 +83,7 @@
   become_user: "{{ grid_user }}"
   # Using the "shell" module instead of "unarchive" for unzip performance
   shell: unzip -o -q "{{ swlib_path }}/{{ item }}" -d "{{ install_unzip_path }}"
-  with_items:
-    - "{{ osw_files }}"
+  with_items: "{{ osw_files }}"
   tags: rac-gi,sw-unzip
 
 - include_role:
@@ -143,8 +139,7 @@
     src: "{{ swlib_path }}/{{ item.patchfile }}"
     dest: "{{ grid_home }}"
     remote_src: true
-  with_items:
-    - "{{ opatch_patches }}"
+  with_items: "{{ opatch_patches }}"
   when:
     - item.release == oracle_ver
     - item.category == "OPatch"
@@ -166,6 +161,7 @@
 - name: rac-gi-install | Information
   debug:
     msg: "Using installer cmd: {{ installer_command }}"
+    verbosity: 0
   tags: rac-gi,rac-gi-install
 
 - name: rac-gi-install | Set CV_ASSUME_DISTID to OEL7 when installing on RHEL8  # MOS Note 2878100.1
@@ -193,6 +189,7 @@
     msg:
       - "{{ install_rac_gi.cmd }}"
       - "{{ install_rac_gi.stdout_lines }}"
+    verbosity: 0
   tags: rac-gi,rac-gi-install
 
 - name: rac-gi-install | Fix up asmcmd in 12.2 and 18c (MOS note 2748316.1)

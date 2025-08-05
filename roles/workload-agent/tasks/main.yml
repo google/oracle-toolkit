@@ -34,7 +34,6 @@
     owner: root
     group: root
     mode: u=rw,go=r
-  when:
-    - oracle_metrics_secret | length > 0
+  when: oracle_metrics_secret | length > 0
   notify: Restart workload-agent
   tags: workload-agent

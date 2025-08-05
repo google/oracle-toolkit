@@ -48,4 +48,5 @@
 - name: populate-vars | Show resolved release
   debug:
     var: oracle_rel
+    verbosity: 1
   tags: oracle-rel

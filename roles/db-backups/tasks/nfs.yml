@@ -45,6 +45,7 @@
       - "{{ backup_dest }}/{{ db_name }}"
       - "{{ nfs_backup_config }},{{ nfs_mount_params }}"
       - "{{ nfs_backup_mount }}"
+    verbosity: 1
 
 - name: nfs_backups | Mount NFS share (backup)
   become: true

@@ -41,6 +41,7 @@
       - "gcsfuse_backup_mount_prefix: {{ gcsfuse_backup_mount_prefix }}"
       - "gcsfuse_backup_bucket: {{ gcsfuse_backup_bucket }}"
       - "gcsfuse_backup_bucket_folder: {{ gcsfuse_backup_bucket_folder }}"
+    verbosity: 1
 
 - name: gcsfuse mount bucket | GCE gcsfuse mount bucket
   become: true

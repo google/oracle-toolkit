@@ -18,8 +18,7 @@
   shell: |
     unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
     chown -R {{ grid_user }}:{{ oracle_group }} "{{ swlib_unzip_path }}"
-  with_items:
-    - "{{ gi_patches }}"
+  with_items: "{{ gi_patches }}"
   when: item.release == oracle_rel and item.category != "HAS_interim_patch"
   become: true
   tags: rac-opatch
@@ -50,10 +49,12 @@
     - name: show the variable value
       debug:
         msg: "apply needed? - {{ apply_needed }}"
+        verbosity: 0
 
 - name: rac-opatch | GI opatch analyze output
   debug:
     var: opatch_analyze.results.0.stdout_lines
+    verbosity: 0
   when: opatch_analyze is defined
   tags: rac-opatch
 
@@ -157,6 +158,7 @@
 - name: rac-opatch | Results of GI opatch apply
   debug:
     var: opatch_apply.results.0.stdout_lines
+    verbosity: 0
   when: opatch_apply is defined
   tags: rac-opatch
 
@@ -179,6 +181,7 @@
 - name: rac-opatch | 12.1 bug resolution results
   debug:
     var: setasmgidwrap_output
+    verbosity: 0
   when: oracle_ver == '12.1.0.2.0'
   tags: rac-opatch
 
@@ -194,8 +197,7 @@
   shell: |
     unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
     chown -R {{ oracle_user }}:{{ oracle_group }} "{{ swlib_unzip_path }}"
-  with_items:
-    - "{{ rdbms_patches }}"
+  with_items: "{{ rdbms_patches }}"
   when: item.release == oracle_rel
   become: true
   tags: rac-opatch,sw_unzip
@@ -220,6 +222,7 @@
 - name: rac-opatch | RDBMS opatch analyze output
   debug:
     var: rdbms_analyze.results.0.stdout_lines
+    verbosity: 0
   when: rdbms_analyze is defined
   tags: rac-opatch
 
@@ -239,6 +242,7 @@
 - name: rac-opatch | Results of RDBMS opatch apply
   debug:
     var: rdbms_apply.results.0.stdout_lines
+    verbosity: 0
   when: rdbms_apply is defined
   tags: rac-opatch
 

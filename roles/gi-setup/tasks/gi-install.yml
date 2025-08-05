@@ -34,6 +34,7 @@
       - "Installing from file : {{ osw.files }}"
       - "Unzipping into dir   : {{ install_unzip_path }}"
       - "Using cluvfy cmd     : {{ cluvfy_command }}"
+    verbosity: 0
   tags: gi-setup
 
 - name: gi-install | Unzip GI patch
@@ -43,8 +44,7 @@
     chown -R {{ grid_user }}:{{ oracle_group }} "{{ swlib_unzip_path }}"
   args:
     creates: .gi_patch_{{ oracle_rel }}
-  with_items:
-    - "{{ gi_patches }}"
+  with_items: "{{ gi_patches }}"
   when: item.release == oracle_rel and item.category == 'RU' and item.category != "HAS_interim_patch"
   become: true
   tags: gi-setup,sw-unzip
@@ -52,8 +52,7 @@
 - name: gi-install | Set variable for release patch
   set_fact:
     rel_patch: "-apply{% if oracle_ver_base == '12.2' %}PSU{% else %}RU{% endif %} {{ swlib_unzip_path }}/{{ item.patchnum }}{{ item.patch_subdir }}"
-  with_items:
-    - "{{ gi_patches }}"
+  with_items: "{{ gi_patches }}"
   when: item.release == oracle_rel and item.category == 'RU'
   tags: gi-setup,rel-patch
 
@@ -62,8 +61,7 @@
   become_user: "{{ grid_user }}"
   # Using the "shell" module instead of "unarchive" for unzip performance
   shell: unzip -o -q "{{ swlib_path }}/{{ item.name }}" -d "{{ install_unzip_path }}"
-  with_items:
-    - "{{ osw.files }}"
+  with_items: "{{ osw.files }}"
   tags: gi-setup,sw-unzip
 
 - name: gi-install | Find the cvuqdisk RPM
@@ -92,7 +90,7 @@
   become: true
   become_user: "{{ grid_user }}"
   command: "{{ cluvfy_command }}"
-  when: run_cluvfy|bool
+  when: run_cluvfy | bool
   register: cluvfy_res
   failed_when: cluvfy_res.rc != 0 and oracle_ver != '11.2.0.4.0'  # Exclude 11gR2 due to elfutils & pdksh bug, MOS Doc ID 1962046.1
   ignore_errors: true
@@ -103,7 +101,8 @@
   debug:
     msg:
       - "{{ cluvfy_res.stdout_lines }}"
-  when: run_cluvfy|bool and cluvfy_res.rc != 0
+    verbosity: 0
+  when: run_cluvfy | bool and cluvfy_res.rc != 0
   tags: gi-setup,cluvfy
 
 - name: gi-install | Create GI response file script
@@ -143,8 +142,7 @@
     src: "{{ swlib_path }}/{{ item.patchfile }}"
     dest: "{{ grid_home }}"
     remote_src: true
-  with_items:
-    - "{{ opatch_patches }}"
+  with_items: "{{ opatch_patches }}"
   when:
     - item.release == oracle_ver
     - item.category == "OPatch"
@@ -156,6 +154,7 @@
 - name: gi-install | Information
   debug:
     msg: "Using installer cmd: {{ installer_command }}"
+    verbosity: 0
   tags: gi-setup
 
 - name: gi-install | Set CV_ASSUME_DISTID to OEL7 when installing on RHEL8  # MOS Note: 2878100.1
@@ -180,15 +179,14 @@
     msg:
       - "{{ install_grid_software.cmd }}"
       - "{{ install_grid_software.stdout_lines }}"
-      # verbosity: 1
+    verbosity: 0
   tags: gi-setup
 
 - name: gi-install | Create OCM response file (if neccessary)
   become: true
   become_user: "{{ grid_user }}"
   script: expect_rsp.sh {{ oracle_base }} {{ grid_home }} {{ swlib_unzip_path }}
-  with_items:
-    - "{{ gi_interim_patches }}"
+  with_items: "{{ gi_interim_patches }}"
   when: item.version == osw.version and item.category == "HAS_interim_patch"
   tags: gi-setup,patch
 
@@ -213,8 +211,7 @@
     owner: "{{ grid_user }}"
     group: "{{ oracle_group }}"
     mode: ug=rwx,o=
-  with_items:
-    - "{{ gi_interim_patches }}"
+  with_items: "{{ gi_interim_patches }}"
   when: item.version == osw.version and item.category == "HAS_interim_patch"
   tags: gi-setup,patch
 
@@ -223,8 +220,7 @@
   become_user: "{{ grid_user }}"
   # Using the "shell" module instead of "unarchive" for unzip performance
   shell: unzip -o -q "{{ swlib_path }}/{{ item.files.0.name }}" -d "{{ swlib_unzip_path }}/{{ item.files.0.name | replace('.zip','') }}"
-  with_items:
-    - "{{ gi_interim_patches }}"
+  with_items: "{{ gi_interim_patches }}"
   when: item.version == osw.version and item.category == "HAS_interim_patch"
   tags: gi-setup,patch
 
@@ -243,8 +239,7 @@
     elif [ "{{ item.patchutil }}" = "gridsetup" ]; then
        {{ grid_home }}/gridSetup.sh -silent -applyOneOffs {{ swlib_unzip_path }}/{{ item.files.0.name | replace('.zip','') }}/{{ item.patchnum }} -responseFile {{ swlib_unzip_path }}/grid_install.rsp
     fi
-  with_items:
-    - "{{ gi_interim_patches }}"
+  with_items: "{{ gi_interim_patches }}"
   when: item.version == osw.version and item.category == "HAS_interim_patch"
   register: patch_output
   failed_when: "('OPatch succeeded' not in patch_output.stdout) and ('Successfully applied the patch' not in patch_output.stdout)"
@@ -252,11 +247,9 @@
 
 - name: gi-install | OPatch output
   debug:
-    msg:
-      - "{{ patch_output }}"
+    msg: "{{ patch_output }}"
     verbosity: 1
-  with_items:
-    - "{{ gi_interim_patches }}"
+  with_items: "{{ gi_interim_patches }}"
   when: item.version == osw.version and item.category == "HAS_interim_patch"
   tags: gi-setup,patch
 
@@ -266,8 +259,7 @@
   file:
     path: "{{ swlib_unzip_path }}/ocm.rsp"
     state: absent
-  with_items:
-    - "{{ gi_interim_patches }}"
+  with_items: "{{ gi_interim_patches }}"
   when: item.version == osw.version and item.category == "HAS_interim_patch"
   tags: gi-setup,patch
 

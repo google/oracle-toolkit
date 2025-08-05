@@ -26,12 +26,12 @@
 - name: OH Confirmation
   debug:
     msg: "Installing GRID_HOME - {{ grid_home }}"
+    verbosity: 0
   when: existing_dbhome.stdout == "0"
   tags: gi-setup
 
 - include_tasks: gi-install.yml
-  with_items:
-    - "{{ gi_software }}"
+  with_items: "{{ gi_software }}"
   loop_control:
     loop_var: osw
   when: existing_dbhome.stdout == "0" and osw.version == oracle_ver
@@ -83,7 +83,7 @@
     msg:
       - "{{ crsctl_res.cmd }}"
       - "{{ crsctl_res.stdout_lines }}"
-      # verbosity: 1
+    verbosity: 0
   tags: gi-setup,crsctl
 
 - name: Final GI permission adjustments

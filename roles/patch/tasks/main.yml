@@ -62,8 +62,7 @@
     src: "{{ swlib_path }}/{{ item.patchfile }}"
     dest: "{{ grid_home }}"
     remote_src: true
-  with_items:
-    - "{{ opatch_patches }}"
+  with_items: "{{ opatch_patches }}"
   when:
     - item.release == oracle_ver
     - item.category == "OPatch"
@@ -76,8 +75,7 @@
     src: "{{ swlib_path }}/{{ item.patchfile }}"
     dest: "{{ oracle_home }}"
     remote_src: true
-  with_items:
-    - "{{ opatch_patches }}"
+  with_items: "{{ opatch_patches }}"
   when:
     - item.release == oracle_ver
     - item.category == "OPatch"
@@ -88,8 +86,7 @@
 - name: (GI) Unzip patch
   # Using the "shell" module instead of "unarchive" for unzip performance
   shell: unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
-  with_items:
-    - "{{ gi_patches }}"
+  with_items: "{{ gi_patches }}"
   when: item.release == oracle_rel and item.category != "HAS_interim_patch"
   become: true
   become_user: "{{ grid_user }}"
@@ -123,8 +120,7 @@
     sw_user: 'root'
     silent: ''
     home_type: 'GRID'
-  with_items:
-    - "{{ gi_patches }}"
+  with_items: "{{ gi_patches }}"
   loop_control:
     loop_var: patch
   when: patch.release == oracle_rel and patch.category != "HAS_interim_patch"
@@ -134,8 +130,7 @@
   file:
     path: "{{ swlib_unzip_path }}/{{ item.patchnum }}"
     state: absent
-  with_items:
-    - "{{ gi_patches }}"
+  with_items: "{{ gi_patches }}"
   when: item.release == oracle_rel and item.category != "HAS_interim_patch"
   become: true
   become_user: root
@@ -144,8 +139,7 @@
 - name: (RDBMS) Unzip patch
   # Using the "shell" module instead of "unarchive" for unzip performance
   shell: unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
-  with_items:
-    - "{{ rdbms_patches }}"
+  with_items: "{{ rdbms_patches }}"
   when: item.release == oracle_rel
   become: true
   become_user: "{{ oracle_user }}"
@@ -180,8 +174,7 @@
     sw_user: "{{ oracle_user }}"
     silent: '-silent'
     home_type: 'DB'
-  with_items:
-    - "{{ rdbms_patches }}"
+  with_items: "{{ rdbms_patches }}"
   loop_control:
     loop_var: patch
   when: patch.release == oracle_rel
@@ -191,8 +184,7 @@
   file:
     path: "{{ swlib_unzip_path }}/{{ item.patchnum }}"
     state: absent
-  with_items:
-    - "{{ rdbms_patches }}"
+  with_items: "{{ rdbms_patches }}"
   when: item.release == oracle_rel
   become: true
   become_user: root

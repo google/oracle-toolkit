@@ -35,4 +35,5 @@
 - name: Output DBID
   ansible.builtin.debug:
     msg: "ORACLE_DBID: {{ oracle_dbid }}"
+    verbosity: 0
   when: oracle_dbid is defined and oracle_dbid | length > 0

@@ -25,14 +25,14 @@
 - name: rhel-config-tasks | Print current RHSM status
   debug:
     var: rhsm_status.stdout
+    verbosity: 0
   tags: host-provision
 
 - name: rhel-config-tasks | Get RHEL username
   pause:
     prompt: Enter username for RHEL support
   register: rhel_username
-  when:
-    - '"Status:         Subscribed" not in rhsm_status.stdout'
+  when: '"Status:         Subscribed" not in rhsm_status.stdout'
   tags: host-provision
 
 - name: rhel-config-tasks | Get RHEL password
@@ -40,8 +40,7 @@
     prompt: Enter password for RHEL support
     echo: false
   register: rhel_password
-  when:
-    - '"Status:         Subscribed" not in rhsm_status.stdout'
+  when: '"Status:         Subscribed" not in rhsm_status.stdout'
   tags: host-provision
 
 - name: rhel-config-tasks | Register host
@@ -52,6 +51,5 @@
     password: "{{ rhel_password.user_input }}"
     auto_attach: true
     force_register: true
-  when:
-    - '"Status:         Subscribed" not in rhsm_status.stdout'
+  when: '"Status:         Subscribed" not in rhsm_status.stdout'
   tags: host-provision

@@ -24,7 +24,7 @@
   failed_when:
     - "'firewall is not currently running' not in firewall_output.msg"
     - "'Permanent and Non-Permanent(immediate) operation' not in firewall_output.msg"
-  when: not disable_firewall|bool
+  when: not disable_firewall | bool
   tags: lsnr-create
 
 - name: Test whether port is free
@@ -77,7 +77,7 @@
     msg:
       - "{{ lsnr_output.cmd }}"
       - "{{ lsnr_output.stdout_lines }}"
-      # verbosity: 1
+    verbosity: 0
   when: lsnr_output.cmd is defined
   tags: lsnr-create
 
@@ -110,6 +110,6 @@
     msg:
       - "{{ lsnr_output_netca.cmd }}"
       - "{{ lsnr_output_netca.stdout_lines }}"
-      # verbosity: 1
+    verbosity: 0
   when: lsnr_output_netca.cmd is defined
   tags: lsnr-create

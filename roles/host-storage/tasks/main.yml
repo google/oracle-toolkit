@@ -20,8 +20,7 @@
     state: present
     label: gpt
   when: "'mapper' not in item.blk_device"
-  with_items:
-    - "{{ oracle_user_data_mounts }}"
+  with_items: "{{ oracle_user_data_mounts }}"
   tags: ora-mounts
 
 - include_role:
@@ -33,8 +32,7 @@
     fstype: "{{ item.fstype }}"
     dev: "{{ item.first_partition_id }}"
   when: "'mapper' not in item.blk_device"
-  with_items:
-    - "{{ oracle_user_data_mounts }}"
+  with_items: "{{ oracle_user_data_mounts }}"
   tags: ora-mounts
 
 - name: Add filesystem on Oracle user mount LV devices
@@ -42,8 +40,7 @@
     fstype: "{{ item.fstype }}"
     dev: "{{ item.blk_device }}"
   when: "'mapper' in item.blk_device"
-  with_items:
-    - "{{ oracle_user_data_mounts }}"
+  with_items: "{{ oracle_user_data_mounts }}"
   tags: ora-mounts
 
 - name: Mount Oracle user mount raw devices
@@ -54,8 +51,7 @@
     opts: "{{ item.mount_opts }}"
     state: mounted
   when: "'mapper' not in item.blk_device"
-  with_items:
-    - "{{ oracle_user_data_mounts }}"
+  with_items: "{{ oracle_user_data_mounts }}"
   tags: ora-mounts
 
 - name: Mount Oracle user mount LV devices
@@ -66,18 +62,21 @@
     opts: "{{ item.mount_opts }}"
     state: mounted
   when: "'mapper' in item.blk_device"
-  with_items:
-    - "{{ oracle_user_data_mounts }}"
+  with_items: "{{ oracle_user_data_mounts }}"
   tags: ora-mounts
 
 # - name: This iteration to get all blk_devices regardless of their diskgroup - used for partitioning all asm disks
-#   debug: msg="Running parted {{ item.1.blk_device }}"
+#   debug:
+#     msg: "Running parted {{ item.1.blk_device }}"
+#     verbosity: 1
 #   with_subelements:
 #     - "{{ asm_disks }}"
 #     - disks
 
 # - name: This iteration to create asm disks with their asm name and block_device
-#   debug: msg="Running create asmdisk {{ item.1.name }} with disk {{ item.1.blk_device }}"
+#   debug:
+#     msg: "Running create asmdisk {{ item.1.name }} with disk {{ item.1.blk_device }}"
+#     verbosity: 1
 #   with_subelements:
 #     - "{{ asm_disks }}"
 #     - disks
@@ -91,5 +90,5 @@
 #       ATTRIBUTE
 #          'compatible.asm'   = '"${ORACLE_VERSION}"',
 #          'compatible.rdbms' = '11.2.0.4.0';
-#   with_items:
-#     - "{{ asm_disks }}"
+#     verbosity: 1
+#   with_items: "{{ asm_disks }}"

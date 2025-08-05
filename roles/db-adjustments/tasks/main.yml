@@ -20,8 +20,7 @@
     owner: "{{ oracle_user }}"
     group: "{{ oracle_group }}"
     mode: u=rwx,go=r
-  with_items:
-    - "{{ db_script_files }}"
+  with_items: "{{ db_script_files }}"
   become: true
   become_user: "{{ oracle_user }}"
   tags: db-adjustments
@@ -30,8 +29,7 @@
   shell: "{{ swlib_unzip_path }}/{{ item }}"
   environment:
     PATH: /usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin
-  with_items:
-    - "{{ db_script_files }}"
+  with_items: "{{ db_script_files }}"
   register: scripts_output
   ignore_errors: true
   become: true
@@ -48,8 +46,7 @@
   file:
     path: "{{ swlib_unzip_path }}/{{ item }}"
     state: absent
-  with_items:
-    - "{{ db_script_files }}"
+  with_items: "{{ db_script_files }}"
   become: true
   become_user: "{{ oracle_user }}"
   tags: db-adjustments

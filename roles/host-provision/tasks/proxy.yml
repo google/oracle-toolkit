@@ -23,6 +23,7 @@
     proxy_ip: "{{ ansible_env['SSH_CLIENT'].split() | first }}"
   # debug:
   #   var: proxy_ip
+  #   verbosity: 1
   tags: host-provision
 
 - name: proxy | Validate proxy connectivity via control node

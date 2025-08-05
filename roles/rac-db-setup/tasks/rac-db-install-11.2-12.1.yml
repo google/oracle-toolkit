@@ -26,6 +26,7 @@
 - name: rac-db-install | OH Confirmation
   debug:
     msg: "Installing ORACLE_HOME - {{ oracle_home }}"
+    verbosity: 0
   when: existing_dbhome.stdout == "0"
   tags: rac-db
 
@@ -41,6 +42,7 @@
       - "Installing from file : {{ swlib_path }}/{{ osw_files }}"
       - "Unzipping into dir   : {{ install_unzip_path }}"
       - "Using installer dir  : {{ runinstaller_loc }}"
+    verbosity: 0
   tags: rac-db
 
 - name: rac-db-install | Create DB directories
@@ -61,8 +63,7 @@
   shell: |
     unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
     chown -R {{ oracle_user }}:{{ oracle_group }} "{{ swlib_unzip_path }}"
-  with_items:
-    - "{{ rdbms_patches }}"
+  with_items: "{{ rdbms_patches }}"
   when: item.release == oracle_rel
   become: true
   tags: rac-db,sw-unzip
@@ -72,8 +73,7 @@
   become_user: "{{ oracle_user }}"
   # Using the "shell" module instead of "unarchive" for unzip performance
   shell: unzip -o -q "{{ swlib_path }}/{{ item }}" -d "{{ install_unzip_path }}"
-  with_items:
-    - "{{ osw_files }}"
+  with_items: "{{ osw_files }}"
   tags: rac-db,sw-unzip
 
 - name: rac-db-install | Create DB response file script
@@ -89,8 +89,7 @@
     src: "{{ swlib_path }}/{{ item.patchfile }}"
     dest: "{{ oracle_home }}"
     remote_src: true
-  with_items:
-    - "{{ opatch_patches }}"
+  with_items: "{{ opatch_patches }}"
   when:
     - item.release == oracle_ver
     - item.category == "OPatch"
@@ -107,6 +106,7 @@
 - name: rac-db-install | Information
   debug:
     msg: "Using installer cmd: {{ installer_command }}"
+    verbosity: 0
   tags: rac-db,rac-db-install
 
 - name: rac-db-install | Run runInstaller
@@ -121,8 +121,8 @@
 
 - name: rac-db-install | Installer output
   debug:
-    msg:
-      - "{{ install_rac_db }}"
+    msg: "{{ install_rac_db }}"
+    verbosity: 0
   tags: rac-db,rac-db-install
 
 - name: rac-db-install | Run script root.sh

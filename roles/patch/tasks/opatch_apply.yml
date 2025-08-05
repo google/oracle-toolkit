@@ -54,8 +54,7 @@
 
 - name: opatch_apply | Run opatch apply
   command: "{{ sw_home }}/OPatch/{{ patch.method }} {{ silent }} {{ response_command }}"
-  when:
-    - patch.release == oracle_rel
+  when: patch.release == oracle_rel
   args:
     chdir: "{{ swlib_unzip_path }}/{{ patch.patchnum }}{{ patch.patch_subdir }}"
   register: opatch_apply
@@ -67,7 +66,7 @@
 - name: opatch_apply | opatch apply results
   debug:
     msg: "{{ opatch_apply }}"
-    # verbosity: 1
+    verbosity: 0
   tags: opatch-apply
 
 - name: opatch_apply | 12.1 bug resolution - group of oracle binary set incorrectly by opatch - MOS (Doc ID 1084186.1)

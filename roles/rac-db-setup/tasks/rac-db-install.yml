@@ -26,6 +26,7 @@
 - name: rac-db-install | OH Confirmation
   debug:
     msg: "Installing ORACLE_HOME - {{ oracle_home }}"
+    verbosity: 0
   when: existing_dbhome.stdout == "0"
   tags: rac-db
 
@@ -41,13 +42,13 @@
       - "Installing from file : {{ swlib_path }}/{{ osw_files }}"
       - "Unzipping into dir   : {{ install_unzip_path }}"
       - "Using installer dir  : {{ runinstaller_loc }}"
+    verbosity: 0
   tags: rac-db
 
 - name: rac-db-install | Set variable for release patch
   set_fact:
     rel_patch: "-apply{% if oracle_ver_base == '12.2' %}PSU{% else %}RU{% endif %} {{ swlib_unzip_path }}/{{ item.patchnum }}{{ item.patch_subdir }}"
-  with_items:
-    - "{{ gi_patches }}"
+  with_items: "{{ gi_patches }}"
   when: item.release == oracle_rel and item.category == 'RU'
   tags: rac-db,rel-patch
 
@@ -69,8 +70,7 @@
   shell: |
     unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
     chown -R {{ oracle_user }}:{{ oracle_group }} "{{ swlib_unzip_path }}"
-  with_items:
-    - "{{ rdbms_patches }}"
+  with_items: "{{ rdbms_patches }}"
   when: item.release == oracle_rel
   become: true
   tags: rac-db,sw-unzip
@@ -80,8 +80,7 @@
   become_user: "{{ oracle_user }}"
   # Using the "shell" module instead of "unarchive" for unzip performance
   shell: unzip -o -q "{{ swlib_path }}/{{ item }}" -d "{{ install_unzip_path }}"
-  with_items:
-    - "{{ osw_files }}"
+  with_items: "{{ osw_files }}"
   tags: rac-db,sw_unzip
 
 - name: rac-db-install | Create DB response file script
@@ -97,8 +96,7 @@
     src: "{{ swlib_path }}/{{ item.patchfile }}"
     dest: "{{ oracle_home }}"
     remote_src: true
-  with_items:
-    - "{{ opatch_patches }}"
+  with_items: "{{ opatch_patches }}"
   when:
     - item.release == oracle_ver
     - item.category == "OPatch"
@@ -115,6 +113,7 @@
 - name: rac-db-install | Information
   debug:
     msg: "Using installer cmd: {{ installer_command }}"
+    verbosity: 0
   tags: rac-db,rac-db-install
 
 - name: rac-db-install | Set CV_ASSUME_DISTID to OEL7 when installing on RHEL8  # MOS Note 2878100.1
@@ -139,8 +138,8 @@
 
 - name: rac-db-install | Installer output
   debug:
-    msg:
-      - "{{ install_rac_db }}"
+    msg: "{{ install_rac_db }}"
+    verbosity: 0
   tags: rac-db,rac-db-install
 
 - name: rac-db-install | Apply one-off and OJVM patches
@@ -150,10 +149,8 @@
   environment:
     PATH: "{{ oracle_home }}/perl/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
     PERL5LIB: "{{ oracle_home }}/perl/lib"
-  with_items:
-    - "{{ rdbms_patches }}"
-  when:
-    - item.release == oracle_rel
+  with_items: "{{ rdbms_patches }}"
+  when: item.release == oracle_rel
   register: apply_oneoff
   failed_when: "('OPatch succeeded' not in apply_oneoff.stdout and 'OPatch completed with warnings' not in apply_oneoff.stdout)
                 or (apply_oneoff.rc | int not in [0, 6, 250])"
@@ -164,6 +161,7 @@
     msg:
       - "{{ item.cmd }}"
       - "{{ item.stdout_lines }}"
+    verbosity: 0
   with_items: "{{ apply_oneoff.results }}"
   when: item.changed
   ignore_errors: true

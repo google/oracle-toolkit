@@ -26,14 +26,12 @@
   shell: |
     vgremove -y db
     vgcreate -y db {{ u01_lun }}
-  when:
-    - u01_lun | length > 0
+  when: u01_lun | length > 0
   ignore_errors: true  # to ignore when vgremove tries to remove non-existent vg the very first time this is run
   tags: host-provision
 
 - name: config-tasks | Create LVM layer - lvcreate
   # lvcreate -l 100%FREE -n <LV> <VG>
   shell: lvcreate -l 100%FREE -n sw db
-  when:
-    - u01_lun | length > 0
+  when: u01_lun | length > 0
   tags: host-provision

@@ -20,12 +20,10 @@
     - role: check-oracle
 
   tasks:
-
     - name: Check for AHF Installation
       stat:
         path: "{{ AHFCTL_PATH }}"
       register: ahfctl_script
-
 
     - block:
         - name: Uninstall AHF
@@ -53,7 +51,7 @@
             path: "{{ ORACHK_BASE }}"
             state: absent
 
-      when: (uninstall_ahf | bool) 
+      when: uninstall_ahf | bool
 
     - block:
         - name: Create AHF directory
@@ -88,7 +86,7 @@
 
             - name: Download AHF file from Google Storage to the ansible control node.
               become: false
-              local_action: 
+              local_action:
                 module: command
                 cmd: gcloud storage cp "{{ AHF_LOCATION }}" "{{ local_ahf_path }}"
               register: gsutil_result
@@ -105,6 +103,7 @@
               become: false
               debug:
                 msg: "file exists"
+                verbosity: 0
               when: file_status_check.stat.exists
 
             - name: Fail if the file does not exist
@@ -166,7 +165,6 @@
       when: ( not ( uninstall_ahf | bool ) ) and ( not ( run_orachk | bool ) )
 
     - block:
-
         - name: Copy login.sql file to target system
           become: true
           copy:
@@ -174,7 +172,7 @@
             dest: "{{ orachk_script_dir }}/login.sql"
             owner: root
             group: root
-            mode: '0600'
+            mode: "0600"
 
         - name: Copy orachk-quicktest.sh for expedited testing
           become: true
@@ -183,12 +181,12 @@
             dest: "{{ ORACHK_BASE }}/orachk/orachk-quicktest.sh"
             owner: root
             group: root
-            mode: '0700'
+            mode: "0700"
           when: ( expedited_testing | bool )
 
         - name: Configure Expedited Testing
           become: true
-          shell:  cd  "{{ ORACHK_BASE }}/orachk/" && [[ ! -r orachk.orig ]] && mv orachk orachk.orig && ln -s orachk-quicktest.sh orachk
+          shell: cd "{{ ORACHK_BASE }}/orachk/" && [[ ! -r orachk.orig ]] && mv orachk orachk.orig && ln -s orachk-quicktest.sh orachk
           when: ( expedited_testing | bool )
 
         - name: Check for oratab
@@ -197,7 +195,7 @@
           register: oratab_exists
 
         - name: oratab not found
-          fail: 
+          fail:
             msg: "The file {{ oratab_path }} was not found on the target"
           when: not ( oratab_exists.stat.exists | bool )
 
@@ -216,7 +214,7 @@
           ignore_errors: true
 
         - name: ORACLE_HOME Not Found
-          fail: 
+          fail:
             msg: "ORACLE_HOME was not found on the target for {{ ORACLE_SID }}"
           when: oratab_results.rc != 0
 
@@ -236,6 +234,7 @@
         - name: Display ORACLE_HOME
           debug:
             msg: "Found ORACLE_HOME={{ ORACLE_HOME }}"
+            verbosity: 0
 
         - name: Get a tmpfile name
           set_fact:
@@ -305,7 +304,7 @@
 
         - name: Deconfigure Expedited Testing
           become: true
-          shell:  cd  "{{ ORACHK_BASE }}/orachk/" && [[ -r orachk.orig ]] && rm -f orachk && mv orachk.orig orachk && rm -f orachk-quicktest.sh
+          shell: cd "{{ ORACHK_BASE }}/orachk/" && [[ -r orachk.orig ]] && rm -f orachk && mv orachk.orig orachk && rm -f orachk-quicktest.sh
           when: ( expedited_testing | bool )
 
         - name: Debug the entire fetch_result
@@ -317,9 +316,11 @@
         - name: Display local path of fetched file
           debug:
             msg: "Fetched file is saved locally at: {{ fetch_result.files[0].dest }}"
+            verbosity: 0
           when: fetch_result.files is defined and (fetch_result.files | length) > 0
 
         - name: Display local path of fetched file
           debug:
             msg: "Fetched file is saved locally at: {{ fetch_result.dest }}"
+            verbosity: 0
       when: ( not ( uninstall_ahf | bool ) ) and ( run_orachk | bool )

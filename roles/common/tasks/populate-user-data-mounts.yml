@@ -39,6 +39,7 @@
     fi
   loop: "{{ oracle_user_data_mounts }}"
   register: disk_paths
+  changed_when: false
   tags: populate-user-mounts
 
 - name: Update oracle_user_data_mounts with partition paths

@@ -24,7 +24,7 @@
   failed_when:
     - "'firewall is not currently running' not in firewall_output.msg"
     - "'Permanent and Non-Permanent(immediate) operation' not in firewall_output.msg"
-  when: not disable_firewall|bool
+  when: not disable_firewall | bool
   tags: lsnr-firewall
 
 - name: Test whether port is free
@@ -40,8 +40,7 @@
   debug:
     msg: "{{ item }}"
     verbosity: 1
-  with_items:
-    - "{{ scan_port_check }}"
+  with_items: "{{ scan_port_check }}"
   when: create_listener
   tags: lsnr-firewall
 
@@ -57,9 +56,8 @@
   failed_when:
     - "'firewall is not currently running' not in firewall_op_localnw.msg"
     - "'Permanent and Non-Permanent(immediate) operation' not in firewall_op_localnw.msg"
-  when: not disable_firewall|bool
-  with_items:
-    - "{{ ansible_facts | dict2items | selectattr('value.ipv4.network', 'defined') | list }}"
+  when: not disable_firewall | bool
+  with_items: "{{ ansible_facts | dict2items | selectattr('value.ipv4.network', 'defined') | list }}"
   tags: lsnr-firewall
 
 - name: Allow HAIP networks
@@ -74,5 +72,5 @@
   failed_when:
     - "'firewall is not currently running' not in firewall_op_haipnw.msg"
     - "'Permanent and Non-Permanent(immediate) operation' not in firewall_op_haipnw.msg"
-  when: not disable_firewall|bool
+  when: not disable_firewall | bool
   tags: lsnr-firewall

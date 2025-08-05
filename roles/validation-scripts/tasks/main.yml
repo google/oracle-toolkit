@@ -25,8 +25,7 @@
     owner: "{{ oracle_user }}"
     group: "{{ oracle_group }}"
     mode: u=rwx,go=
-  with_items:
-    - "{{ script_list }}"
+  with_items: "{{ script_list }}"
   become: true
   become_user: "{{ oracle_user }}"
   tags: validation-scripts
@@ -34,8 +33,7 @@
 # - name: Run validation scripts
 #   shell: |
 #     {{ scripts_dir }}/{{ item }} {{ oracle_sid }}
-#   with_items:
-#     - "{{ script_list }}"
+#   with_items: "{{ script_list }}"
 #   register: script_output
 #   become: true
 #   become_user: "{{ oracle_user }}"

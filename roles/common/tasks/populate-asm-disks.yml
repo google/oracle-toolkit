@@ -39,6 +39,7 @@
     fi
   loop: "{{ asm_disks | json_query('[].disks[]') }}"
   register: disk_paths
+  changed_when: false
   tags: populate-asm-disks
 
 - name: Update asm_disks with partition paths

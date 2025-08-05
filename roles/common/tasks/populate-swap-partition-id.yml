@@ -41,6 +41,7 @@
   when:
     - swap_blk_device is defined
     - "'mapper' not in swap_blk_device"
+  changed_when: false
   tags: populate-swap-partition-id
 
 - name: Set swap_partition_id
@@ -54,4 +55,5 @@
 - name: (debug) Display the swap partition ID
   debug:
     msg: "{{ swap_partition_id }}"
+    verbosity: 1
   tags: populate-swap-partition-id
