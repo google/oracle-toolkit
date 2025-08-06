@@ -34,9 +34,9 @@ gcs_source="${gcs_bucket}/${toolkit_zip_file_name}"
 deployment_id="projects/${project_id}/locations/${location}/deployments/${deployment_name}"
 
 cleanup() {
-  if [[ -n "$tail_pid" ]]; then
-    echo "Stopping gcloud logging tail process $tail_pid"
-    kill "$tail_pid" >/dev/null 2>&1
+  if [[ -n "$tail_pgid_leader" ]]; then
+    echo "Killing tail process group with $tail_pgid_leader PGID"
+    kill -TERM -"$tail_pgid_leader"
   fi
   echo "Cleaning up: deleting ${gcs_source} GCS object and ${deployment_id} Infra Manager deployment..."
   if gcloud infra-manager deployments describe "${deployment_id}" >/dev/null 2>&1; then
@@ -100,14 +100,14 @@ echo "${console_link}"
 echo "Installing required gcloud alpha components..."
 gcloud --quiet components install alpha || exit 1
 pip3 install grpcio --break-system-packages || exit 1
+echo "Streaming logs from the control node's startup script execution..."
+echo
 
-(
-  echo "Streaming logs from the control node's startup script execution..."
-  echo
-  # The 'gcloud alpha logging tail' command may display 'SyntaxWarning: invalid escape sequence' warnings.
-  # These warnings are harmless and can be safely ignored using PYTHONWARNINGS=ignore.
-  # 'unbuffer' is used here to avoid delayed and missing logs caused by output buffering in non-interactive session"
-  # gcloud logging tail has a 1-hour session limit. We run it in a loop to maintain continuous log streaming beyond that limit.
+# The 'gcloud alpha logging tail' command may display 'SyntaxWarning: invalid escape sequence' warnings.
+# These warnings are harmless and can be safely ignored using PYTHONWARNINGS=ignore.
+# 'unbuffer' is used here to avoid delayed and missing logs caused by output buffering in non-interactive session"
+# gcloud logging tail has a 1-hour session limit. We run it in a loop to maintain continuous log streaming beyond that limit.
+setsid bash <<EOF &
   export CLOUDSDK_PYTHON_SITEPACKAGES=1
   while true; do
     echo "$(date '+%Y-%m-%d %H:%M:%S')    Starting gcloud logging tail session..."
@@ -118,9 +118,10 @@ pip3 install grpcio --break-system-packages || exit 1
     --format='value(timestamp.date(format="%Y-%m-%d %H:%M:%S"), json_payload.message.sub("^startup-script: ", ""))'
     echo "$(date '+%Y-%m-%d %H:%M:%S')     Tail session ended. Restarting..."
   done
-) &
+EOF
 
-tail_pid=$!
+tail_pgid_leader=$!
+
 
 sleep_seconds=60
 timeout_seconds=7200
