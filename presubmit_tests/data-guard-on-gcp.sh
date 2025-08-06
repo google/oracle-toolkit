@@ -34,6 +34,10 @@ gcs_source="${gcs_bucket}/${toolkit_zip_file_name}"
 deployment_id="projects/${project_id}/locations/${location}/deployments/${deployment_name}"
 
 cleanup() {
+  if [[ -n "$tail_pid" ]]; then
+    echo "Stopping gcloud logging tail process $tail_pid"
+    kill "$tail_pid" >/dev/null 2>&1
+  fi
   echo "Cleaning up: deleting ${gcs_source} GCS object and ${deployment_id} Infra Manager deployment..."
   if gcloud infra-manager deployments describe "${deployment_id}" >/dev/null 2>&1; then
     gcloud --quiet infra-manager deployments delete "${deployment_id}" 
@@ -117,6 +121,8 @@ tail_logs() {
 }
 
 tail_logs &
+
+tail_pid=$!
 
 sleep_seconds=60
 timeout_seconds=7200
