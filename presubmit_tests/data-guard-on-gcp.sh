@@ -101,7 +101,7 @@ echo "Installing required gcloud alpha components..."
 gcloud --quiet components install alpha || exit 1
 pip3 install grpcio --break-system-packages || exit 1
 
-tail_logs() {
+(
   echo "Streaming logs from the control node's startup script execution..."
   echo
   # The 'gcloud alpha logging tail' command may display 'SyntaxWarning: invalid escape sequence' warnings.
@@ -118,9 +118,7 @@ tail_logs() {
     --format='value(timestamp.date(format="%Y-%m-%d %H:%M:%S"), json_payload.message.sub("^startup-script: ", ""))'
     echo "$(date '+%Y-%m-%d %H:%M:%S')     Tail session ended. Restarting..."
   done
-}
-
-tail_logs &
+) &
 
 tail_pid=$!
 
