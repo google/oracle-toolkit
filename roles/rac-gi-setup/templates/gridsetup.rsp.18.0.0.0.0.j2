@@ -1,4 +1,4 @@
-{% macro domain() -%}{% if hostvars[groups['dbasm'].0]['cluster_domain'] is defined and hostvars[groups['dbasm'].0]['cluster_domain']|length > 0 -%}.{{ hostvars[groups['dbasm'].0]['cluster_domain'] }}{% endif -%}{% endmacro -%}
+{% macro domain() -%}{% if hostvars[groups['dbasm'].0]['cluster_domain'] is defined and hostvars[groups['dbasm'].0]['cluster_domain'] | length > 0 -%}.{{ hostvars[groups['dbasm'].0]['cluster_domain'] }}{% endif -%}{% endmacro -%}
 oracle.install.responseFileVersion=/oracle/install/rspfmt_crsinstall_response_schema_v18.0.0
 INVENTORY_LOCATION={{ oracle_inventory }}
 oracle.install.option=CRS_CONFIG
@@ -16,8 +16,8 @@ oracle.install.crs.config.autoConfigureClusterNodeVIP=false
 
 oracle.install.crs.config.clusterNodes={% set c = joiner(",") %}{% for h in groups['dbasm'] %}{{ c() }}{{ h }}{{ domain() }}:{{ hostvars[h]['vip_name'] }}{{ domain() }}:HUB{% endfor %}
 
-oracle.install.crs.config.networkInterfaceList={% set pub = hostvars[groups['dbasm'].0]['public_net']|regex_replace('@.*$', '') -%}
-{% set prv = hostvars[groups['dbasm'].0]['private_net']|regex_replace('@.*$', '') -%}
+oracle.install.crs.config.networkInterfaceList={% set pub = hostvars[groups['dbasm'].0]['public_net'] | regex_replace('@.*$', '') -%}
+{% set prv = hostvars[groups['dbasm'].0]['private_net'] | regex_replace('@.*$', '') -%}
 {{ pub }}:{{ hostvars[groups['dbasm'].0]['ansible_facts'][pub]['ipv4']['network'] }}:1,{{ prv }}:{{ hostvars[groups['dbasm'].0]['ansible_facts'][prv]['ipv4']['network'] }}:5
 
 oracle.install.crs.config.storageOption=FLEX_ASM_STORAGE

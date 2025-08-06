@@ -54,7 +54,7 @@
     - include_role:
         name: patch
         tasks_from: main.yml
-      when: hostvars[groups['dbasm'].0]['cluster_name']|default('', true)|length == 0
+      when: hostvars[groups['dbasm'].0]['cluster_name'] | default('', true) | length == 0
   remote_user: "{{ oracle_user }}"
   become: true
   become_user: root
@@ -68,7 +68,7 @@
         tasks_from: rac-ins-opatch.yml
       vars:
         db_config_type: RAC
-      when: hostvars[groups['dbasm'].0]['cluster_name']|default('', true)|length > 0
+      when: hostvars[groups['dbasm'].0]['cluster_name'] | default('', true) | length > 0
   tags: rac-ins-opatch
 
 - name: RAC patch apply
@@ -81,7 +81,7 @@
         tasks_from: rac-opatch.yml
       vars:
         db_config_type: RAC
-      when: hostvars[groups['dbasm'].0]['cluster_name']|default('', true)|length > 0
+      when: hostvars[groups['dbasm'].0]['cluster_name'] | default('', true) | length > 0
   tags: rac-opatch
 
 - name: RAC database patch
@@ -92,5 +92,5 @@
         tasks_from: rac-dbpatch.yml
       vars:
         db_config_type: RAC
-      when: hostvars[groups['dbasm'].0]['cluster_name']|default('', true)|length > 0
+      when: hostvars[groups['dbasm'].0]['cluster_name'] | default('', true) | length > 0
   tags: rac-dbpatch

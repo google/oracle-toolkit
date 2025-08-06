@@ -231,7 +231,7 @@
     msg: Diskgroup assigned for backup should be defined for creation
   when:
     - backup_dest[0:1] == "+"
-    - dg_exists|length == 0
+    - dg_exists | length == 0
   tags: backup-dest
 
 - name: tmp file configuration

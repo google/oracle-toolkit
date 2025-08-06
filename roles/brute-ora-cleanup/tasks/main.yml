@@ -75,7 +75,7 @@
         cmd: |
           set -o pipefail
           systemctl list-units --type=service --all \
-            | grep -Ei '{{ systemd_service_name }}|oracle-database-preinstall-{{ free_edition_name }}-firstboot' \
+            | grep -Ei '{{ systemd_service_name }} | oracle-database-preinstall-{{ free_edition_name }}-firstboot' \
             | awk '{ print $1 }' \
             | grep service \
             || true
@@ -416,7 +416,7 @@
   when:
     - swap_blk_device is defined
     - swap_partition_id is defined
-    - swap_blk_device|length > 0
+    - swap_blk_device | length > 0
   ignore_errors: true
   tags: remove-swap
   block:

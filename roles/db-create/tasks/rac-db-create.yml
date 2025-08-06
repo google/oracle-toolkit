@@ -161,7 +161,7 @@
     set -o pipefail
     export ORACLE_HOME={{ oracle_home }}
     export PATH=${ORACLE_HOME}/bin:${PATH}:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin
-    {% if oracle_ver == '11.2.0.4.0' %}srvctl status instance -d {{ db_name }} -n {{ ansible_hostname }} -v |awk '{ print $2 }'{% else %}srvctl status db -d {{ db_name }} -sid{% endif %}
+    {% if oracle_ver == '11.2.0.4.0' %}srvctl status instance -d {{ db_name }} -n {{ ansible_hostname }} -v | awk '{ print $2 }'{% else %}srvctl status db -d {{ db_name }} -sid{% endif %}
   become: true
   become_user: "{{ oracle_user }}"
   changed_when: false

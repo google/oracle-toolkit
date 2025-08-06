@@ -142,4 +142,4 @@
   include_tasks: swap.yml
   when:
     - swap_blk_device is defined
-    - swap_blk_device|length > 0
+    - swap_blk_device | length > 0

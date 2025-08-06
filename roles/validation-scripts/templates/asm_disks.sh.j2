@@ -12,7 +12,7 @@ export ORACLE_HOME={{ grid_home }}
 for device in `ls /dev/sd*`
 do
    asmdisk=`kfed read ${device} | grep ORCL | tr -s ' ' | cut -f2 -d' ' | cut -c1-4`
-   asmname=`kfed read ${device} | grep dskname | tr -s ' '| cut -f2 -d' '`
+   asmname=`kfed read ${device} | grep dskname | tr -s ' ' | cut -f2 -d' '`
    if [ "${asmdisk}" = "ORCL" ]; then
       echo "Disk device ${device} may be an ASM disk - Disk name: ${asmname}"
    fi
