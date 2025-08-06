@@ -75,7 +75,7 @@
         cmd: |
           set -o pipefail
           systemctl list-units --type=service --all \
-            | grep -Ei '{{ systemd_service_name }} | oracle-database-preinstall-{{ free_edition_name }}-firstboot' \
+            | grep -Ei '{{ systemd_service_name }}|oracle-database-preinstall-{{ free_edition_name }}-firstboot' \
             | awk '{ print $1 }' \
             | grep service \
             || true

@@ -68,7 +68,7 @@
   with_items:
     - { level: 0, days: '{{ full_bu_level0_day }}' }
     - { level: 1, days: '{{ full_bu_level1_days }}' }
-  when: backup_dest is defined
+  when: backup_dest is defined and backup_dest | length > 0
   tags: db-backups,add-backups
 
 - name: Schedule archived redo log backups
@@ -79,7 +79,7 @@
     minute: "{{ arch_bu_start_min }}"
     user: "{{ oracle_user }}"
     job: "{{ scripts_dir }}/rman_arch_backup.sh {{ oracle_sid }} {{ rman_arch_redundancy }} {{ rman_archs_online_days }}"
-  when: backup_dest is defined
+  when: backup_dest is defined and backup_dest | length > 0
   tags: db-backups,add-backups
 
 - name: Schedule archivelog deletion when no backups are configured
@@ -90,7 +90,7 @@
     minute: "{{ arch_bu_start_min }}"
     user: "{{ oracle_user }}"
     job: "{{ scripts_dir }}/rman_delete_arch.sh {{ oracle_sid }} {{ rman_arch_retention_hours }}"
-  when: backup_dest is not defined
+  when: not backup_dest | default('')
   tags: db-backups,add-backups
 
 - name: Run initial full backup
@@ -100,7 +100,7 @@
     export PATH={{ oracle_home }}/bin:/usr/local/bin:${PATH}
     {{ scripts_dir }}/rman_full_backup.sh {{ oracle_sid }} 0 {{ rman_db_bu_redundancy }} {{ rman_arch_redundancy }}
   when:
-    - backup_dest is defined
+    - backup_dest is defined and backup_dest | length > 0
     - run_initial_bu
   register: full_backup
   tags: db-backups,run-backups
@@ -112,7 +112,7 @@
     export PATH={{ oracle_home }}/bin:/usr/local/bin:${PATH}
     {{ scripts_dir }}/rman_arch_backup.sh {{ oracle_sid }} {{ rman_arch_redundancy }} {{ rman_archs_online_days }}
   when:
-    - backup_dest is defined
+    - backup_dest is defined and backup_dest | length > 0
     - run_initial_bu
   register: arch_backup
   tags: db-backups,run-backups
@@ -122,7 +122,7 @@
     msg: "{{ item }}"
     verbosity: 1
   when:
-    - backup_dest is defined
+    - backup_dest is defined and backup_dest | length > 0
     - run_initial_bu
   with_items:
     - "{{ full_backup }}"

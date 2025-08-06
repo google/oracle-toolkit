@@ -65,30 +65,30 @@
   with_items: "{{ oracle_user_data_mounts }}"
   tags: ora-mounts
 
-# - name: This iteration to get all blk_devices regardless of their diskgroup - used for partitioning all asm disks
-#   debug:
-#     msg: "Running parted {{ item.1.blk_device }}"
-#     verbosity: 1
-#   with_subelements:
-#     - "{{ asm_disks }}"
-#     - disks
+- name: This iteration to get all blk_devices regardless of their diskgroup - used for partitioning all asm disks
+  debug:
+    msg: "Running parted {{ item.1.blk_device }}"
+    verbosity: 1
+  with_subelements:
+    - "{{ asm_disks }}"
+    - disks
 
-# - name: This iteration to create asm disks with their asm name and block_device
-#   debug:
-#     msg: "Running create asmdisk {{ item.1.name }} with disk {{ item.1.blk_device }}"
-#     verbosity: 1
-#   with_subelements:
-#     - "{{ asm_disks }}"
-#     - disks
+- name: This iteration to create asm disks with their asm name and block_device
+  debug:
+    msg: "Running create asmdisk {{ item.1.name }} with disk {{ item.1.blk_device }}"
+    verbosity: 1
+  with_subelements:
+    - "{{ asm_disks }}"
+    - disks
 
-# - name: This iteration to create asm diskgroup
-#   debug:
-#     msg: |
-#       CREATE DISKGROUP DATA EXTERNAL REDUNDANCY
-#       {% for i in item.disks %}  DISK 'ORCL: {{ i.name }}'
-#       {% endfor %}
-#       ATTRIBUTE
-#          'compatible.asm'   = '"${ORACLE_VERSION}"',
-#          'compatible.rdbms' = '11.2.0.4.0';
-#     verbosity: 1
-#   with_items: "{{ asm_disks }}"
+- name: This iteration to create asm diskgroup
+  debug:
+    msg: |
+      CREATE DISKGROUP DATA EXTERNAL REDUNDANCY
+      {% for i in item.disks %}  DISK 'ORCL: {{ i.name }}'
+      {% endfor %}
+      ATTRIBUTE
+         'compatible.asm'   = '"${ORACLE_VERSION}"',
+         'compatible.rdbms' = '11.2.0.4.0';
+    verbosity: 1
+  with_items: "{{ asm_disks }}"

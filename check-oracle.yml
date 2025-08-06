@@ -99,13 +99,6 @@
               register: file_status_check
               delegate_to: localhost
 
-            - name: File Status
-              become: false
-              debug:
-                msg: "file exists"
-                verbosity: 0
-              when: file_status_check.stat.exists
-
             - name: Fail if the file does not exist
               become: false
               fail:

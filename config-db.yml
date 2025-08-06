@@ -55,14 +55,14 @@
     - name: Skip installation of Google Cloud Agent for Compute Workloads if non-RHEL OS detected
       debug:
         msg: "Non-RHEL OS detected. Skipping the installation of Google Cloud Agent for Compute Workloads."
-        verbosity: 1
+        verbosity: 0
       when: ansible_os_family != "RedHat"
       tags: workload-agent
 
     - name: Skip installation of Google Cloud Agent for Compute Workloads if non-GCE environment detected
       debug:
         msg: "Non-GCE environment detected. Skipping the installation of Google Cloud Agent for Compute Workloads."
-        verbosity: 1
+        verbosity: 0
       when: ansible_facts['product_name'] != "Google Compute Engine"
       tags: workload-agent
 

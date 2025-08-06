@@ -21,9 +21,11 @@
 - name: proxy | Get control node IP
   set_fact:
     proxy_ip: "{{ ansible_env['SSH_CLIENT'].split() | first }}"
-  # debug:
-  #   var: proxy_ip
-  #   verbosity: 1
+
+- name: proxy | Control node IP value
+  debug:
+    var: proxy_ip
+    verbosity: 1
   tags: host-provision
 
 - name: proxy | Validate proxy connectivity via control node
