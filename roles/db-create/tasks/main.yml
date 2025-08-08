@@ -142,6 +142,9 @@
     - debug:
         msg: "{{ dbcalog['content'] | b64decode }}"
         verbosity: 0
+    - name: Fail due to a DBCA failure
+      fail:
+        msg: Failing due to a DBCA failure
 
 - name: DBCA output
   debug:

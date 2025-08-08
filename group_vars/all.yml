@@ -128,7 +128,7 @@ log_transport_mode: "{{ 'ASYNC' if data_guard_protection_mode | upper == 'MAXIMU
 
 ################################################################################
 
-## Variables for adjustment in future verions - not currently modifiable
+## Variables for adjustment in future versions - not currently modifiable
 
 # DB configuration related variables:
 db_config_type: "{% if lookup('env','CLUSTER_TYPE') | default('NONE', true) in ('NONE', 'DG') %}SI{% elif lookup('env','CLUSTER_TYPE') == 'RAC' %}RAC{% endif %}"

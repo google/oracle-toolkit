@@ -51,7 +51,7 @@
   become_user: "{{ grid_user }}"
   tags: gi-setup,start-asm
 
-- name: asm-create | Start ASM ouput
+- name: asm-create | Start ASM output
   debug:
     msg: "{{ start_asm }}"
     verbosity: 1

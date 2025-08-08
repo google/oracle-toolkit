@@ -6,3 +6,4 @@
 #{{ asm_sid }}.sga_target=3G
 #{{ asm_sid }}.pga_aggregate_target=400M
 {{ asm_sid }}.processes=1024
+{% if (oracle_ver_base | float) <= 18.0 %}{{ asm_sid }}.use_large_pages=FALSE{% endif %}
