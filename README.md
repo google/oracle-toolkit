@@ -84,6 +84,18 @@ Run the destructive brute-force Oracle software removal with `cleanup-oracle.sh`
 
 Contributions and pull requests are welcome. See [docs/contributing.md](docs/contributing.md) and [docs/code-of-conduct.md](docs/code-of-conduct.md) for details.
 
+## Creating a Release
+
+1. Navigate to the Releases Page: On the main page of the repository, find the list of files and click on Releases to the right.
+2. Draft a New Release: At the top of the Releases page, click the Draft a new release button.
+3. Choose a Tag: Select the Choose a tag dropdown menu.
+4. To use a tag that already exists, simply click on the tag. To create a new tag, type in a new version number and click Create new tag.
+5. Select a Target Branch: If you created a new tag, select the Target dropdown and choose the branch you intend to release.
+6. Enter a Release Title: In the "Release title" field, type a title for your release.
+7. Generate Release Notes: Above the description field, click Generate release notes. GitHub will use the .github/release.yml file to create the changelog.
+8. Review the Notes: Check the generated notes to ensure they include all the information you want to share.
+9. Publish or Save: If the release is ready to go public, click Publish release.
+
 ## The fine print
 
 This product is [licensed](LICENSE) under the Apache 2 license. This is not an officially supported Google project
