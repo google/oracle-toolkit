@@ -342,8 +342,6 @@ gi_patches:
   - { category: "RU", base: "19.3.0.0.0", release: "19.26.0.0.250121", patchnum: "37262208", patchfile: "p37262208_190000_Linux-x86-64.zip", patch_subdir: "/37257886", prereq_check: false, method: "opatchauto apply", ocm: false, upgrade: false, md5sum: "zqZeJ3/ujDWcLr+reZOHpw==" }
   - { category: "RU", base: "19.3.0.0.0", release: "19.27.0.0.250415", patchnum: "37591516", patchfile: "p37591516_190000_Linux-x86-64.zip", patch_subdir: "/37641958", prereq_check: false, method: "opatchauto apply", ocm: false, upgrade: false, md5sum: "kkyZC9RP8eolBgdu9Y3q7g==" }
   - { category: "RU", base: "19.3.0.0.0", release: "19.28.0.0.250715", patchnum: "37952382", patchfile: "p37952382_190000_Linux-x86-64.zip", patch_subdir: "/37957391", prereq_check: FALSE, method: "opatchauto apply", ocm: FALSE, upgrade: FALSE, md5sum: "GL89d7Hnfe+fG0kVCgcwSw==" }
-
-
 # 21c GRID RU - 21.4 and 21.7 are available only via SR
 #     RDBMS RU - 21.4 - 21.7 are available only via SR
 #     so 21.5 and 21.6 are commented out here, even though available
