@@ -13,6 +13,11 @@
 # limitations under the License.
 
 ---
+- name: Report that Terraform was used for the installation
+  debug:
+    msg: "The agent was installed using the toolkit and Terraform was used."
+  when: is_terraform_run is defined and is_terraform_run
+
 - name: Install Google Cloud Agent for Compute Workloads
   include_tasks:
     file: install.yml

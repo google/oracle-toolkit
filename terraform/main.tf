@@ -192,6 +192,7 @@ locals {
     length(local.asm_disk_config) > 0 ? "--ora-asm-disks-json '${jsonencode(local.asm_disk_config)}'" : "",
     length(local.data_mounts_config) > 0 ? "--ora-data-mounts-json '${jsonencode(local.data_mounts_config)}'" : "",
     "--swap-blk-device /dev/disk/by-id/google-swap",
+    "--terraform-run",
     var.ora_swlib_bucket != "" ? "--ora-swlib-bucket ${var.ora_swlib_bucket}" : "",
     var.ora_version != "" ? "--ora-version ${var.ora_version}" : "",
     var.ora_backup_dest != "" ? "--backup-dest ${var.ora_backup_dest}" : "",
@@ -252,6 +253,7 @@ resource "google_compute_instance" "control_node" {
     common_flags           = local.common_flags
     deployment_name        = var.deployment_name
     delete_control_node    = var.delete_control_node
+    is_terraform_run       = "true"
   })
 
   metadata = {
