@@ -363,6 +363,13 @@ applicable licenses governing such software. The toolkit doesn't contain any
 Oracle software. You are responsible for procuring the Oracle software that you
 need and for complying with the applicable licenses.
 
+If you are deploying the Oracle Database Free edition, downloading and staging
+the software is optional. Doing so may be useful in cases where the database VM
+has no direct internet access. Alternatively, the required Free edition RPMs
+can be downloaded directly from oracle.com, based on the values set in the
+Ansible `rdbms_software` variable. For more information, see the
+[Free Edition Version Details](#free-edition-version-details) section.
+
 ### Downloading the Oracle installation software
 
 Oracle software is divided into two general categories: **base software** that
@@ -2658,12 +2665,15 @@ Similar to with the other editions, creation of an initial database and implemen
 
 ### Free Edition Version Details
 
-Oracle has released serveral versions of free edition, often **without chaning the RPM file name**. The toolkit can install _any_ free edition version. Which version is actually installed depends on the the actual RPM file in the software library, and possibly the command line switches.
+> NOTE: Beginning with the April 2025 release (23.8), Oracle started using unique filenames for the Free edition, a change from their previous practice of reusing the same RPM filename for new versions.
 
-Specific supported versions of Oracle Database 23 free edition currently includes:
+The toolkit can install _any_ free edition version. Which version is actually installed depends on the the actual RPM file in the software library, and possibly the command line switches.
+
+Specific supported versions of Oracle Database 23 Free currently includes:
 
 | Product | Specific Version | Software RPM Filename                             | Preinstall RPM Filename                                |
 | :-----: | :--------------: | :------------------------------------------------ | :----------------------------------------------------- |
+|  23ai   |   23.9.0.25.07   | `oracle-database-free-23ai-23.9-1.el8.x86_64.rpm` | `oracle-database-preinstall-23ai-1.0-2.el8.x86_64.rpm` |
 |  23ai   |   23.8.0.25.04   | `oracle-database-free-23ai-23.8-1.el8.x86_64.rpm` | `oracle-database-preinstall-23ai-1.0-2.el8.x86_64.rpm` |
 |  23ai   |   23.7.0.25.01   | `oracle-database-free-23ai-1.0-1.el8.x86_64.rpm`  | `oracle-database-preinstall-23ai-1.0-2.el8.x86_64.rpm` |
 |  23ai   |   23.6.0.24.10   | `oracle-database-free-23ai-1.0-1.el8.x86_64.rpm`  | `oracle-database-preinstall-23ai-1.0-2.el8.x86_64.rpm` |
@@ -2672,7 +2682,35 @@ Specific supported versions of Oracle Database 23 free edition currently include
 |   23c   |   23.3.0.23.09   | `oracle-database-free-23c-1.0-1.el8.x86_64.rpm`   | `oracle-database-preinstall-23c-1.0-1.el8.x86_64.rpm`  |
 |   23c   |    23.2.0.0.0    | `oracle-database-free-23c-1.0-1.el8.x86_64.rpm`   | `oracle-database-preinstall-23c-1.0-1.el8.x86_64.rpm`  |
 
-Even though the file names may be the same while the version changes, the RPMs for the various versions can still be staged in the software library. Possibly by manually changing the file names for uniqueness (and then updating the `rdbms_software` variable in the [roles/common/defaults/main.yml](../roles/common/defaults/main.yml) file accoridingly.) Or more simply, by placing the unique files with the same file name in different Google Cloud Storage bucket **folders**.
+By default, the toolkit fetches Free edition software directly from oracle.com. It can also be configured to fetch from your own software library, such as when the database VM has no direct Internet access.
+
+To leverage files in your software library, simply include just the file names in the Ansible `rdbms_software` variable in the [roles/common/defaults/main.yml](../roles/common/defaults/main.yml). For example:
+
+```yaml
+rdbms_software:
+  - name: 23ai_free_23_8
+    version: 23.8.0.25.04
+    edition: FREE
+    files:
+      - { name: "oracle-database-preinstall-23ai-1.0-2.el8.x86_64.rpm", sha256sum: "4578e6d1cf566e04541e0216b07a0372725726a7c339423ee560255cb918138b", md5sum: "TmjqUT878Owv7NbXGECpTA=="}
+      - { name: "oracle-database-free-23ai-23.8-1.el8.x86_64.rpm", sha256sum: "cd0d16939150e6ec5e70999a762a13687bfa99b05c4f310593e7ca3892e1d0ce", md5sum: "hkL/hxeYbB7z5lz+3r3kww=="}
+```
+
+When installing from files staged in your software library, providing the GCS MD5 hash value is required.
+
+If you would rather have the tooling download the software from the Oracle website, simply specify the full URL instead. For example:
+
+```yaml
+rdbms_software:
+  - name: 23ai_free_23_9
+    version: 23.9.0.25.07
+    edition: FREE
+    files:
+      - { name: "https://yum.oracle.com/repo/OracleLinux/OL8/appstream/x86_64/getPackage/oracle-database-preinstall-23ai-1.0-2.el8.x86_64.rpm", sha256sum: "4578e6d1cf566e04541e0216b07a0372725726a7c339423ee560255cb918138b", md5sum: ""}
+      - { name: "https://download.oracle.com/otn-pub/otn_software/db-free/oracle-database-free-23ai-23.9-1.el8.x86_64.rpm", sha256sum: "a6e64941ad940dd23e152e3d51213aeaea6d93b43688fbd030175935e0efe03d", md5sum: ""}
+```
+
+If installing by URL, refer to [Oracle Database Free Get Started](https://www.oracle.com/database/free/get-started/) to obtain the most recent links and `sha256sum` values.
 
 If no Free Edition version is explicitly defined (via the `--ora-version` command line switch or the corresponding environment variable), the toolkit will default to the most recent version.
 

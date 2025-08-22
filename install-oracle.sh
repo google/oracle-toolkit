@@ -643,8 +643,8 @@ shopt -s nocasematch
   echo "Incorrect parameter provided for cluster-type: $CLUSTER_TYPE"
   exit 1
 }
-[[ ! "$ORA_SWLIB_BUCKET" =~ $ORA_SWLIB_BUCKET_PARAM ]] && {
-  echo "Incorrect parameter provided for ora-swlib-bucket: $ORA_SWLIB_BUCKET"
+[[ ! "$ORA_SWLIB_BUCKET" =~ $ORA_SWLIB_BUCKET_PARAM && "$ORA_EDITION" != "FREE" ]] && {
+  echo "Incorrect (or no) parameter provided for ora-swlib-bucket: $ORA_SWLIB_BUCKET"
   echo "Example: gs://my-gcs-bucket"
   exit 1
 }
@@ -923,11 +923,6 @@ if [[ "${skip_compatible_rdbms}" != "true" ]]; then
 fi
 
 # Mandatory options
-if [ "${ORA_SWLIB_BUCKET}" = "" ]; then
-  echo "Please specify a GS bucket with --ora-swlib-bucket"
-  exit 2
-fi
-
 if [[ ! -f "$ORA_DATA_MOUNTS" && -z "$ORA_DATA_MOUNTS_JSON" ]]; then
   echo "Please specify --ora-data-mounts or --ora-data-mounts-json"
   exit 2

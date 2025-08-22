@@ -131,13 +131,16 @@
   when: rdbms_patch_files is defined and rdbms_patch_files | length > 0
   changed_when: "'Date    Time    Name' not in shell_result.stdout"
 
-- name: gcsdirect | Copy RPM software from GCS to target instance
+- name: gcsdirect | Download or copy RPM software from GCS to target instance
   shell: |
     set -o pipefail
     {% for f in item.files %}
-    if ! rpm -qp "{{ swlib_path }}/{{ f.name }}"
-      then
+    if ! rpm -qp "{{ swlib_path }}/{{ f.name | basename }}"; then
+      if [[ "{{ f.name }}" == https://*oracle.com/* || "{{ f.name }}" == http://*oracle.com/* ]]; then
+        curl --location --silent --connect-timeout 20 --fail -o "{{ swlib_path }}/{{ f.name | basename }}" "{{ f.name }}" && echo "File downloaded"
+      else
         gcloud storage cp gs://{{ swlib_mount_src }}/{{ f.name }} "{{ swlib_path }}/{{ f.name }}" && echo "File copied"
+      fi
     fi
     {% endfor %}
   register: shell_result
@@ -147,4 +150,4 @@
   when:
     - item.version == oracle_ver
     - free_edition
-  changed_when: "'File copied' in shell_result.stdout"
+  changed_when: '"File downloaded" in shell_result.stdout or "File copied" in shell_result.stdout'

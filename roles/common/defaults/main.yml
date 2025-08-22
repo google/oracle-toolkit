@@ -152,12 +152,18 @@ gi_software:
       - { name: "p13390677_112040_Linux-x86-64_3of7.zip", sha256sum: "09C08AD3E1EE03DB1707F01C6221C7E3E75EC295316D0046CC5D82A65C7B928C", md5sum: "BM7zeZHbGPgZD31KGbJpEg==" }
 
 rdbms_software:
+  - name: 23ai_free_23_9
+    version: 23.9.0.25.07
+    edition: FREE
+    files:
+      - { name: "https://yum.oracle.com/repo/OracleLinux/OL8/appstream/x86_64/getPackage/oracle-database-preinstall-23ai-1.0-2.el8.x86_64.rpm", sha256sum: "4578e6d1cf566e04541e0216b07a0372725726a7c339423ee560255cb918138b", md5sum: "TmjqUT878Owv7NbXGECpTA=="}
+      - { name: "https://download.oracle.com/otn-pub/otn_software/db-free/oracle-database-free-23ai-23.9-1.el8.x86_64.rpm", sha256sum: "a6e64941ad940dd23e152e3d51213aeaea6d93b43688fbd030175935e0efe03d", md5sum: "ZvqO1/Cii+HBaLbtILQHPw=="}
   - name: 23ai_free_23_8
     version: 23.8.0.25.04
     edition: FREE
     files:
-      - { name: "oracle-database-preinstall-23ai-1.0-2.el8.x86_64.rpm", sha256sum: "4578e6d1cf566e04541e0216b07a0372725726a7c339423ee560255cb918138b", md5sum: "TmjqUT878Owv7NbXGECpTA=="}
-      - { name: "oracle-database-free-23ai-23.8-1.el8.x86_64.rpm", sha256sum: "cd0d16939150e6ec5e70999a762a13687bfa99b05c4f310593e7ca3892e1d0ce", md5sum: "hkL/hxeYbB7z5lz+3r3kww=="}
+      - { name: "https://yum.oracle.com/repo/OracleLinux/OL8/appstream/x86_64/getPackage/oracle-database-preinstall-23ai-1.0-2.el8.x86_64.rpm", sha256sum: "4578e6d1cf566e04541e0216b07a0372725726a7c339423ee560255cb918138b", md5sum: "TmjqUT878Owv7NbXGECpTA=="}
+      - { name: "https://download.oracle.com/otn-pub/otn_software/db-free/oracle-database-free-23ai-23.8-1.el8.x86_64.rpm", sha256sum: "cd0d16939150e6ec5e70999a762a13687bfa99b05c4f310593e7ca3892e1d0ce", md5sum: "hkL/hxeYbB7z5lz+3r3kww=="}
   - name: 23ai_free_23_7
     version: 23.7.0.25.01
     edition: FREE
