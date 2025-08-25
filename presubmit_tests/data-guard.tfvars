@@ -20,6 +20,7 @@ deployment_name = "@deployment_name@"
 instance_name = "@instance_name@"
 
 ora_swlib_bucket = "gs://bmaas-testing-oracle-software"
+delete_control_node = false
 project_id = "gcp-oracle-benchmarks"
 vm_service_account = "oracle-vm-runner@gcp-oracle-benchmarks.iam.gserviceaccount.com"
 control_node_service_account = "control-node-sa@gcp-oracle-benchmarks.iam.gserviceaccount.com"
