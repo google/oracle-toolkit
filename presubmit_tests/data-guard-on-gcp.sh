@@ -124,7 +124,7 @@ tail_pgid_leader=$!
 
 
 sleep_seconds=60
-timeout_seconds=7200
+timeout_seconds=10800
 timeout_hours="$((timeout_seconds / 3600))"
 timeout_minutes="$(((timeout_seconds % 3600) / 60))"
 start_time="$(date +%s)"
