@@ -17,6 +17,7 @@ ARTIFACT_NAME="oracle-toolkit-infra-manager.zip"
 ARTIFACT_DIR="unsigned-release"
 ARTIFACT_PATH="${ARTIFACT_DIR}/${ARTIFACT_NAME}"
 
+echo "This is usage_metrics branch"
 echo "Starting Oracle Toolkit Terraform Blueprint generation."
 
 echo "Current working directory: $(pwd)"
