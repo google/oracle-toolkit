@@ -38,7 +38,7 @@
   roles:
     - role: gi-setup
       when:
-        - install_gi | bool
+        - gi_install
         - cluster_type in ("NONE", "DG")
   tags: gi-setup
 

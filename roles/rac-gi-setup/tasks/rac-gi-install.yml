@@ -31,7 +31,7 @@
 - name: rac-gi-install | Unzip GI patch
   # Using the "shell" module instead of "unarchive" for unzip performance
   shell: |
-    unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
+    unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}" || exit $?
     chown -R {{ grid_user }}:{{ oracle_group }} "{{ swlib_unzip_path }}"
   args:
     creates: .gi_patch_{{ oracle_rel }}
@@ -97,7 +97,7 @@
   shell: |
     udevadm info --query=all --name={% if item is search('mapper') %}{{ item.blk_device }}{% else %}{{ item.first_partition_id }}{% endif %} | grep "^S: " | grep {{ path_udev }} | awk '{ print "/dev/"$2 }'
   loop: "{{ asm_disks | json_query('[?diskgroup==`' + hostvars[groups['dbasm'].0]['dg_name'] + '`].disks[*]') | list | flatten }}"
-  when: asm_disk_management == "udev"
+  when: ora_disk_management in ["udev", "asmudev"]
   register: symlink
 
 - name: rac-gi-install | Generate random password

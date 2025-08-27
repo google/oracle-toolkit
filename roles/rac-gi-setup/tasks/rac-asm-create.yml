@@ -47,7 +47,7 @@
     ORACLE_SID: "{{ asm_sid }}"
     LD_LIBRARY_PATH: "{{ grid_home }}/lib:${LD_LIBRARY_PATH}"
   when:
-    - asm_disk_management == "asmlib"
+    - ora_disk_management == "asmlib"
     - created_dg is not search(item.diskgroup)
   with_items: "{{ asm_disks }}"
   register: create_dg
@@ -74,7 +74,7 @@
     ORACLE_SID: "{{ asm_sid }}"
     LD_LIBRARY_PATH: "{{ grid_home }}/lib:${LD_LIBRARY_PATH}"
   when:
-    - asm_disk_management == "udev"
+    - ora_disk_management in ["udev", "asmudev"]
     - created_dg is not search(item.diskgroup)
   with_items: "{{ asm_disks }}"
   register: create_dg

@@ -207,7 +207,7 @@
     owner: "{{ item.owner }}"
     group: "{{ item.group }}"
     mode: "{{ item.mode }}"
-  with_items: "{{ oracle_dirs + fs_dirs if free_edition else oracle_dirs + grid_dirs }}"
+  with_items: "{{ oracle_dirs + grid_dirs if gi_install else oracle_dirs + fs_dirs }}"
   tags: os-dirs
 
 - name: Create backup directory
@@ -272,12 +272,14 @@
     dest: "/home/{{ grid_user }}/.bash_profile"
     marker: "# {mark} Oracle Grid Infrastructure Settings:"
     backup: true
-  when: role_separation
+  when:
+    - gi_install
+    - role_separation
   tags: os-users
 
 - name: (asmlib) | ASM device management via asmlib or udev?
   debug:
-    msg: "asm_disk_management is set to {{ asm_disk_management }}"
+    msg: "ora_disk_management is set to {{ ora_disk_management }}"
     verbosity: 0
   tags: asm-disks
 
@@ -287,7 +289,9 @@
     number: 1
     state: present
     label: gpt
-  when: "'mapper' not in item.1.blk_device"
+  when:
+    - ora_disk_management != "fs"
+    - "'mapper' not in item.1.blk_device"
   run_once: true
   with_subelements:
     - "{{ asm_disks }}"
@@ -297,6 +301,7 @@
 - include_role:
     name: common
     tasks_from: populate-asm-disks.yml
+  when: ora_disk_management != "fs"
 
 - name: (debug) asm disk configuration
   debug:
@@ -305,6 +310,7 @@
       - asm_def_file {{ asm_definition_file }}
       - asm_disk_input {{ asm_disk_input }}
     verbosity: 0
+  when: ora_disk_management != "fs"
   tags: asm-disks
 
 ######## Udev rules for non-multipath disks ########
@@ -315,7 +321,7 @@
   shell: udevadm info --query=all --name={{ item.1.blk_device }} | grep ID_SERIAL_SHORT | awk -F'=' '{print $2}'
   register: udevadm_result_nonmultipath
   when:
-    - asm_disk_management == "udev"
+    - ora_disk_management in ["udev", "asmudev"]
     - "'mapper' not in item.1.blk_device"
   with_subelements:
     - "{{ asm_disks }}"
@@ -393,6 +399,7 @@
   become: true
   become_user: root
   shell: ( /sbin/udevadm control --reload-rules && /sbin/udevadm trigger && /sbin/partprobe )
+  when: ora_disk_management in ["udev", "asmudev"]
   tags: asm-disks
 
 - name: (asmlib) Install Oracle ASM libraries
@@ -400,7 +407,7 @@
     name: "{{ oracleasm_libs }}"
     state: present
     lock_timeout: "{{ pkg_mgr_lock_timeout }}"
-  when: asm_disk_management == "asmlib"
+  when: ora_disk_management == "asmlib"
   tags: oracleasmlib
 
 - name: (asmlib) Configure oracleasm
@@ -413,7 +420,7 @@
     /usr/sbin/oracleasm scandisks
     cat /etc/sysconfig/oracleasm
   register: asmconfig
-  when: asm_disk_management == "asmlib"
+  when: ora_disk_management == "asmlib"
   tags: asm-disks
 
 - name: (asmlib) Create Oracle ASM raw disks
@@ -423,7 +430,7 @@
   with_subelements:
     - "{{ asm_disks }}"
     - disks
-  when: asm_disk_management == "asmlib"
+  when: ora_disk_management == "asmlib"
   register: asmraw
   failed_when: "( ( asmraw.rc != 0 ) and ( 'ERROR' in asmraw.stdout ) ) or ( ( asmraw.rc != 0 ) and ( 'is already labeled for ASM disk' not in asmraw.stdout ) )"
   changed_when: "'Writing disk header: done' in asmraw.stdout"
@@ -436,7 +443,7 @@
   with_subelements:
     - "{{ asm_disks }}"
     - disks
-  when: asm_disk_management == "asmlib"
+  when: ora_disk_management == "asmlib"
   register: asmlv
   failed_when: "( ( asmlv.rc != 0 ) and ( 'ERROR' in asmlv.stdout ) ) or ( ( asmlv.rc != 0 ) and ( 'is already labeled for ASM disk' not in asmlv.stdout ) )"
   changed_when: "'Writing disk header: done' in asmlv.stdout"
@@ -450,7 +457,7 @@
     /usr/sbin/oracleasm listdisks
     ls -l /dev/oracleasm/disks
   register: listdisks
-  when: asm_disk_management == "asmlib"
+  when: ora_disk_management == "asmlib"
   tags: asm-disks
 
 - name: (asmlib) Restart oracleasm
@@ -458,7 +465,7 @@
     state: restarted
     name: oracleasm
     scope: system
-  when: asm_disk_management == "asmlib"
+  when: ora_disk_management == "asmlib"
   tags: asm-disks
 
 - name: (asmlib) ASM listing results
@@ -470,5 +477,5 @@
   with_items:
     - "{{ asmconfig }}"
     - "{{ listdisks }}"
-  when: asm_disk_management == "asmlib"
+  when: ora_disk_management == "asmlib"
   tags: asm-disks

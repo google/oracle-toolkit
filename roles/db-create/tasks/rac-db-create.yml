@@ -34,7 +34,6 @@
     - "{{ check_oratab }}"
   tags: rac-db-create
 
-
 - name: rac-db-create | Adjust instance memory values (not 11.2 or 12.1)
   set_fact:
     sga_target: "{{ ora_sga_target_mb }}M"

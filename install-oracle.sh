@@ -148,17 +148,17 @@ ORA_PDB_COUNT_PARAM="^[0-9]+"
 ORA_REDO_LOG_SIZE="${ORA_REDO_LOG_SIZE:-100MB}"
 ORA_REDO_LOG_SIZE_PARAM="^[0-9]+MB$"
 
-ORA_DISK_MGMT="${ORA_DISK_MGMT:-UDEV}"
-ORA_DISK_MGMT_PARAM="ASMLIB|UDEV"
+ORA_DISK_MGMT="${ORA_DISK_MGMT:-ASMUDEV}"
+ORA_DISK_MGMT_PARAM="ASMLIB|ASMUDEV|UDEV|FS"
 
 ORA_ROLE_SEPARATION="${ORA_ROLE_SEPARATION:-TRUE}"
 ORA_ROLE_SEPARATION_PARAM="^(TRUE|FALSE)$"
 
 ORA_DATA_DESTINATION="${ORA_DATA_DESTINATION:-DATA}"
-ORA_DATA_DESTINATION_PARAM="^(\/|\+)?[a-zA-Z0-9]+$"
+ORA_DATA_DESTINATION_PARAM="^(\/|\+)?[a-zA-Z0-9/_-]+$"
 
 ORA_RECO_DESTINATION="${ORA_RECO_DESTINATION:-RECO}"
-ORA_RECO_DESTINATION_PARAM="^(\/|\+)?[a-zA-Z0-9]+$"
+ORA_RECO_DESTINATION_PARAM="^(\/|\+)?[a-zA-Z0-9/_-]+$"
 
 ORA_ASM_DISKS="${ORA_ASM_DISKS:-asm_disk_config.json}"
 ORA_ASM_DISKS_PARAM="^.*$"
@@ -643,8 +643,8 @@ shopt -s nocasematch
   echo "Incorrect parameter provided for cluster-type: $CLUSTER_TYPE"
   exit 1
 }
-[[ ! "$ORA_SWLIB_BUCKET" =~ $ORA_SWLIB_BUCKET_PARAM ]] && {
-  echo "Incorrect parameter provided for ora-swlib-bucket: $ORA_SWLIB_BUCKET"
+[[ ! "$ORA_SWLIB_BUCKET" =~ $ORA_SWLIB_BUCKET_PARAM && "$ORA_EDITION" != "FREE" ]] && {
+  echo "Incorrect (or no) parameter provided for ora-swlib-bucket: $ORA_SWLIB_BUCKET"
   echo "Example: gs://my-gcs-bucket"
   exit 1
 }
@@ -684,6 +684,10 @@ shopt -s nocasematch
   echo "Incorrect parameter provided for ora-disk-mgmt: $ORA_DISK_MGMT"
   exit 1
 }
+[[ "$ORA_DISK_MGMT" == "FS" ]] && [[ "$CLUSTER_TYPE" == "RAC" ]] && {
+  echo "Must use ASM with RAC installations"
+  exit 1
+}
 [[ ! "$ORA_ROLE_SEPARATION" =~ $ORA_ROLE_SEPARATION_PARAM ]] && {
   echo "Incorrect parameter provided for ora-role-separation: $ORA_ROLE_SEPARATION"
   exit 1
@@ -694,6 +698,10 @@ shopt -s nocasematch
 }
 [[ ! "$ORA_RECO_DESTINATION" =~ $ORA_RECO_DESTINATION_PARAM ]] && {
   echo "Incorrect parameter provided for ora-reco-destination: $ORA_RECO_DESTINATION"
+  exit 1
+}
+[[ "$ORA_DISK_MGMT" == "FS" && ( "${ORA_DATA_DESTINATION:0:1}" == "+" || "${ORA_RECO_DESTINATION:0:1}" == "+"  || "${BACKUP_DEST:0:1}" == "+" ) ]] && {
+  echo "Cannot specify an ASM diskgroup for ora-data-destination, ora-reco-destination, or backup-dest when not using ASM"
   exit 1
 }
 [[ ! "$ORA_ASM_DISKS" =~ $ORA_ASM_DISKS_PARAM ]] && {
@@ -883,7 +891,7 @@ fi
 if [ "${ORA_EDITION}" = "FREE" ]; then
   CLUSTER_TYPE=NONE
   ORA_DB_NAME=FREE
-  ORA_DISK_MGMT=UDEV
+  ORA_DISK_MGMT=FS
   ORA_ROLE_SEPARATION=FALSE
   if [[ ! "${ORA_VERSION}" =~ ^23\. ]]; then
     ORA_VERSION="23.0.0.0.0"
@@ -894,6 +902,10 @@ if [ "${ORA_EDITION}" = "FREE" ]; then
     echo "WARNING: Maximum number of PDBs for this edition is 16: Reducing from ${ORA_PDB_COUNT} to 16"
     ORA_PDB_COUNT=16
   fi
+fi
+
+if [ "${ORA_DISK_MGMT}" == "FS" ]; then
+  ORA_ROLE_SEPARATION=FALSE
 fi
 
 if [[ "${skip_compatible_rdbms}" != "true" ]]; then
@@ -911,11 +923,6 @@ if [[ "${skip_compatible_rdbms}" != "true" ]]; then
 fi
 
 # Mandatory options
-if [ "${ORA_SWLIB_BUCKET}" = "" ]; then
-  echo "Please specify a GS bucket with --ora-swlib-bucket"
-  exit 2
-fi
-
 if [[ ! -f "$ORA_DATA_MOUNTS" && -z "$ORA_DATA_MOUNTS_JSON" ]]; then
   echo "Please specify --ora-data-mounts or --ora-data-mounts-json"
   exit 2
@@ -925,7 +932,7 @@ if [[ -f "$ORA_DATA_MOUNTS" && -n "$ORA_DATA_MOUNTS_JSON" ]]; then
   echo "WARNING: ignoring --ora-data-mounts because --ora-data-mounts-json is specified"
 fi
 
-if [[ ! -f "$ORA_ASM_DISKS" && -z "$ORA_ASM_DISKS_JSON" ]]; then
+if [[ "$ORA_DISK_MGMT" != "FS" && ( ! -f "$ORA_ASM_DISKS" && -z "$ORA_ASM_DISKS_JSON" ) ]]; then
   echo "Please specify --ora-asm-disks or --ora-asm-disks-json"
   exit 2
 fi

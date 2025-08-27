@@ -14,6 +14,7 @@ rdbms_patches:
 ```
 
 These metadata numbers can be taken from consulting appropriate MOS Notes, such as:
+
 - [Assistant: Download Reference for Oracle Database/GI Update, Revision, PSU, SPU(CPU), Bundle Patches, Patchsets and Base Releases (Doc ID 2118136.2)](https://support.oracle.com/epmos/faces/DocContentDisplay?id=2118136.2)
 - [Master Note for Database Proactive Patch Program (Doc ID 888.1)](https://support.oracle.com/epmos/faces/DocContentDisplay?id=888.1)
 - [Oracle Database 19c Proactive Patch Information (Doc ID 2521164.1)](https://support.oracle.com/epmos/faces/DocContentDisplay?id=2521164.1)
@@ -23,8 +24,8 @@ These metadata numbers can be taken from consulting appropriate MOS Notes, such 
 The md5sum can be determined by listing the file once in a GCS bucket:
 
 ```bash
-$ gsutil ls -L gs://example-bucket/p32578973_190000_Linux-x86-64.zip | grep md5
-    Hash (md5):             YLEOruyjCOdDvUOMBUazNQ==
+$ gcloud storage ls -L gs://example-bucket/p32578973_190000_Linux-x86-64.zip | grep -i md5
+  Hash (MD5):                  YLEOruyjCOdDvUOMBUazNQ==
 ```
 
 Bearing in mind that the GI RU's patch zipfile contains the patch molecules that go both into the GI_HOME as well as the RDBMS_HOME, the Combo patch of OJVM+GI is self-contained as to the necessary patches needed to patch a given host for a given quarter. For example: the patch zipfile `p31720429_190000_Linux-x86-64.zip` contains the following patch directories:
@@ -50,4 +51,27 @@ Bearing in mind that the GI RU's patch zipfile contains the patch molecules that
 └── PatchSearch.xml
 
 ```
+
 Accordingly the `patch_subdir` values can be edited, as noted in the foregoing.
+
+---
+
+**RDBMS only** patches can also be specified. Either just the database release updates by using the category identifier of `DB_RU` or the database and OJVM release update combo patch by specifying the category identifier of `DB_OJVM_RU`.
+
+Examples:
+
+```yaml
+rdbms_patches:
+...
+  - { category: "DB_OJVM_RU", base: "19.3.0.0.0", release: "19.28.0.0.250715", patchnum: "37952354", patchfile: "p37952354_190000_Linux-x86-64.zip", patch_subdir: "/37847857", prereq_check: true, method: "opatch apply", ocm: false, upgrade: true, md5sum: "LRVOEDN3ODtN2WckChrM9w==" }
+...
+  - { category: "DB_RU", base: "19.3.0.0.0", release: "19.28.0.0.250715", patchnum: "37952354", patchfile: "p37952354_190000_Linux-x86-64.zip", patch_subdir: "/37960098", prereq_check: true, method: "opatch apply", ocm: false, upgrade: true, md5sum: "LRVOEDN3ODtN2WckChrM9w==" }
+```
+
+The database RU can be sourced from the DB & OJVM RU combo patch zipfile (as shown in the example above) or from the separate database-only RU download. For example:
+
+```yaml
+rdbms_patches:
+...
+  - { category: "DB_RU", base: "19.3.0.0.0", release: "19.28.0.0.250715", patchnum: "37960098", patchfile: "p37960098_190000_Linux-x86-64.zip", patch_subdir: "/", prereq_check: true, method: "opatch apply", ocm: false, upgrade: true, md5sum: "PipbpAyGobuUR1I/L3PfuQ==" }
+```

@@ -15,6 +15,7 @@
 ---
 # Defined boolean if installing Free Edition
 free_edition: "{{ oracle_edition == 'FREE' }}"
+gi_install: "{{ not free_edition and not ora_disk_management == 'fs' }}"
 
 # Installation related variables:
 swlib_path: "{{ lookup('env','ORA_SWLIB_PATH') | lower | default(swlib_path_default,true) }}"
@@ -46,7 +47,7 @@ asm_disks_default:
         blk_device: /dev/BOGUS
 asm_definition_file: "{{ lookup('env','ORA_ASM_DISKS') | default('asm_disk_config.json',true) }}"
 asm_disk_input: "{{ lookup('file',asm_definition_file,errors='ignore') }}"
-asm_disks: "{% if free_edition %}[]{% else %}{{ asm_disk_input | default(asm_disks_default,true) }}{% endif %}"
+asm_disks: "{% if gi_install %}{{ asm_disk_input | default(asm_disks_default,true) }}{% else %}[]{% endif %}"
 
 ## The toolkit can optionally configure swap space
 # If your RAM size is less than or equal to 2 GB, your swap size should be 1.5 times of the RAM. For example, if your RAM size is 2 GB, you should create swap space of 3GB
@@ -80,7 +81,7 @@ charset: "{{ lookup('env','ORA_DB_CHARSET') | default('AL32UTF8',true) }}"
 ncharset: "{{ lookup('env','ORA_DB_NCHARSET') | default('AL16UTF16',true) }}"
 
 # ASM and storage related variables:
-asm_disk_management: "{{ lookup('env','ORA_DISK_MGMT') | lower | default('udev',true) }}"
+ora_disk_management: "{{ lookup('env','ORA_DISK_MGMT') | lower | default('udev',true) }}"
 role_separation: "{{ lookup('env','ORA_ROLE_SEPARATION') | default('true', true) | lower | bool }}"
 data_destination: "{{ lookup('env','ORA_DATA_DESTINATION') | default('DATA',true) }}"
 reco_destination: "{{ lookup('env','ORA_RECO_DESTINATION') | default('RECO',true) }}"
@@ -150,7 +151,6 @@ password_pattern: "^[a-zA-Z0-9@+~*]{1,30}$"
 # Installation options:
 create_db: true
 create_listener: true
-install_gi: "{% if free_edition %}false{% else %}true{% endif %}"
 install_rdbms: true
 disable_firewall: false
 

@@ -15,7 +15,7 @@
 ---
 - name: Install Oracle RPM
   package:
-    name: "{{ swlib_path }}/{{ item.name }}"
+    name: "{{ swlib_path }}/{{ item.name | basename }}"
     state: present
     lock_timeout: "{{ pkg_mgr_lock_timeout }}"
     disable_gpg_check: true

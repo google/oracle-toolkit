@@ -35,7 +35,9 @@
     owner: "{{ grid_user }}"
     group: "{{ oracle_group }}"
     mode: u=rw,g=r,o=
-  when: oracle_ver == '12.2.0.1.0'
+  when:
+    - gi_install
+    - oracle_ver == '12.2.0.1.0'
   become: true
   become_user: root
 
@@ -53,6 +55,7 @@
         mode: '0755'
         owner: "{{ grid_user }}"
         group: "{{ oracle_group }}"
+  when: gi_install
   become: true
   become_user: root
   tags: update-opatch-gi
@@ -64,6 +67,7 @@
     remote_src: true
   with_items: "{{ opatch_patches }}"
   when:
+    - gi_install
     - item.release == oracle_ver
     - item.category == "OPatch"
   become: true
@@ -87,7 +91,10 @@
   # Using the "shell" module instead of "unarchive" for unzip performance
   shell: unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
   with_items: "{{ gi_patches }}"
-  when: item.release == oracle_rel and item.category != "HAS_interim_patch"
+  when:
+    - gi_install
+    - item.release == oracle_rel
+    - item.category != "HAS_interim_patch"
   become: true
   become_user: "{{ grid_user }}"
   tags: patch-grid,sw-unzip
@@ -123,7 +130,10 @@
   with_items: "{{ gi_patches }}"
   loop_control:
     loop_var: patch
-  when: patch.release == oracle_rel and patch.category != "HAS_interim_patch"
+  when:
+    - gi_install
+    - patch.release == oracle_rel
+    - patch.category != "HAS_interim_patch"
   tags: patch-grid,opatch-apply
 
 - name: (GI) Remove unzipped patch
@@ -131,16 +141,44 @@
     path: "{{ swlib_unzip_path }}/{{ item.patchnum }}"
     state: absent
   with_items: "{{ gi_patches }}"
-  when: item.release == oracle_rel and item.category != "HAS_interim_patch"
+  when:
+    - gi_install
+    - item.release == oracle_rel
+    - item.category != "HAS_interim_patch"
   become: true
   become_user: root
   tags: patch-grid,sw-remove
 
+- name: (RDBMS) Build list of unique RDBMS patches for GI installations
+  set_fact:
+    unique_patch_files: >-
+      {{ (rdbms_patches
+          | selectattr('release', 'equalto', oracle_rel)
+          | selectattr('category', 'equalto', 'RU_Combo')
+          | map(attribute='patchfile') | list) | unique }}
+  when: gi_install
+
+- name: (RDBMS) Build list of unique RDBMS patches
+  set_fact:
+    unique_patch_files: >-
+      {{ (rdbms_patches
+          | selectattr('release', 'equalto', oracle_rel)
+          | selectattr('category', 'in', ['DB_OJVM_RU','DB_RU'])
+          | map(attribute='patchfile') | list) | unique }}
+  when: not gi_install
+
+- name: (RDBMS) Capture full details for required patches
+  set_fact:
+    rdbms_patch_files: >-
+      {{ rdbms_patches
+          | selectattr('patchfile', 'in', unique_patch_files)
+          | list }}
+
 - name: (RDBMS) Unzip patch
   # Using the "shell" module instead of "unarchive" for unzip performance
   shell: unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
-  with_items: "{{ rdbms_patches }}"
-  when: item.release == oracle_rel
+  with_items: "{{ rdbms_patch_files }}"
+  when: rdbms_patch_files is defined and rdbms_patch_files | length > 0
   become: true
   become_user: "{{ oracle_user }}"
   tags: patch-rdbms,sw-unzip
@@ -149,14 +187,32 @@
   file:
     path: "{{ swlib_unzip_path }}/db_state.out"
     state: absent
+  when: gi_install
   tags: patch-rdbms
 
 - name: (RDBMS) Stop home
   command: "{{ oracle_home }}/bin/srvctl stop home -o {{ oracle_home }} -t immediate -s {{ swlib_unzip_path }}/db_state.out"
   environment:
     ORACLE_HOME: "{{ oracle_home }}"
+  when: gi_install
   register: stop_home
   failed_when: stop_home.rc not in [0,2]
+  become: true
+  become_user: "{{ oracle_user }}"
+  tags: patch-rdbms,pre-rdbms,stop-home
+
+- name: (RDBMS) Stop database
+  shell: |
+    set -o pipefail
+    sqlplus -s / as sysdba << EOF
+    shutdown immediate;
+    EOF
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  when: not gi_install
+  register: stop_home
   become: true
   become_user: "{{ oracle_user }}"
   tags: patch-rdbms,pre-rdbms,stop-home
@@ -177,15 +233,17 @@
   with_items: "{{ rdbms_patches }}"
   loop_control:
     loop_var: patch
-  when: patch.release == oracle_rel
+  when:
+    - patch.release == oracle_rel
+    - (gi_install and patch.category == 'RU_Combo') or (not gi_install and patch.category in ['DB_OJVM_RU', 'DB_RU'])
   tags: patch-rdbms,opatch-apply
 
 - name: (RDBMS) Remove unzipped patch
   file:
     path: "{{ swlib_unzip_path }}/{{ item.patchnum }}"
     state: absent
-  with_items: "{{ rdbms_patches }}"
-  when: item.release == oracle_rel
+  with_items: "{{ rdbms_patch_files }}"
+  when: rdbms_patch_files is defined and rdbms_patch_files | length > 0
   become: true
   become_user: root
   tags: patch-rdbms,sw-remove
@@ -194,8 +252,25 @@
   command: "{{ oracle_home }}/bin/srvctl start home -o {{ oracle_home }} -s {{ swlib_unzip_path }}/db_state.out"
   environment:
     ORACLE_HOME: "{{ oracle_home }}"
+  when: gi_install
   register: start_home
   failed_when: start_home.rc not in [0,2]
+  become: true
+  become_user: "{{ oracle_user }}"
+  tags: patch-rdbms,start-home
+
+- name: (RDBMS) Start database
+  shell: |
+    set -o pipefail
+    sqlplus -s / as sysdba << EOF
+    startup;
+    EOF
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  when: not gi_install
+  register: start_home
   become: true
   become_user: "{{ oracle_user }}"
   tags: patch-rdbms,start-home

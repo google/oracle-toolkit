@@ -40,7 +40,7 @@
 - name: gi-install | Unzip GI patch
   # Using the "shell" module instead of "unarchive" for unzip performance
   shell: |
-    unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
+    unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}" || exit $?
     chown -R {{ grid_user }}:{{ oracle_group }} "{{ swlib_unzip_path }}"
   args:
     creates: .gi_patch_{{ oracle_rel }}

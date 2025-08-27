@@ -67,9 +67,9 @@
   register: lsnr_output
   when:
     - create_listener
+    - gi_install
     - lsnr_port_check.stdout == "0"
     - lsnr_name_check.stdout == "0"
-    - not free_edition
   tags: lsnr-create
 
 - name: Listener creation output
@@ -100,9 +100,9 @@
   register: lsnr_output_netca
   when:
     - create_listener
+    - not gi_install
     - lsnr_port_check.stdout == "0"
     - lsnr_name_check.stdout == "0"
-    - free_edition
   tags: lsnr-create
 
 - name: Listener creation output from netca

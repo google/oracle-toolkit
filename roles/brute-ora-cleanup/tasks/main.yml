@@ -320,7 +320,7 @@
   with_subelements:
     - "{{ asm_disks }}"
     - disks
-  when: asm_disk_management == "asmlib"
+  when: ora_disk_management == "asmlib"
   register: delete_asm_disks
   ignore_errors: true
 
@@ -331,7 +331,7 @@
     name: "*oracleasm*"
     state: absent
     lock_timeout: "{{ pkg_mgr_lock_timeout }}"
-  when: asm_disk_management == "asmlib"
+  when: ora_disk_management == "asmlib"
   register: remove_oracleasm
 
 - include_role:
@@ -381,6 +381,7 @@
   when:
     - "'mapper' not in item.blk_device"
     - item.first_partition_id is defined
+    - item.first_partition_id | length > 0
   ignore_errors: true
   with_items: "{{ oracle_user_data_mounts }}"
 
@@ -389,6 +390,13 @@
   become_user: root
   command: "wipefs --all --force {{ item.blk_device }}"
   with_items: "{{ oracle_user_data_mounts }}"
+
+- name: Force re-scan of block devices
+  become: true
+  become_user: root
+  command: "blockdev --rereadpt {{ item.blk_device }}"
+  with_items: "{{ oracle_user_data_mounts }}"
+  ignore_errors: true
 
 - name: Reload partition table for user data disks
   become: true
@@ -461,13 +469,13 @@
   file:
     path: /etc/udev/rules.d/99-oracle-asmdevices.rules
     state: absent
-  when: asm_disk_management == "udev"
+  when: ora_disk_management in ["udev", "asmudev"]
 
 - name: (udev) Reload rules
   become: true
   become_user: root
   shell: ( /sbin/udevadm control --reload-rules && /sbin/udevadm trigger )
-  when: asm_disk_management == "udev"
+  when: ora_disk_management in ["udev", "asmudev"]
 
 - name: Remove oracle kernel modules
   become: true

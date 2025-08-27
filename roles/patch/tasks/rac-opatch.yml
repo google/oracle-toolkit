@@ -16,7 +16,7 @@
 - name: rac-opatch | Unzip GI patch
   # Using the "shell" module instead of "unarchive" for unzip performance
   shell: |
-    unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
+    unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}" || exit $?
     chown -R {{ grid_user }}:{{ oracle_group }} "{{ swlib_unzip_path }}"
   with_items: "{{ gi_patches }}"
   when: item.release == oracle_rel and item.category != "HAS_interim_patch"
@@ -195,12 +195,12 @@
 - name: rac-opatch | Unzip RDBMS patch
   # Using the "shell" module instead of "unarchive" for unzip performance
   shell: |
-    unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
+    unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}" || exit $?
     chown -R {{ oracle_user }}:{{ oracle_group }} "{{ swlib_unzip_path }}"
   with_items: "{{ rdbms_patches }}"
   when: item.release == oracle_rel
   become: true
-  tags: rac-opatch,sw_unzip
+  tags: rac-opatch,sw-unzip
 
 - name: rac-opatch | Run RDBMS opatch analyze
   command: "{{ oracle_home }}/OPatch/opatch prereq CheckConflictAgainstOHWithDetail -ph ./"

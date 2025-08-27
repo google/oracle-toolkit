@@ -22,15 +22,19 @@ sed -i '/^\#\{0,\} \{0,\}pdbAdminPassword \{0,\}=/I          s~\#\{0,\} \{0,\}pd
 
 if [[ "{{ free_edition }}" == "True" ]]; then
   sed -i '/^\#\{0,\} \{0,\}templateName \{0,\}=/I            s~\#\{0,\} \{0,\}templateName \{0,\}=.*~templateName=FREE_Database.dbc~I'                              "${response_file}"
-  sed -i '/^\#\{0,\} \{0,\}storageType \{0,\}=/I             s~\#\{0,\} \{0,\}storageType \{0,\}=.*~storageType=FS~I'                                               "${response_file}"
   sed -i '/^\#\{0,\} \{0,\}sampleSchema \{0,\}=/I            s~\#\{0,\} \{0,\}sampleSchema \{0,\}=.*~sampleSchema=FALSE~I'                                          "${response_file}"
-  sed -i '/^\#\{0,\} \{0,\}datafileDestination \{0,\}=/I     s~\#\{0,\} \{0,\}datafileDestination \{0,\}=.*~datafileDestination='{{ data_destination }}'~I'         "${response_file}"
-  sed -i '/^\#\{0,\} \{0,\}recoveryAreaDestination \{0,\}=/I s~\#\{0,\} \{0,\}recoveryAreaDestination \{0,\}=.*~recoveryAreaDestination='{{ reco_destination }}'~I' "${response_file}"
   sed -i '/^\#\{0,\} \{0,\}initParams \{0,\}=/I              s~\#\{0,\} \{0,\}initParams \{0,\}=.*~initParams=pga_aggregate_target=400M,sga_target=1600M,streams_pool_size=64M,use_large_pages=AUTO_ONLY,db_domain='{{ db_domain }}',diagnostic_dest='{{ oracle_base }}'~I' "${response_file}"
 else
   sed -i '/^\#\{0,\} \{0,\}templateName \{0,\}=/I            s~\#\{0,\} \{0,\}templateName \{0,\}=.*~templateName=General_Purpose.dbc~I'                            "${response_file}"
+  sed -i '/^\#\{0,\} \{0,\}initParams \{0,\}=/I              s~\#\{0,\} \{0,\}initParams \{0,\}=.*~initParams=pga_aggregate_target='{{ pga_target }}',sga_target='{{ sga_target }}',streams_pool_size=64M,use_large_pages=ONLY,db_domain='{{ db_domain }}',diagnostic_dest='{{ oracle_base }}'~I' "${response_file}"
+fi
+
+if [[ "{{ gi_install }}" == "True" ]]; then
   sed -i '/^\#\{0,\} \{0,\}storageType \{0,\}=/I             s~\#\{0,\} \{0,\}storageType \{0,\}=.*~storageType=ASM~I'                                              "${response_file}"
   sed -i '/^\#\{0,\} \{0,\}diskGroupName \{0,\}=/I           s~\#\{0,\} \{0,\}diskGroupName \{0,\}=.*~diskGroupName='{{ data_destination }}'~I'                     "${response_file}"
   sed -i '/^\#\{0,\} \{0,\}recoveryGroupName \{0,\}=/I       s~\#\{0,\} \{0,\}recoveryGroupName \{0,\}=.*~recoveryGroupName='{{ reco_destination }}'~I'             "${response_file}"
-  sed -i '/^\#\{0,\} \{0,\}initParams \{0,\}=/I              s~\#\{0,\} \{0,\}initParams \{0,\}=.*~initParams=pga_aggregate_target='{{ pga_target }}',sga_target='{{ sga_target }}',streams_pool_size=64M,use_large_pages=ONLY,db_domain='{{ db_domain }}',diagnostic_dest='{{ oracle_base }}'~I' "${response_file}"
+else
+  sed -i '/^\#\{0,\} \{0,\}storageType \{0,\}=/I             s~\#\{0,\} \{0,\}storageType \{0,\}=.*~storageType=FS~I'                                               "${response_file}"
+  sed -i '/^\#\{0,\} \{0,\}datafileDestination \{0,\}=/I     s~\#\{0,\} \{0,\}datafileDestination \{0,\}=.*~datafileDestination='{{ data_destination }}'~I'         "${response_file}"
+  sed -i '/^\#\{0,\} \{0,\}recoveryAreaDestination \{0,\}=/I s~\#\{0,\} \{0,\}recoveryAreaDestination \{0,\}=.*~recoveryAreaDestination='{{ reco_destination }}'~I' "${response_file}"
 fi

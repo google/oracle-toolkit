@@ -14,7 +14,7 @@
 
 ---
 - name: Identify the first partition of the block device based on its persistent identifier (/dev/disk/by-id/)
-  ansible.builtin.shell: >
+  shell: >
     set -o pipefail;
     part_path="";
     case "{{ item.blk_device }}" in

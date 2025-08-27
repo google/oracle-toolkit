@@ -20,7 +20,7 @@ echo
 # Check if we're using the Mac stock getopt and fail if true
 out="$(getopt -T)"
 if [ $? != 4 ]; then
-    echo -e "Your getopt does not support long parametrs, possibly you're on a Mac, if so please install gnu-getopt with brew"
+    echo -e "Your getopt does not support long parameters, possibly you're on a Mac, if so please install gnu-getopt with brew"
     echo -e "\thttps://brewformulas.org/Gnu-getopt"
     exit
 fi

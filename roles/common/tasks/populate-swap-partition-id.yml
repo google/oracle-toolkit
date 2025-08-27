@@ -14,7 +14,7 @@
 
 ---
 - name: Identify the first partition of the swap block device
-  ansible.builtin.shell: >
+  shell: >
     set -o pipefail;
     part_path="";
     case "{{ swap_blk_device }}" in

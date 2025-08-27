@@ -15,7 +15,7 @@
 ---
 - name: Build script list
   set_fact:
-    script_list: "{{ common_scripts + (cluster_scripts if not free_edition else []) }}"
+    script_list: "{{ common_scripts + (cluster_scripts if not gi_install else []) }}"
   tags: validation-scripts
 
 - name: Copy validation scripts to server

@@ -40,9 +40,13 @@
   register: gcloud_found
   changed_when: false
 
+- name: swlib | Determine required installation files
+  include_tasks: build_file_list.yml
+  when: swlib_mount_type in ["gcs", "gcsdirect", "gcstransfer"]
+
 - name: swlib | Copy files from GCS directly on the Managed Host instance
   include_tasks: gcsdirect.yml
-  when: (swlib_mount_type == "gcsdirect" or swlib_mount_type == "gcs") and (gcloud_found is defined and gcloud_found.stdout == "0")
+  when: swlib_mount_type in ["gcs", "gcsdirect"] and gcloud_found is defined and gcloud_found.stdout == "0"
 
 - name: swlib | Use the Ansible Control Node to transfer files from GCS to the Managed Host instance
   include_tasks: gcstransfer.yml

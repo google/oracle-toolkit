@@ -14,7 +14,7 @@
 
 ---
 - name: Execute SQL query to get DBID
-  ansible.builtin.shell: |
+  shell: |
     set -o pipefail
     sqlplus -s / as sysdba <<EOF
     WHENEVER SQLERROR EXIT SQL.SQLCODE

@@ -39,8 +39,11 @@ ORA_EDITION_PARAM="^(EE|SE|SE2|FREE)$"
 ORA_SWLIB_BUCKET="${ORA_SWLIB_BUCKET}"
 ORA_SWLIB_BUCKET_PARAM='^gs://.+[^/]$'
 
+ORA_DISK_MGMT="${ORA_DISK_MGMT:-ASMUDEV}"
+ORA_DISK_MGMT_PARAM="ASMLIB|ASMUDEV|UDEV|FS"
+
 GETOPT_MANDATORY="ora-swlib-bucket:"
-GETOPT_OPTIONAL="ora-version:,ora-release:,ora-edition:,no-patch,cluster_type:,help"
+GETOPT_OPTIONAL="ora-version:,ora-release:,ora-edition:,ora-disk-mgmt:,no-patch,cluster_type:,help"
 
 GETOPT_LONG="$GETOPT_MANDATORY,$GETOPT_OPTIONAL"
 GETOPT_SHORT="h"
@@ -56,10 +59,6 @@ eval set -- "$options"
 
 while true; do
     case "$1" in
-    --ora-swlib-bucket)
-        ORA_SWLIB_BUCKET="$2"
-        shift
-        ;;
     --ora-version)
         ORA_VERSION="$2"
         if [[ "${ORA_VERSION}" = "23" ]]   ; then ORA_VERSION="23.0.0.0.0"; fi
@@ -81,6 +80,14 @@ while true; do
         ;;
     --ora-edition)
         ORA_EDITION="$(echo "$2" | tr '[:lower:]' '[:upper:]')"
+        shift
+        ;;
+    --ora-swlib-bucket)
+        ORA_SWLIB_BUCKET="$2"
+        shift
+        ;;
+    --ora-disk-mgmt)
+        ORA_DISK_MGMT="$2"
         shift
         ;;
     --help | -h)
@@ -114,6 +121,10 @@ done
     echo "Example: gs://my-gcs-bucket"
     exit 1
 }
+[[ ! "$ORA_DISK_MGMT" =~ $ORA_DISK_MGMT_PARAM ]] && {
+    echo "Incorrect parameter provided for ora-disk-mgmt: $ORA_DISK_MGMT"
+    exit 1
+}
 
 # Oracle Database free edition parameter overrides
 if [[ "${ORA_EDITION}" = "FREE" && ! "${ORA_VERSION}" =~ ^23\. ]]; then
@@ -126,7 +137,7 @@ if [ "${ORA_SWLIB_BUCKET}" = "" ]; then
     exit 2
 fi
 
-export ORA_VERSION ORA_RELEASE ORA_EDITION ORA_SWLIB_BUCKET
+export ORA_VERSION ORA_RELEASE ORA_EDITION ORA_SWLIB_BUCKET ORA_DISK_MGMT
 
 echo -e "Running with parameters from command line or environment variables:\n"
 set | grep -E '^(ORA_|BACKUP_|ARCHIVE_)' | grep -v '_PARAM='

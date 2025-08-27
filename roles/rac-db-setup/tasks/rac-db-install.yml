@@ -68,10 +68,12 @@
 - name: rac-db-install | Unzip OneOff patch
   # Using the "shell" module instead of "unarchive" for unzip performance
   shell: |
-    unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
+    unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}" || exit $?
     chown -R {{ oracle_user }}:{{ oracle_group }} "{{ swlib_unzip_path }}"
   with_items: "{{ rdbms_patches }}"
-  when: item.release == oracle_rel
+  when:
+    - item.release == oracle_rel
+    - item.category not in ['DB_OJVM_RU','DB_RU']
   become: true
   tags: rac-db,sw-unzip
 
@@ -81,7 +83,7 @@
   # Using the "shell" module instead of "unarchive" for unzip performance
   shell: unzip -o -q "{{ swlib_path }}/{{ item }}" -d "{{ install_unzip_path }}"
   with_items: "{{ osw_files }}"
-  tags: rac-db,sw_unzip
+  tags: rac-db,sw-unzip
 
 - name: rac-db-install | Create DB response file script
   become: true
@@ -150,7 +152,9 @@
     PATH: "{{ oracle_home }}/perl/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
     PERL5LIB: "{{ oracle_home }}/perl/lib"
   with_items: "{{ rdbms_patches }}"
-  when: item.release == oracle_rel
+  when:
+    - item.release == oracle_rel
+    - item.category not in ['DB_OJVM_RU','DB_RU']
   register: apply_oneoff
   failed_when: "('OPatch succeeded' not in apply_oneoff.stdout and 'OPatch completed with warnings' not in apply_oneoff.stdout)
                 or (apply_oneoff.rc | int not in [0, 6, 250])"

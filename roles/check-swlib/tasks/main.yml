@@ -16,14 +16,14 @@
 - name: check-swlib | Validate base software release
   shell: |
     set -o pipefail
-    if gsutil -q stat gs://"{{ swlib_mount_src }}"/"{{ item.1.name }}"; then
+    if gcloud storage objects describe gs://"{{ swlib_mount_src }}"/"{{ item.1.name }}" >/dev/null 2>&1; then
       f_name="{{ item.1.name }}"
       expected_md5="{{ item.1.md5sum }}"
     else
       f_name="{{ item.1.alt_name | default('x') }}"
       expected_md5="{{ item.1.alt_md5sum | default('x') }}"
     fi
-    actual_md5=$(gsutil ls -L gs://"{{ swlib_mount_src }}"/"${f_name}" | awk '/md5/ { print $3 }')
+    actual_md5=$(gcloud storage ls -L gs://"{{ swlib_mount_src }}"/"${f_name}" | awk '/MD5/ { print $3 }')
     if [[ "$?" -ne "0" ]] ; then
       echo "ERROR locating {{ item.1.name }}{% if item.1.alt_name is defined and item.1.alt_name | length > 0 %} or {{ item.1.alt_name }}{% endif %}"
     else
@@ -36,23 +36,49 @@
   failed_when: "'ERROR' in base_repo_files.stdout"
   changed_when: false
   ignore_errors: true
-  loop: "{{ (gi_software + gi_interim_patches + rdbms_software) | subelements('files') }}"
+  loop: "{{ (((gi_software + gi_interim_patches) if ora_disk_management != 'fs' else []) + rdbms_software) | subelements('files') }}"
   when: item.0.version == oracle_ver
   register: base_repo_files
+
+- name: check-swlib | Build list of unique RDBMS patches for GI installations
+  set_fact:
+    unique_patch_files: >-
+      {{ (rdbms_patches
+          | selectattr('release', 'equalto', oracle_rel)
+          | selectattr('category', 'equalto', 'RU_Combo')
+          | map(attribute='patchfile') | list) | unique }}
+  when: gi_install
+
+- name: check-swlib | Build list of unique RDBMS patches
+  set_fact:
+    unique_patch_files: >-
+      {{ (rdbms_patches
+          | selectattr('release', 'equalto', oracle_rel)
+          | selectattr('category', 'in', ['DB_OJVM_RU','DB_RU'])
+          | map(attribute='patchfile') | list) | unique }}
+  when: not gi_install
+
+- name: check-swlib | Capture full details for required patches
+  set_fact:
+    rdbms_patch_files: >-
+      {{ rdbms_patches
+          | selectattr('patchfile', 'in', unique_patch_files)
+          | list }}
 
 - name: check-swlib | Validate patchsets
   shell: |
     set -o pipefail
-    gsutil ls -L gs://{{ swlib_mount_src }}/{{ item.patchfile }} | \
-      awk '/md5/ { print $3 }'
+    gcloud storage ls -L gs://{{ swlib_mount_src }}/{{ item.patchfile }} | \
+      awk '/MD5/ { print $3 }'
   args:
     executable: /bin/bash
   failed_when: item.md5sum != patch_repo_files.stdout
   changed_when: false
   ignore_errors: true
-  with_items:
-    - "{{ gi_patches }}"
-    - "{{ rdbms_patches }}"
+  with_items: >-
+    {{ rdbms_patch_files | default([]) +
+       gi_patches | default([]) if ora_disk_management != 'fs' else
+       rdbms_patch_files | default([]) }}
   when:
     - item.base == oracle_ver
     - item.release == oracle_rel
@@ -63,7 +89,7 @@
 - name: check-swlib | Validate opatch patches
   shell: |
     set -o pipefail
-    gsutil ls -L gs://{{ swlib_mount_src }}/{{ item.patchfile }} | \
+    gcloud storage ls -L gs://{{ swlib_mount_src }}/{{ item.patchfile }} | \
       awk '/Content-Length/ { print $2 }'
   args:
     executable: /bin/bash
@@ -76,13 +102,13 @@
     - oracle_rel != "base"
   register: opatch_repo_files
 
-- name: check-swlib | Report gsutil failures (base)
+- name: check-swlib | Report gcloud command failures (base)
   fail:
     msg: "ERROR locating {{ item.item.0.name }} {{ item.item.1.name }}: {{ item.stdout }}"
   when: item.failed_when_result is defined and item.failed_when_result == true
   with_items: "{{ base_repo_files.results }}"
 
-- name: check-swlib | Report gsutil failures (patch)
+- name: check-swlib | Report gcloud command failures (patch)
   fail:
     msg: "ERROR locating {{ item.item.category }} patch {{ item.item.patchfile }}: {{ item.stderr_lines }}"
   when: item.rc is defined and item.rc != 0
