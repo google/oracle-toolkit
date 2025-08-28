@@ -150,7 +150,7 @@
     PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
   when:
     - oracle_ver != '11.2.0.4.0'
-    - pdb_prefix is defined
+    - container_db == 'true'
   become: true
   become_user: "{{ oracle_user }}"
   tags: rac-db-create,pdbs-state
