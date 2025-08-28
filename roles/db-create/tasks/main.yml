@@ -97,26 +97,36 @@
   when: db_password_secret | length == 0
   tags: db-create
 
-- name: Generate command for password randomization (not 11.2)
+- name: Generate command for password randomization for CDB
   set_fact:
     pwd_gen_cmd: echo -e "$({{ pass_param }})\n$({{ pass_param }})\n$({{ pass_param }})"
   when:
-    - oracle_ver != "11.2.0.4.0"
     - db_password_secret | length == 0
+    - container_db | bool
   tags: db-create
 
-- name: Generate command for password randomization (11.2 only)
+- name: Generate command for password randomization for non-CDB
   set_fact:
     pwd_gen_cmd: echo -e "$({{ pass_param }})\n$({{ pass_param }})"
   when:
-    - oracle_ver == "11.2.0.4.0"
     - db_password_secret | length == 0
+    - not container_db | bool
   tags: db-create
 
-- name: Generate command for retrieving passwords from Secret Manager
+- name: Generate command for retrieving passwords from Secret Manager for non-CDB
   set_fact:
     pwd_gen_cmd: password=$(gcloud --quiet secrets versions access {{ db_password_secret }}); echo -e "$password\n$password"
-  when: db_password_secret | length > 0
+  when:
+    - db_password_secret | length > 0
+    - not container_db | bool
+  tags: db-create
+
+- name: Generate command for retrieving passwords from Secret Manager for CDB
+  set_fact:
+    pwd_gen_cmd: password=$(gcloud --quiet secrets versions access {{ db_password_secret }}); echo -e "$password\n$password\n$password"
+  when: 
+    - db_password_secret | length > 0
+    - container_db | bool
   tags: db-create
 
 - name: Create database using DBCA
