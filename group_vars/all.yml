@@ -70,7 +70,7 @@ oracle_rel: "{{ lookup('env','ORA_RELEASE') | default('latest',true) }}"
 oracle_edition: "{{ lookup('env','ORA_EDITION') | default('EE',true) }}"
 cluster_type: "{{ lookup('env','CLUSTER_TYPE') | default('NONE',true) }}"
 
-container_db: "{{ lookup('env','ORA_DB_CONTAINER') | lower | default('false',true) }}"
+container_db: "{{ lookup('env','ORA_DB_CONTAINER') | default(false,true) | bool }}"
 pdb_prefix: "{{ lookup('env','ORA_PDB_NAME_PREFIX') | default('PDB',true) }}"
 pdb_count: "{{ lookup('env','ORA_PDB_COUNT') | default('1',true) }}"
 
