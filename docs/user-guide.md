@@ -177,16 +177,14 @@ To create a standby database, add the following options to the command options t
 
 ## Command quick reference for Oracle Database Free Edition deployments
 
-The toolkit supports installing the Oracle Database Free edition, which is downloadable from the Oracle website: [Oracle Database Free Get Started](https://www.oracle.com/database/free/get-started/).
+The toolkit supports installing the Oracle Database Free edition, which is
+downloadable from the Oracle website: [Oracle Database Free Get Started](https://www.oracle.com/database/free/get-started/).
 
-Unlike with other Oracle Database editions, the Free edition is available in [RPM package](https://en.wikipedia.org/wiki/RPM_Package_Manager) format only. Consequently, the associated Enterprise Linux pre-installation and database RPM files must be downloaded and staged in the GCS storage bucket.
-
-1. Validate media specifying GCS storage bucket and specify `FREE` as the database edition:
-
-   ```bash
-   ./check-swlib.sh --ora-swlib-bucket gs://[cloud-storage-bucket-name] \
-    --ora-edition FREE
-   ```
+Unlike with other Oracle Database editions, the Free edition is available in
+[RPM package](https://en.wikipedia.org/wiki/RPM_Package_Manager) format only.
+The Enterprise Linux pre-installation and database RPM files will by default
+be sourced directly from the oracle.com website. (Alternatively, they can be
+downloaded and staged in the GCS storage bucket.)
 
 1. Validate access to target server (optionally include -i and location of
    private key file):
@@ -206,7 +204,6 @@ Unlike with other Oracle Database editions, the Free edition is available in [RP
    ```bash
    ./install-oracle.sh \
    --ora-edition FREE \
-   --ora-swlib-bucket gs://[cloud-storage-bucket-name] \
    --backup-dest [backup-directory] \
    --instance-ip-addr ${INSTANCE_IP_ADDR}
    ```
@@ -2667,7 +2664,7 @@ Similar to with the other editions, creation of an initial database and implemen
 
 > NOTE: Beginning with the April 2025 release (23.8), Oracle started using unique filenames for the Free edition, a change from their previous practice of reusing the same RPM filename for new versions.
 
-The toolkit can install _any_ free edition version. Which version is actually installed depends on the the actual RPM file in the software library, and possibly the command line switches.
+The toolkit can install _any_ free edition version. Which version is actually installed depends on the command line switches.
 
 Specific supported versions of Oracle Database 23 Free currently includes:
 
