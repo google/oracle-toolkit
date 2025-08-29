@@ -1,7 +1,7 @@
 {% macro domain() -%}{% if hostvars[groups['dbasm'].0]['cluster_domain'] is defined and hostvars[groups['dbasm'].0]['cluster_domain'] | length > 0 -%}.{{ hostvars[groups['dbasm'].0]['cluster_domain'] }}{% endif -%}{% endmacro -%}
 dbca -silent -createDatabase -gdbName {{ db_name }}{{ domain() }} \
 -databaseType {{ db_type }} \
--createAsContainerDatabase {{ container_db }} \
+-createAsContainerDatabase {{ container_db | string }} \
 -numberOfPDBs {{ pdb_count }} \
 -pdbName {{ pdb_prefix }} \
 -{% if oracle_ver == '12.1.0.2.0' %}databaseConfType{% else %}databaseConfigType{% endif %} {{ db_config_type }} \
