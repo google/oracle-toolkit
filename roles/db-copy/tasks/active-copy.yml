@@ -85,6 +85,7 @@
       shell: |
         set -o pipefail
         {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+        whenever sqlerror exit failure
         startup nomount pfile={{ oracle_home }}/dbs/init{{ oracle_sid }}.ora force
         alter system register;
         EOF
@@ -258,6 +259,7 @@
       shell: |
         set -o pipefail
         {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+        whenever sqlerror exit failure
         shutdown immediate
         EOF
         srvctl add db \
@@ -286,6 +288,7 @@
       shell: |
         set -o pipefail
         {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+        whenever sqlerror exit failure
         create pfile='/tmp/init@.backup' from spfile;
         create spfile='+{{ data_destination }}/{{ standby_name }}/PARAMETERFILE/spfile.ora' from pfile='/tmp/init@.backup';
         EOF

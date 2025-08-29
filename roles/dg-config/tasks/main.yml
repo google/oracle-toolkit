@@ -59,7 +59,7 @@
       shell: |
         set -o pipefail
         {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
-        whenever sqlerror exit sql.sqlcode
+        whenever sqlerror exit failure
         SET serverout ON
         BEGIN
           FOR c IN (select force_logging from v\$database) LOOP
@@ -85,6 +85,7 @@
       shell: |
         set -o pipefail
         {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+        whenever sqlerror exit failure
         {{ sql_for_dg }}
         EOF
       environment:
@@ -99,6 +100,7 @@
       shell: |
         set -o pipefail
         {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+        whenever sqlerror exit failure
         {{ sql_for_dg }}
         EOF
       environment:
@@ -120,6 +122,7 @@
           shell: |
             set -o pipefail
             {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+            whenever sqlerror exit failure
             CREATE USER c##toolkit_dg_setup_user IDENTIFIED BY {{ dg_pass }};
             GRANT sysdg TO c##toolkit_dg_setup_user;
             EOF
@@ -195,6 +198,7 @@
       shell: |
         set -o pipefail
         {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+        whenever sqlerror exit failure
         DROP USER c##toolkit_dg_setup_user;
         EOF
       environment:
@@ -210,6 +214,7 @@
       shell: |
         set -o pipefail
         {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+        whenever sqlerror exit failure
         alter system set archive_lag_target=0 sid='*' scope=both;
         alter system set log_archive_max_processes=4 sid='*' scope=both;
         alter system set log_archive_min_succeed_dest=1 sid='*' scope=both;
@@ -227,6 +232,7 @@
       shell: |
         set -o pipefail
         {{ oracle_home }}/bin/sqlplus / as sysdba <<EOF
+        whenever sqlerror exit failure
         shutdown immediate
         startup mount
         EOF

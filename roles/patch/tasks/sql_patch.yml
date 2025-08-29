@@ -31,7 +31,10 @@
 - name: sql_patch | Start DB
   shell: |
     set -o pipefail
-    sqlplus -s / as sysdba <<< "startup {{ startup_upgrade }};"
+    sqlplus -s / as sysdba <<EOF
+    whenever sqlerror exit failure
+    startup {{ startup_upgrade }};
+    EOF
   environment:
     ORACLE_HOME: "{{ oracle_home }}"
     ORACLE_SID: "{{ oracle_sid }}"
@@ -50,7 +53,10 @@
 - name: sql_patch | Start all PDBs
   shell: |
     set -o pipefail
-    sqlplus -s / as sysdba <<< "alter pluggable database all open {{ startup_upgrade }};"
+    sqlplus -s / as sysdba <<EOF
+    whenever sqlerror exit failure
+    alter pluggable database all open {{ startup_upgrade }};
+    EOF
   environment:
     ORACLE_HOME: "{{ oracle_home }}"
     ORACLE_SID: "{{ oracle_sid }}"
@@ -92,7 +98,10 @@
 - name: sql_patch | Run catbundle
   shell: |
     set -o pipefail
-    sqlplus -s / as sysdba <<< "@catbundle.sql psu apply"
+    sqlplus -s / as sysdba <<EOF
+    whenever sqlerror exit failure
+    @catbundle.sql psu apply
+    EOF
   args:
     chdir: "{{ oracle_home }}/rdbms/admin"
   environment:
@@ -116,7 +125,10 @@
 - name: sql_patch | Re-compile invalid objects
   shell: |
     set -o pipefail
-    sqlplus -s / as sysdba <<< "@?/rdbms/admin/utlrp;"
+    sqlplus -s / as sysdba <<EOF
+    whenever sqlerror exit failure
+    @?/rdbms/admin/utlrp;
+    EOF
   environment:
     ORACLE_HOME: "{{ oracle_home }}"
     ORACLE_SID: "{{ oracle_sid }}"
@@ -128,7 +140,8 @@
 - name: sql_patch | Capture registry patches
   shell: |
     set -o pipefail
-    sqlplus -s / as sysdba << EOF
+    sqlplus -s / as sysdba <<EOF
+    whenever sqlerror exit failure
     set pages 0 lines 200
     col action_time for a28
     col action for a10
@@ -154,7 +167,10 @@
 - name: sql_patch | Shutdown DB
   shell: |
     set -o pipefail
-    sqlplus -s / as sysdba <<< "shutdown immediate"
+    sqlplus -s / as sysdba <<EOF
+    whenever sqlerror exit failure
+    shutdown immediate
+    EOF
   environment:
     ORACLE_HOME: "{{ oracle_home }}"
     ORACLE_SID: "{{ oracle_sid }}"

@@ -141,7 +141,8 @@
 - name: rac-db-create | Save PDBs state
   shell: |
     set -o pipefail
-    sqlplus / as sysdba << EOF
+    sqlplus / as sysdba <<EOF
+    whenever sqlerror exit failure
     alter pluggable database all save state;
     EOF
   environment:
@@ -185,7 +186,10 @@
     - name: rac-db-create | Set cluster_database to false
       shell: |
         set -o pipefail
-        sqlplus -s / as sysdba <<< "alter system set cluster_database=false scope=spfile;"
+        sqlplus -s / as sysdba <<EOF
+        whenever sqlerror exit failure
+        alter system set cluster_database=false scope=spfile;
+        EOF
       environment:
         ORACLE_HOME: "{{ oracle_home }}"
         ORACLE_SID: "{{ oracle_sid }}"
@@ -208,7 +212,10 @@
     - name: rac-db-create | Startup upgrade
       shell: |
         set -o pipefail
-        sqlplus -s / as sysdba <<< "startup {{ startup_upgrade }};"
+        sqlplus -s / as sysdba <<EOF
+        whenever sqlerror exit failure
+        startup {{ startup_upgrade }};
+        EOF
       environment:
         ORACLE_HOME: "{{ oracle_home }}"
         ORACLE_SID: "{{ oracle_sid }}"
@@ -220,7 +227,8 @@
     - name: rac-db-create | Open pluggable databases in upgrade mode
       shell: |
         set -o pipefail
-        sqlplus -s / as sysdba << EOF
+        sqlplus -s / as sysdba <<EOF
+        whenever sqlerror exit failure
         begin
           for c in (select 1 from v\$system_parameter2 where name = 'enable_pluggable_database' and value = 'TRUE')
         loop
@@ -260,7 +268,10 @@
     - name: rac-db-create | Set cluster_database to true
       shell: |
         set -o pipefail
-        sqlplus -s / as sysdba <<< "alter system set cluster_database=true scope=spfile;"
+        sqlplus -s / as sysdba <<EOF
+        whenever sqlerror exit failure
+        alter system set cluster_database=true scope=spfile;
+        EOF
       environment:
         ORACLE_HOME: "{{ oracle_home }}"
         ORACLE_SID: "{{ oracle_sid }}"
@@ -283,7 +294,8 @@
     - name: rac-db-create | Close and open pluggable databases
       shell: |
         set -o pipefail
-        sqlplus -s / as sysdba << EOF
+        sqlplus -s / as sysdba <<EOF
+        whenever sqlerror exit failure
         begin
           for c in (select 1 from v\$system_parameter2 where name = 'enable_pluggable_database' and value = 'TRUE')
         loop
@@ -305,7 +317,8 @@
     - name: rac-db-create | Show pluggable databases
       shell: |
         set -o pipefail
-        sqlplus -s / as sysdba << EOF
+        sqlplus -s / as sysdba <<EOF
+        whenever sqlerror exit failure
         show pdbs
         EOF
       environment:

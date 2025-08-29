@@ -87,6 +87,7 @@
   shell: |
     set -o pipefail
     {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+    whenever sqlerror exit failure
     SET heading OFF
     SET termout OFF
     SELECT recovery_mode FROM v\$archive_dest_status WHERE dest_id=2;
@@ -112,6 +113,7 @@
   shell: |
     set -o pipefail
     {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+    whenever sqlerror exit failure
     ALTER DATABASE RECOVER MANAGED STANDBY DATABASE DISCONNECT;
     EOF
   environment:
@@ -129,6 +131,7 @@
   shell: |
     set -o pipefail
     {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+    whenever sqlerror exit failure
     ALTER DATABASE RECOVER MANAGED STANDBY DATABASE CANCEL;
     ALTER DATABASE RECOVER MANAGED STANDBY DATABASE USING ARCHIVED LOGFILE DISCONNECT;
     EOF

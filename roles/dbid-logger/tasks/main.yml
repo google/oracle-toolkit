@@ -17,7 +17,7 @@
   shell: |
     set -o pipefail
     sqlplus -s / as sysdba <<EOF
-    WHENEVER SQLERROR EXIT SQL.SQLCODE
+    WHENEVER SQLERROR EXIT FAILURE
     SET HEADING OFF
     SET FEEDBACK OFF
     SET LINESIZE 999

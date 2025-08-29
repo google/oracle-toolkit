@@ -1,6 +1,7 @@
 source oraenv <<< {{ oracle_sid }}
 
-sqlplus -s -L / as sysdba << EOF
+sqlplus -s -L / as sysdba <<EOF
+whenever sqlerror exit failure
 set pages 32767 lines 180 trims on tab off
 column name format a32
 column display_value format a64

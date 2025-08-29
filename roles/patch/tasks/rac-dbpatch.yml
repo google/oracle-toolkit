@@ -21,7 +21,10 @@
 - name: rac-dbpatch | Set cluster_database to false
   shell: |
     set -o pipefail
-    sqlplus -s / as sysdba <<< "alter system set cluster_database=false scope=spfile;"
+    sqlplus -s / as sysdba <<EOF
+    whenever sqlerror exit failure
+    alter system set cluster_database=false scope=spfile;
+    EOF
   environment:
     ORACLE_HOME: "{{ oracle_home }}"
     ORACLE_SID: "{{ oracle_sid }}"
@@ -46,7 +49,10 @@
 - name: rac-dbpatch | Start instance
   shell: |
     set -o pipefail
-    sqlplus -s / as sysdba <<< "startup {{ startup_upgrade }};"
+    sqlplus -s / as sysdba <<EOF
+    whenever sqlerror exit failure
+    startup {{ startup_upgrade }};
+    EOF
   environment:
     ORACLE_HOME: "{{ oracle_home }}"
     ORACLE_SID: "{{ oracle_sid }}"
@@ -59,7 +65,8 @@
 - name: rac-dbpatch | Start all PDBs
   shell: |
     set -o pipefail
-    sqlplus -s / as sysdba << EOF
+    sqlplus -s / as sysdba <<EOF
+    whenever sqlerror exit failure
     begin
       for c in (select 1 from v\$system_parameter2 where name = 'enable_pluggable_database' and value = 'TRUE')
     loop
@@ -103,7 +110,10 @@
 - name: rac-dbpatch | Run catbundle
   shell: |
     set -o pipefail
-    sqlplus -s / as sysdba <<< "@catbundle.sql psu apply"
+    sqlplus -s / as sysdba <<EOF
+    whenever sqlerror exit failure
+    @catbundle.sql psu apply
+    EOF
   args:
     chdir: "{{ oracle_home }}/rdbms/admin"
   environment:
@@ -127,7 +137,10 @@
 - name: rac-dbpatch | Re-compile invalid objects
   shell: |
     set -o pipefail
-    sqlplus -s / as sysdba <<< "@?/rdbms/admin/utlrp;"
+    sqlplus -s / as sysdba <<EOF
+    whenever sqlerror exit failure
+    @?/rdbms/admin/utlrp;
+    EOF
   environment:
     ORACLE_HOME: "{{ oracle_home }}"
     ORACLE_SID: "{{ oracle_sid }}"
@@ -139,7 +152,8 @@
 - name: rac-dbpatch | Capture registry patches
   shell: |
     set -o pipefail
-    sqlplus -s / as sysdba << EOF
+    sqlplus -s / as sysdba <<EOF
+    whenever sqlerror exit failure
     set pages 0 lines 200
     col action_time for a28
     col action for a10
@@ -166,7 +180,10 @@
 - name: rac-dbpatch | Set cluster_database to true
   shell: |
     set -o pipefail
-    sqlplus -s / as sysdba <<< "alter system set cluster_database=true scope=spfile;"
+    sqlplus -s / as sysdba <<EOF
+    whenever sqlerror exit failure
+    alter system set cluster_database=true scope=spfile;
+    EOF
   environment:
     ORACLE_HOME: "{{ oracle_home }}"
     ORACLE_SID: "{{ oracle_sid }}"
@@ -191,7 +208,8 @@
 - name: rac-dbpatch | Start all PDBs
   shell: |
     set -o pipefail
-    sqlplus -s / as sysdba << EOF
+    sqlplus -s / as sysdba <<EOF
+    whenever sqlerror exit failure
     begin
       for c in (select 1 from v\$system_parameter2 where name = 'enable_pluggable_database' and value = 'TRUE')
     loop
@@ -235,7 +253,10 @@
 - name: rac-dbpatch | Re-compile invalid objects, second time
   shell: |
     set -o pipefail
-    sqlplus -s / as sysdba <<< "@?/rdbms/admin/utlrp;"
+    sqlplus -s / as sysdba <<EOF
+    whenever sqlerror exit failure
+    @?/rdbms/admin/utlrp;
+    EOF
   environment:
     ORACLE_HOME: "{{ oracle_home }}"
     ORACLE_SID: "{{ oracle_sid }}"
@@ -247,7 +268,8 @@
 - name: rac-dbpatch | Close and open all PDBs for second time
   shell: |
     set -o pipefail
-    sqlplus -s / as sysdba << EOF
+    sqlplus -s / as sysdba <<EOF
+    whenever sqlerror exit failure
     begin
       for c in (select 1 from v\$system_parameter2 where name = 'enable_pluggable_database' and value = 'TRUE')
     loop

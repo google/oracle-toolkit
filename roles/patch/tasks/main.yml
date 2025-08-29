@@ -105,7 +105,8 @@
     - name: Get database role from sqlplus
       shell: |
         set -o pipefail
-        sqlplus -s / as sysdba << EOF
+        sqlplus -s / as sysdba <<EOF
+        whenever sqlerror exit failure
         set heading off
         select database_role from v\$database;
         EOF
@@ -204,7 +205,8 @@
 - name: (RDBMS) Stop database
   shell: |
     set -o pipefail
-    sqlplus -s / as sysdba << EOF
+    sqlplus -s / as sysdba <<EOF
+    whenever sqlerror exit failure
     shutdown immediate;
     EOF
   environment:
@@ -262,7 +264,8 @@
 - name: (RDBMS) Start database
   shell: |
     set -o pipefail
-    sqlplus -s / as sysdba << EOF
+    sqlplus -s / as sysdba <<EOF
+    whenever sqlerror exit failure
     startup;
     EOF
   environment:

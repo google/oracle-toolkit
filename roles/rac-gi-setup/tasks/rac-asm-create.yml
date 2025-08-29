@@ -16,7 +16,10 @@
 - name: rac-asm-create | Check available ASM disk groups
   shell: |
     set -o pipefail
-    sqlplus -s / as sysasm <<< "select name from v\$asm_diskgroup;"
+    sqlplus -s / as sysasm <<EOF
+    whenever sqlerror exit failure
+    select name from v\$asm_diskgroup;
+    EOF
   environment:
     ORACLE_HOME: "{{ grid_home }}"
     PATH: "{{ grid_home }}/bin:${PATH}"
@@ -32,7 +35,8 @@
 - name: rac-asm-create | (asmlib) Create disk groups
   shell: |
     set -o pipefail
-    sqlplus -s / as sysasm << EOF
+    sqlplus -s / as sysasm <<EOF
+    whenever sqlerror exit failure
     CREATE DISKGROUP {{ item.diskgroup }} EXTERNAL REDUNDANCY
     {% for i in item.disks %}  DISK 'ORCL:{{ i.name }}'
     {% endfor %}
@@ -59,7 +63,8 @@
 - name: rac-asm-create | (udev) Create disk groups
   shell: |
     set -o pipefail
-    sqlplus -s / as sysasm << EOF
+    sqlplus -s / as sysasm <<EOF
+    whenever sqlerror exit failure
     CREATE DISKGROUP {{ item.diskgroup }} EXTERNAL REDUNDANCY
     {% for i in item.disks %}  DISK '/dev/{{ path_udev }}/{{ i.name }}'
     {% endfor %}

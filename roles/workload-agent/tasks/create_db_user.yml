@@ -41,7 +41,7 @@
   shell: |
     set -o pipefail
     sqlplus -s -L / as sysdba <<EOF
-    WHENEVER SQLERROR EXIT SQL.SQLCODE;
+    WHENEVER SQLERROR EXIT FAILURE;
     CREATE USER {{ workload_agent_username }} IDENTIFIED BY "{{ result.stdout }}";
     GRANT CREATE SESSION,SELECT_CATALOG_ROLE,SYSDG TO {{ workload_agent_username }};
     EXIT;
