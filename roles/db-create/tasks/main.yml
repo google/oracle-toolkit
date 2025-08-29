@@ -102,7 +102,7 @@
     pwd_gen_cmd: echo -e "$({{ pass_param }})\n$({{ pass_param }})\n$({{ pass_param }})"
   when:
     - db_password_secret | length == 0
-    - container_db | bool
+    - container_db
   tags: db-create
 
 - name: Generate command for password randomization for non-CDB
@@ -110,7 +110,7 @@
     pwd_gen_cmd: echo -e "$({{ pass_param }})\n$({{ pass_param }})"
   when:
     - db_password_secret | length == 0
-    - not container_db | bool
+    - not container_db
   tags: db-create
 
 - name: Generate command for retrieving passwords from Secret Manager for non-CDB
@@ -118,7 +118,7 @@
     pwd_gen_cmd: password=$(gcloud --quiet secrets versions access {{ db_password_secret }}); echo -e "$password\n$password"
   when:
     - db_password_secret | length > 0
-    - not container_db | bool
+    - not container_db
   tags: db-create
 
 - name: Generate command for retrieving passwords from Secret Manager for CDB
@@ -126,7 +126,7 @@
     pwd_gen_cmd: password=$(gcloud --quiet secrets versions access {{ db_password_secret }}); echo -e "$password\n$password\n$password"
   when: 
     - db_password_secret | length > 0
-    - container_db | bool
+    - container_db
   tags: db-create
 
 - name: Create database using DBCA
