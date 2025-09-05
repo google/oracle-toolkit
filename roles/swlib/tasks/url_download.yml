@@ -1,0 +1,68 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- name: url_download | Download OPatch
+  uri:
+    url: "{{ swlib_mount_src }}/{{ item }}"
+    dest: "{{ swlib_path }}"
+    force: yes
+    url_username: "{{ lookup('env', 'URL_USERNAME') }}"
+    url_password: "{{ lookup('env', 'URL_PASSWORD') }}"
+    headers: "{{ lookup('env', 'URL_HEADERS') }}"
+    status_code:
+      - 200
+      - 304
+  with_items: "{{ opatch_file_list | unique }}"
+
+- name: url_download | Download base software files using file_name or alt_name
+  uri:
+    url: "{{ swlib_mount_src }}/{{ item.file_name }}"
+    dest: "{{ swlib_path }}/{{ item.file_name }}"
+    url_username: "{{ lookup('env', 'URL_USERNAME') }}"
+    url_password: "{{ lookup('env', 'URL_PASSWORD') }}"
+    headers: "{{ lookup('env', 'URL_HEADERS') }}"
+    status_code:
+      - 200
+      - 304
+  with_items: "{{ base_sw_file_list | unique }}"
+  register: download_result
+  failed_when: download_result is failed and download_result.status not in [200, 304, 404]
+
+- name: url_download | Retry with alt_name if file_name fails
+  uri:
+    url: "{{ swlib_mount_src }}/{{ item.alt_name }}"
+    dest: "{{ swlib_path }}/{{ item.file_name }}"
+    url_username: "{{ lookup('env', 'URL_USERNAME') }}"
+    url_password: "{{ lookup('env', 'URL_PASSWORD') }}"
+    headers: "{{ lookup('env', 'URL_HEADERS') }}"
+    status_code:
+      - 200
+      - 304
+  when:
+    - item.previous_try_status == 404
+    - not free_edition
+  with_items: "{{ download_result | json_query('results[*].{file_name:item.file_name,alt_name:item.alt_name,previous_try_status:status}') }}"
+
+- name: url_download | Download patch files
+  uri:
+    url: "{{ swlib_mount_src }}/{{ item }}"
+    dest: "{{ swlib_path }}/{{ item }}"
+    url_username: "{{ lookup('env', 'URL_USERNAME') }}"
+    url_password: "{{ lookup('env', 'URL_PASSWORD') }}"
+    headers: "{{ lookup('env', 'URL_HEADERS') }}"
+    status_code:
+      - 200
+      - 304
+  with_items: "{{ patch_file_list | unique }}"

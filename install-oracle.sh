@@ -64,7 +64,7 @@ if [[ ! -d "${INVENTORY_DIR}" ]]; then
   fi
 fi
 #
-# Ansible logs directory, the logfile name is created later one
+# Ansible logs directory, the log file name is created later one
 #
 LOG_DIR="./logs"
 LOG_FILE="${LOG_DIR}/log"
@@ -101,7 +101,7 @@ CLUSTER_TYPE="${CLUSTER_TYPE:-NONE}"
 CLUSTER_TYPE_PARAM="NONE|RAC|DG"
 
 ORA_SWLIB_BUCKET="${ORA_SWLIB_BUCKET}"
-ORA_SWLIB_BUCKET_PARAM="^.+[^/]"
+ORA_SWLIB_BUCKET_PARAM="^(gs:\/\/|https?:\/\/)"
 
 ORA_SWLIB_TYPE="${ORA_SWLIB_TYPE:-GCS}"
 ORA_SWLIB_TYPE_PARAM="^(\"\"|GCS|GCSFUSE|NFS|GCSDIRECT|GCSTRANSFER)$"
@@ -907,6 +907,11 @@ fi
 
 if [ "${ORA_DISK_MGMT}" == "FS" ]; then
   ORA_ROLE_SEPARATION=FALSE
+fi
+
+# If downloading from GCS (or any other address) via URL
+if [[ "${ORA_SWLIB_BUCKET}" == http://* || "${ORA_SWLIB_BUCKET}" == https://* ]]; then
+  ORA_SWLIB_TYPE=URL
 fi
 
 if [[ "${skip_compatible_rdbms}" != "true" ]]; then

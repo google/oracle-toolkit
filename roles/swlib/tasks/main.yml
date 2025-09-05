@@ -42,7 +42,7 @@
 
 - name: swlib | Determine required installation files
   include_tasks: build_file_list.yml
-  when: swlib_mount_type in ["gcs", "gcsdirect", "gcstransfer"]
+  when: swlib_mount_type in ["gcs", "gcsdirect", "gcstransfer", "url"]
 
 - name: swlib | Copy files from GCS directly on the Managed Host instance
   include_tasks: gcsdirect.yml
@@ -50,4 +50,10 @@
 
 - name: swlib | Use the Ansible Control Node to transfer files from GCS to the Managed Host instance
   include_tasks: gcstransfer.yml
-  when: swlib_mount_type == "gcstransfer" or gcloud_found is not defined or (gcloud_found is defined and gcloud_found.stdout != "0")
+  when: swlib_mount_type == "gcstransfer" or (gcloud_found is not defined and swlib_mount_type in ["gcs", "gcsdirect"]) or (gcloud_found.stdout is defined and gcloud_found.stdout != "0")
+
+- name: swlib | Download software from URL
+  include_tasks: url_download.yml
+  loop_control:
+    loop_var: task_file_name
+  when: swlib_mount_type == 'url'

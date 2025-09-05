@@ -32,7 +32,10 @@ ORA_RELEASE="${ORA_RELEASE}"
 ORA_RELEASE_PARAM=""
 
 ORA_SWLIB_BUCKET="${ORA_SWLIB_BUCKET}"
-ORA_SWLIB_BUCKET_PARAM="^gs://.+"
+ORA_SWLIB_BUCKET_PARAM="^(gs:\/\/|https?:\/\/)"
+
+ORA_SWLIB_TYPE="${ORA_SWLIB_TYPE:-GCS}"
+ORA_SWLIB_TYPE_PARAM="^(\"\"|GCS|GCSFUSE|NFS|GCSDIRECT|GCSTRANSFER)$"
 
 ORA_SWLIB_PATH="${ORA_SWLIB_PATH:-/u01/swlib}"
 ORA_SWLIB_PATH_PARAM="^/.*"
@@ -51,7 +54,7 @@ INVENTORY_FILE="${INVENTORY_FILE:-./inventory_files/inventory}"
 # Suppress displaying hosts if a "when" condition isn't satisfied, to reduce overall output file size.
 export ANSIBLE_DISPLAY_SKIPPED_HOSTS=false
 ###
-GETOPT_MANDATORY="ora-swlib-bucket:,inventory-file:"
+GETOPT_MANDATORY="ora-swlib-bucket:,ora-swlib-type:,inventory-file:"
 GETOPT_OPTIONAL="ora-version:,ora-release:,ora-swlib-path:,ora-staging:,ora-db-name:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,help,validate"
 GETOPT_LONG="$GETOPT_MANDATORY,$GETOPT_OPTIONAL"
@@ -87,6 +90,10 @@ while true; do
         ;;
     --ora-swlib-bucket)
         ORA_SWLIB_BUCKET="$2"
+        shift
+        ;;
+    --ora-swlib-type)
+        ORA_SWLIB_TYPE="$2"
         shift
         ;;
     --ora-swlib-path)
@@ -145,6 +152,10 @@ shopt -s nocasematch
     echo "Incorrect parameter provided for ora-swlib-bucket: $ORA_SWLIB_BUCKET"
     exit 1
 }
+[[ ! "$ORA_SWLIB_TYPE" =~ $ORA_SWLIB_TYPE_PARAM ]] && {
+    echo "Incorrect parameter provided for ora-swlib-type: $ORA_SWLIB_TYPE"
+    exit 1
+}
 [[ ! "$ORA_SWLIB_PATH" =~ $ORA_SWLIB_PATH_PARAM ]] && {
     echo "Incorrect parameter provided for ora-swlib-path: $ORA_SWLIB_PATH"
     exit 1
@@ -157,6 +168,11 @@ shopt -s nocasematch
     echo "Incorrect parameter provided for ora-db-name: $ORA_DB_NAME"
     exit 1
 }
+
+# If downloading from GCS (or any other address) via URL
+if [[ "${ORA_SWLIB_BUCKET}" == http://* || "${ORA_SWLIB_BUCKET}" == https://* ]]; then
+    ORA_SWLIB_TYPE=URL
+fi
 
 # Mandatory options
 if [ "${ORA_SWLIB_BUCKET}" = "" ]; then
@@ -178,6 +194,7 @@ ORA_SWLIB_PATH=${ORA_SWLIB_PATH%/}
 export ORA_DB_NAME
 export ORA_STAGING
 export ORA_SWLIB_BUCKET
+export ORA_SWLIB_TYPE
 export ORA_SWLIB_PATH
 export ORA_VERSION
 export ORA_RELEASE
