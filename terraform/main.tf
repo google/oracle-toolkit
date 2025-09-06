@@ -13,38 +13,80 @@
 # limitations under the License.
 
 locals {
-  fs_disks = [
-    {
-      auto_delete  = true
-      device_name  = "oracle_home"
-      disk_size_gb = var.oracle_home_disk.size_gb
-      disk_type    = var.oracle_home_disk.type
-      disk_labels  = { purpose = "software" } # Do not modify this label
-    }
-  ]
-  asm_disks = [
-    {
-      auto_delete  = true
-      device_name  = "data"
-      disk_size_gb = var.data_disk.size_gb
-      disk_type    = var.data_disk.type
-      disk_labels  = { diskgroup = "data", purpose = "asm" }
-    },
-    {
-      auto_delete  = true
-      device_name  = "reco"
-      disk_size_gb = var.reco_disk.size_gb
-      disk_type    = var.reco_disk.type
-      disk_labels  = { diskgroup = "reco", purpose = "asm" }
-    },
-    {
-      auto_delete  = true
-      device_name  = "swap"
-      disk_size_gb = var.swap_disk_size_gb
-      disk_type    = var.swap_disk_type
-      disk_labels  = { purpose = "swap" }
-    }
-  ]
+  # ---- Mode helper
+  is_fs              = upper(var.ora_disk_mgmt) == "FS"
+  ora_disk_mgmt_flag = local.is_fs ? "FS" : "ASM"
+
+  # ---- Base disk definitions (do not change device_name values)
+  _u01 = {
+    auto_delete  = true
+    device_name  = "oracle_home"
+    disk_size_gb = var.oracle_home_disk.size_gb
+    disk_type    = var.oracle_home_disk.type
+    disk_labels  = { purpose = "software" } # Do not modify this label
+  }
+
+  # DATA / RECO in ASM mode (with disk groups)
+  _data_asm = {
+    auto_delete  = true
+    device_name  = "data"
+    disk_size_gb = var.data_disk.size_gb
+    disk_type    = var.data_disk.type
+    disk_labels  = { diskgroup = "data", purpose = "asm" }
+  }
+  _reco_asm = {
+    auto_delete  = true
+    device_name  = "reco"
+    disk_size_gb = var.reco_disk.size_gb
+    disk_type    = var.reco_disk.type
+    disk_labels  = { diskgroup = "reco", purpose = "asm" }
+  }
+
+  # DATA / RECO in FS mode (no disk group label; purpose used for mounts)
+  _data_fs = {
+    auto_delete  = true
+    device_name  = "data"
+    disk_size_gb = var.data_disk.size_gb
+    disk_type    = var.data_disk.type
+    disk_labels  = { purpose = "data" }
+  }
+  _reco_fs = {
+    auto_delete  = true
+    device_name  = "reco"
+    disk_size_gb = var.reco_disk.size_gb
+    disk_type    = var.reco_disk.type
+    disk_labels  = { purpose = "reco" }
+  }
+
+  # Keep SWAP as a separate disk (never part of FS mounts / ASM disk groups list)
+  _swap = {
+    auto_delete  = true
+    device_name  = "swap"
+    disk_size_gb = var.swap_disk_size_gb
+    disk_type    = var.swap_disk_type
+    disk_labels  = { purpose = "swap" }
+  }
+
+  # ---- Build lists based on mode
+  # Filesystem disks (participate in XFS mounts via data_mounts_config)
+  fs_disks = concat(
+    [
+      local._u01
+    ],
+    local.is_fs ? [local._data_fs, local._reco_fs] : []
+  )
+
+  # ASM disks (grouped into disk groups via asm_disk_config) + keep swap here so it is NOT mounted as XFS
+  asm_disks = concat(
+    local.is_fs ? [] : [local._data_asm, local._reco_asm],
+    [local._swap]
+  )
+
+  # ---- DBCA destinations (no new vars), avoid nested ternaries
+  reco_fs_dest = var.ora_backup_dest != "" ? var.ora_backup_dest : "/u03"
+  data_dest    = local.is_fs ? "/u02" : "+DATA"
+  reco_dest    = local.is_fs ? local.reco_fs_dest : "+RECO"
+
 
   # Takes the list of filesystem disks and converts them into a list of objects with the required fields by ansible
   data_mounts_config = [
@@ -71,7 +113,16 @@ locals {
     }
   ]
 
-  # Concatenetes both lists to be passed down to the instance module
+  # Metadata map, not used by this module path, but kept for parity
+  disk_metadata = {
+    "ora-disk-mgmt"            = upper(var.ora_disk_mgmt) # "FS" or "ASM"
+    "ora-data-dest"            = local.data_dest          # "/u02" or "+DATA"
+    "ora-reco-dest"            = local.reco_dest          # "/u03" or "+RECO"
+    "ora-data-mounts-json"     = local.is_fs ? jsonencode(local.data_mounts_config) : ""
+    "ora-asm-disk-config-json" = local.is_fs ? "" : jsonencode(local.asm_disk_config)
+  }
+
+  # Concatenates both lists to be passed down to the instance module
   additional_disks = concat(local.fs_disks, local.asm_disks)
 
   project_id = var.project_id
@@ -189,8 +240,16 @@ locals {
 
 locals {
   common_flags = join(" ", compact([
+    # Force FS mode only when we’re in FS; omit the flag in ASM so the toolkit’s default ASM path stays unchanged
+    local.is_fs ? "--ora-disk-mgmt FS" : "",
+
+    # Let the installer infer from *which* JSON is present
     length(local.asm_disk_config) > 0 ? "--ora-asm-disks-json '${jsonencode(local.asm_disk_config)}'" : "",
     length(local.data_mounts_config) > 0 ? "--ora-data-mounts-json '${jsonencode(local.data_mounts_config)}'" : "",
+
+    # Keep DBCA destinations aligned with the computed mode
+    "--ora-data-dest ${local.data_dest}",
+    "--ora-reco-dest ${local.reco_dest}",
     "--swap-blk-device /dev/disk/by-id/google-swap",
     var.ora_swlib_bucket != "" ? "--ora-swlib-bucket ${var.ora_swlib_bucket}" : "",
     var.ora_version != "" ? "--ora-version ${var.ora_version}" : "",
@@ -244,6 +303,17 @@ resource "google_compute_instance" "control_node" {
   service_account {
     email  = var.control_node_service_account
     scopes = ["cloud-platform"]
+  }
+
+  lifecycle {
+    precondition {
+      condition = (
+        (local.is_fs && (var.ora_backup_dest == "" || can(regex("^/.*$", var.ora_backup_dest))))
+        ||
+        (!local.is_fs && (var.ora_backup_dest == "" || can(regex("^\\+.*$", var.ora_backup_dest)) || can(regex("^/.*$", var.ora_backup_dest))))
+      )
+      error_message = "FS mode: ora_backup_dest must be empty or an absolute path like '/u03/backup'. ASM mode: ora_backup_dest must be empty or an ASM diskgroup like '+RECO' (or a path)."
+    }
   }
 
   metadata_startup_script = templatefile("${path.module}/scripts/setup.sh.tpl", {

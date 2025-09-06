@@ -22,12 +22,12 @@ This approach is particularly suitable for deploying and configuring:
 - Oracle databases on RHEL or Oracle Linux
 - Two-node Oracle Data Guard deployments, where:
 
-   The user provides:
+  The user provides:
 
-   * zone1 and subnetwork1 for the primary node
-   * zone2 and subnetwork2 for the standby node
+  - zone1 and subnetwork1 for the primary node
+  - zone2 and subnetwork2 for the standby node
 
-   Only 2-node Data Guard setups are currently supported.
+  Only 2-node Data Guard setups are currently supported.
 
 ---
 
@@ -51,20 +51,19 @@ This infrastructure is modular and customizable, allowing you to tailor it to sp
 ---
 
 ## Instance naming convention
+
 For single-instance deployments, the VM will be named using the pattern:
 "<instance_name>-1".
 Example: If instance_name = "oracle-db", the resulting VM will be oracle-db-1.
 
 For multi-node Oracle Data Guard deployments:
 
-* Primary node: "<instance_name>-1"
-* Standby node: "<instance_name>-2"
+- Primary node: "<instance_name>-1"
+- Standby node: "<instance_name>-2"
 
 Example: If instance_name = "oracle-db", the primary VM will be oracle-db-1 and the standby VM will be oracle-db-2.
 
-
 ---
-
 
 ## Pre-requisites
 
@@ -73,37 +72,39 @@ To use this Terraform and Ansible integration, ensure you have the following too
 - **Google Cloud SDK** - [Installation Guide](https://cloud.google.com/sdk/docs/install)
 - **Terraform** - [Installation Guide](https://learn.hashicorp.com/tutorials/terraform/install-cli)
 
-
 ### 1. Service Account for the Control Node VM
 
 Grant the service account attached to the control node VM the following IAM roles:
 
 - `roles/compute.osAdminLogin`
-   Grants OS Login access with sudo privileges, required by the Ansible playbooks.
-- `roles/iam.serviceAccountUser` on the **target VM's service account**  
-   Allows the control node to impersonate the target service account during SSH sessions.
+  Grants OS Login access with sudo privileges, required by the Ansible playbooks.
+- `roles/iam.serviceAccountUser` on the **target VM's service account**
+  Allows the control node to impersonate the target service account during SSH sessions.
 - `roles/storage.objectViewer` on the bucket specified in var.gcs_source to download the ZIP archive of the oracle-toolkit
 - `roles/storage.objectUser` on the Terraform state bucket specified in backend.tf to write Terraform state.
 - `roles/compute.instanceAdmin.v1` (or a custom role including compute.instances.delete)
-   Required to delete the ephemeral control node VM after the deployment is complete.
+  Required to delete the ephemeral control node VM after the deployment is complete.
 - `roles/logging.logWriter`
-  Requred to write to Google Cloud Logging.
+  Required to write to Google Cloud Logging.
 
 ### 2. Service Account for the database VM
 
 - `roles/secretmanager.secretAccessor` - Grants access to retrieve passwords from Secret Manager. Must be granted in the project containing the secrets either at the project or individual secret level.
 - `roles/monitoring.metricWriter` - Required only if the --install-workload-agent and --oracle-metrics-secret flags are set. This allows the Google Cloud Agent for Compute Workloads to write metrics to Cloud Monitoring.
-- `roles/compute.viewer` -  Required only if the --install-workload-agent and --oracle-metrics-secret flags are set. Needed by the Google Cloud Agent for Compute Workloads.
+- `roles/compute.viewer` - Required only if the --install-workload-agent and --oracle-metrics-secret flags are set. Needed by the Google Cloud Agent for Compute Workloads.
 
 ### 2. Firewall Rule for Internal IP Access
-Create a VPC firewall rule that allows ingress on TCP port 22 (or your custom SSH port) from the control node VM to the target VM.  
+
+Create a VPC firewall rule that allows ingress on TCP port 22 (or your custom SSH port) from the control node VM to the target VM.
 Since both VMs reside in the same VPC, a rule permitting traffic on port 22 between their subnets or network tags is sufficient.
 
 ### 3. Terraform State Bucket
+
 Create a Cloud Storage bucket to store Terraform state files.
 Authorize the control node service account with read and write access to this bucket.
 
 ### 4. Toolkit Source Bucket
+
 Create a Cloud Storage bucket to store the oracle-toolkit ZIP file.
 
 Clone the toolkit repository and prepare the ZIP archive:
@@ -115,9 +116,11 @@ zip -r /tmp/oracle-toolkit.zip . -x "terraform/*" -x ".git/*"
 ```
 
 Upload the ZIP file to your GCS bucket:
+
 ```bash
 gsutil cp /tmp/oracle-toolkit.zip gs://your-bucket-name/
 ```
+
 ---
 
 ## Project Directory Structure
@@ -133,7 +136,7 @@ repo-root/
 ├── config-db.yml
 ├── config-rac-db.yml
 └── terraform/
-    ├── backend.tf                  # Backend confguration, from example
+    ├── backend.tf                  # Backend configuration, from example
     ├── terraform.tfvars            # Variables to set, from example
     ├── main.tf                     # Main Terraform code
     ├── variables.tf                # Variable definition
@@ -179,14 +182,34 @@ terraform init
 
 Review the execution plan:
 
+- Generate a plan (choose your storage mode)
+
+Filesystem FS(XFS)
+
 ```bash
-terraform plan
+terraform plan -var-file="terraform.tfvars" -var 'ora_disk_mgmt=FS'
+```
+
+ASM (DATA/RECO disk groups)
+
+```bash
+terraform plan -var-file="terraform.tfvars" -var 'ora_disk_mgmt=ASM'
 ```
 
 Deploy the infrastructure:
 
+- During apply, you’ll choose the storage mode (choose your storage mode)
+
+Filesystem FS(XFS) — formats and mounts /u02 and /u03:
+
 ```bash
-terraform apply
+terraform apply -var-file="terraform.tfvars" -var 'ora_disk_mgmt=FS' -auto-approve
+```
+
+ASM (DATA/RECO disk groups):
+
+```bash
+terraform apply -var-file="terraform.tfvars" -var 'ora_disk_mgmt=ASM' -auto-approve
 ```
 
 This process will perform the following steps:
@@ -226,8 +249,16 @@ ok: [VM_PUBLIC_IP]
 
    To destroy all the resources created by Terraform:
 
+Filesystem FS(XFS)
+
 ```bash
-terraform destroy
+terraform destroy -var-file="terraform.tfvars" -var 'ora_disk_mgmt=FS' -auto-approve
+```
+
+ASM
+
+```bash
+terraform destroy -var-file="terraform.tfvars" -var 'ora_disk_mgmt=ASM' -auto-approve
 ```
 
 ## Ansible Cloud Logging callback plugin
@@ -258,11 +289,10 @@ enable_async_logging = true              # Optional:  If true (default), log mes
 
 When enable_async_logging is enabled, logs are queued and sent by a background thread to avoid blocking Ansible execution. Otherwise, logs are sent synchronously.
 
-
-
 ## Troubleshooting
 
 ### Common Issues
+
 1. No Such File or Directory
 
 - Make sure `working_dir = "${path.root}"` is set in the provisioner block.

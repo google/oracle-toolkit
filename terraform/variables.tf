@@ -66,11 +66,15 @@ variable "ntp_pref" {
 
 variable "ora_backup_dest" {
   type        = string
-  description = "Backup destination for Oracle database. Example: '+RECO' or '/backup/path'. Leave empty if not needed."
-
+  description = "Backup destination. In FS mode, must be an absolute path like '/u03/backup'. In ASM mode, '+RECO' is allowed."
+  default     = "" # empty => we'll fall back to /u03 in FS
   validation {
-    condition     = var.ora_backup_dest == "" || can(regex("^\\+?[A-Za-z0-9/_-]+$", var.ora_backup_dest))
-    error_message = "Invalid backup destination. It must be a valid ASM disk group (e.g., '+RECO') or a valid file path."
+    condition = (
+      var.ora_backup_dest == "" ||
+      can(regex("^/.*$", var.ora_backup_dest)) || # filesystem path
+      can(regex("^\\+.*$", var.ora_backup_dest))  # ASM disk group like +RECO
+    )
+    error_message = "Use an absolute path like '/u03/backup' or an ASM disk group like '+RECO', or leave it empty."
   }
 }
 
@@ -146,7 +150,7 @@ variable "ora_version" {
 variable "ora_release" {
   type        = string
   default     = "latest"
-  description = "Oracle release update version (patchlevel)."
+  description = "Oracle release update version (patch level)."
   validation {
     condition     = var.ora_release == "" || var.ora_release == "latest" || can(regex("^\\d+(\\.\\d+)*$", var.ora_release))
     error_message = "Invalid Oracle release version. It should be in the format '19.10', '21.3.0.0', etc."
@@ -345,4 +349,14 @@ variable "data_guard_protection_mode" {
     error_message = "data_guard_protection_mode must be one of: 'Maximum Performance', 'Maximum Availability', or 'Maximum Protection'."
   }
   default = "Maximum Availability"
+}
+
+variable "ora_disk_mgmt" {
+  description = "Oracle disk management mode. Enter 'FS' for XFS filesystems or 'ASM' for Oracle ASM."
+  type        = string
+  nullable    = false
+  validation {
+    condition     = can(regex("^(?i)(FS|ASM)$", var.ora_disk_mgmt))
+    error_message = "Enter FS (XFS) or ASM."
+  }
 }

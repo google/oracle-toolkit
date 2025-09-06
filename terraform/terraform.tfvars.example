@@ -54,11 +54,11 @@ reco_disk = {
 
 # Parameters below are optional
 # A full list of parameters can be found here https://google.github.io/oracle-toolkit/user-guide.html#parameters
-# The example below will install Oracle 19c, using the Oracle software stored in a GCS bucket, and will configure the backup destination to be RECO diskgroup.
+# The example below will install Oracle 19c, using the Oracle software stored in a GCS bucket, and will configure the backup destination to be RECO disk group.
 ora_version                = "19"
 ora_release                = "latest"
 ora_edition                = "EE"
-ora_backup_dest            = "+RECO"
+ora_backup_dest            = ""
 ora_db_name                = "orcl"
 ora_db_container           = false
 ntp_pref                   = "169.254.169.254"
