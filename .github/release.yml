@@ -1,0 +1,27 @@
+# .github/release.yml
+
+changelog:  
+  categories:
+    # Category for major changes that may affect users.
+    - title: "Breaking Changes 🛠️"
+      labels:
+        - "breaking-change"
+        - "semver-major"
+        
+    # Category for new features and enhancements.
+    - title: "Exciting New Features 🎉"
+      labels:
+        - "enhancement"
+        - "feature"
+        - "semver-minor"
+        
+    # Category for bug fixes.
+    - title: "Bug Fixes 🐛"
+      labels:
+        - "bug"
+        - "fix"
+        
+    # A catch-all category for other merged pull requests.
+    - title: "Miscellaneous Changes"
+      labels:
+        - "*"
