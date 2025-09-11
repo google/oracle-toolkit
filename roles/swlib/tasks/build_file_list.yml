@@ -19,6 +19,7 @@
     gi_base_files: []
     rdbms_base_files: []
     base_sw_file_list: []
+    patch_details_list: []
     patch_file_list: []
 
 - name: build_file_list | Get OPatch file name
@@ -78,34 +79,31 @@
 
 - name: build_file_list | Build list of GI patches
   set_fact:
-    patch_file_list: >-
-      {{ ( patch_file_list + gi_patches
+    patch_details_list: >-
+      {{ ( patch_details_list + gi_patches
            | selectattr('release', 'equalto', oracle_rel)
-           | map(attribute='patchfile')
            | list )
          | unique
       }}
   when: gi_install
 
-- name: build_file_list | Build list of unique RDBMS patches for GI installations
+- name: build_file_list | Build list of RDBMS patches for GI installations
   set_fact:
-    patch_file_list: >-
-      {{ ( patch_file_list + rdbms_patches
+    patch_details_list: >-
+      {{ ( patch_details_list + rdbms_patches
            | selectattr('release', 'equalto', oracle_rel)
            | selectattr('category', 'equalto', 'RU_Combo')
-           | map(attribute='patchfile')
            | list )
          | unique
       }}
   when: gi_install
 
-- name: build_file_list | Build list of unique RDBMS patches
+- name: build_file_list | Build list of RDBMS patches
   set_fact:
-    patch_file_list: >-
-      {{ ( patch_file_list + rdbms_patches
+    patch_details_list: >-
+      {{ ( patch_details_list + rdbms_patches
            | selectattr('release', 'equalto', oracle_rel)
            | selectattr('category', 'in', ['DB_OJVM_RU','DB_RU'])
-           | map(attribute='patchfile')
            | list )
          | unique
       }}
@@ -113,9 +111,29 @@
     - not gi_install
     - not free_edition
 
+- name: build_file_list | Build list of unique patch file names
+  set_fact:
+    patch_file_list: "{{ patch_details_list | map(attribute='patchfile') | unique | list }}"
+
+- name: build_file_list | Extract required OPatch versions from patch file list
+  set_fact:
+    patch_opatch_versions: "{{ patch_details_list | selectattr('minimum_opatch', 'defined') | map(attribute='minimum_opatch') | list }}"
+  when:
+    - not free_edition
+    - oracle_rel != "base"
+
+- name: build_file_list | Determine exact OPatch version required
+  set_fact:
+    required_opatch_version: >-
+      {{ item if (required_opatch_version is not defined or item is version(required_opatch_version, '>'))
+         else required_opatch_version }}
+  when: item is defined and item | length > 0
+  with_items: "{{ patch_opatch_versions }}"
+
 - name: build_file_list | Display file lists
   debug:
     msg:
+      required_opatch_version: "{{ required_opatch_version | default('N/A: Not defined in patch metadata') }}"
       opatch_file_list: "{{ opatch_file_list }}"
       base_sw_file_list: "{{ base_sw_file_list }}"
       patch_file_list: "{{ patch_file_list }}"

@@ -57,3 +57,29 @@
   loop_control:
     loop_var: task_file_name
   when: swlib_mount_type == 'url'
+
+- name: swlib | Read the OPatch version.txt file from zipfile
+  shell: |
+    set -o pipefail
+    unzip -p "{{ swlib_path }}/{{ item }}" "OPatch/version.txt" | awk -F':' '{print $2}'
+  register: opatch_version_output
+  args:
+    executable: /bin/bash
+  changed_when: false
+  with_items: "{{ opatch_file_list | unique }}"
+  when: required_opatch_version is defined
+
+- name: swlib | Extract the specific OPatch version
+  set_fact:
+    actual_opatch_version: "{{ item.stdout }}"
+  when: not item.skipped
+  with_items: "{{ opatch_version_output.results | json_query('[*].{skipped:skipped||`false`,stdout:stdout}') }}"
+
+- name: swlib | Check that the OPatch version is sufficient
+  assert:
+    that: actual_opatch_version is version(required_opatch_version, '>=')
+    quiet: true
+    fail_msg: "Inadequate OPatch version: required={{ required_opatch_version }}, actual={{ actual_opatch_version }}"
+  when:
+    - required_opatch_version is defined
+    - actual_opatch_version is defined
