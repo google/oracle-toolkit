@@ -120,11 +120,11 @@ grid_dirs:
     mode: "ug=rwx,o=rx"
 
 fs_dirs:
-  - name: "{{ data_destination }}/{{ db_name }}"
+  - name: "{{ data_destination }}"
     owner: "{{ oracle_user }}"
     group: "{{ oracle_group }}"
     mode: "u=rwx,g=rx,o="
-  - name: "{{ reco_destination }}/{{ db_name }}"
+  - name: "{{ reco_destination }}"
     owner: "{{ oracle_user }}"
     group: "{{ oracle_group }}"
     mode: "u=rwx,g=rx,o="
