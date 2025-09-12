@@ -1,0 +1,132 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+# This task validates the compatibility of the Oracle and Linux versions
+# using the `oracle_compatibility_matrix` from compatibility-vars.yml
+#
+
+# oracle release is I believe always at least 4 components: N+.N+.N+.N+
+# eg. 11.2.0.4
+# if the version is 12, get 12.1 or 12.2. otherwise just the first element
+
+- name: Get Oracle Major Version
+  ansible.builtin.set_fact:
+    oracle_major_ver: "{{ oracle_ver.split('.')[0] }}{% if oracle_ver.split('.')[0] | int == 12 %}.{{ oracle_ver.split('.')[1] }}{% endif %}"
+
+- name: Determine effitive oracle release
+    # pick latest release for this base when oracle_rel == 'latest'
+  ansible.builtin.set_fact:
+    effective_oracle_rel: >-
+      {% if oracle_rel == 'latest' %}
+        {{ oracle_ver.split('.')[0] ~ '.' ~  oracle_ver.split('.')[1]  ~ '.' ~  oracle_ver.split('.')[3]  ~ '.' ~  oracle_ver.split('.')[4] }}
+      {% else %}
+       {{ oracle_rel.split('.')[0] ~ '.' ~  oracle_rel.split('.')[1]  ~ '.' ~  oracle_rel.split('.')[3]  ~ '.' ~  oracle_rel.split('.')[4] }}
+      {% endif %}
+
+- name: Determine Oracle RU
+  ansible.builtin.set_fact:
+    oracle_ru_ver: "{{ effective_oracle_rel | trim }}"
+
+- name: Get OS Major Version
+  ansible.builtin.set_fact:
+    os_major_version: "{{ ansible_distribution_major_version }}"
+
+- name: Get OS Current Version
+  ansible.builtin.set_fact:
+    os_current_version: "{{ ansible_distribution_major_version }}.{{ ansible_distribution_version.split('.')[1] }}"
+
+- name: Get Kernel Flavor oracle (uek) or redhat (rh)
+  ansible.builtin.set_fact:
+    kernel_flavor: "{{ 'uek' if 'uek' in ansible_kernel | lower else 'rh' }}"
+
+- name: Get some debug info
+  vars:
+    # Try to fetch the combo entry; keep it None if missing so we can detect absence
+    _test_combo: >-
+      {{ (oracle_compatibility_matrix[oracle_major_ver] | default({}))[os_major_version] | default(None, true) }}
+    _my_entry_present: "{{ _test_combo is not none }}"
+    _my_compatibility_reqs: "{{ _test_combo | default({}) }}"
+  ansible.builtin.set_fact:
+    comp_reqs: "{{ _my_compatibility_reqs }}"
+
+- name: Linux, Kernel and Oracle Version Info
+  ansible.builtin.debug:
+    msg:
+      - "Linux Release  = {{ os_current_version }}"
+      - "OS Major Version = {{ os_major_version }}"
+      - "Linux Version  = {{ kernel_version_full }}"
+      - "Oracle Major Version = {{ oracle_major_ver }}"
+      - "Oracle Version oracle_ver = {{ oracle_ver }}"
+      - "Oracle Version oracle_ru_ver = {{ oracle_ru_ver }}"
+      - "comp_reqs = {{ comp_reqs }}"
+
+- name: Validate Oracle and Linux compatibility
+  vars:
+    # Try to fetch the combo entry; keep it None if missing so we can detect absence
+    _raw_combo: >-
+      {{ (oracle_compatibility_matrix[oracle_major_ver] | default({}))[os_major_version] | default(None, true) }}
+    _entry_present: "{{ _raw_combo is not none }}"
+    _compatibility_reqs: "{{ _raw_combo | default({}) }}"
+
+    # Kernel requirements sub-dict (may be empty)
+    _kernel_reqs: "{{ _compatibility_reqs['min_kernel'] | default({}) }}"
+
+    # Strict support rule:
+    # - If the combo entry is missing -> unsupported
+    # - If present, use 'supported' (default true) to allow explicit blocks
+    _is_supported: "{{ _entry_present and (_compatibility_reqs['supported'] | default(true)) }}"
+
+    # Version checks default to "current value" when a requirement is absent,
+    # so they won't fail independently of support status.
+    _min_linux_ok: >-
+      {{ os_current_version is version((_compatibility_reqs['min_linux_release'] | default(os_current_version)), '>=') }}
+
+    _max_linux_ok: >-
+      {{ os_current_version is version((_compatibility_reqs['max_linux_release'] | default(os_current_version)), '<=') }}
+
+    _kernel_ok: >-
+      {{ kernel_version_full is version((_kernel_reqs[kernel_flavor] | default(kernel_version_full)), '>=') }}
+
+    _ru_ok: >-
+      {{ oracle_ru_ver is version((_compatibility_reqs['min_db_ru'] | default(oracle_ru_ver)), '>=') }}
+
+  ansible.builtin.assert:
+    that:
+      - _is_supported
+      - _min_linux_ok
+      - _max_linux_ok
+      - _kernel_ok
+      - _ru_ok
+    fail_msg: >-
+      Incompatible combination detected.
+      Current system:
+        Linux Version: {{ os_current_version }}
+        Kernel Version: {{ kernel_version_full }} ({{ kernel_flavor }})
+        Oracle Version: {{ oracle_major_ver }} (RU: {{ oracle_ru_ver | default('n/a') }})
+
+      Required compatibility:
+        - The combination of Oracle {{ oracle_major_ver }} and Linux {{ os_major_version }} is not supported
+          {{ '(no entry found in matrix)' if not _entry_present else '' }}.
+        - Allowed Linux range: {{ _compatibility_reqs['min_linux_release'] | default('N/A') }}
+          .. {{ _compatibility_reqs['max_linux_release'] | default('N/A') }}.
+        - Minimum kernel ({{ kernel_flavor }}): {{ _kernel_reqs[kernel_flavor] | default('N/A') }}.
+        - Minimum Oracle RU: {{ _compatibility_reqs['min_db_ru'] | default('N/A') }}.
+
+      Compatibility Override:
+        - The compability checks may be overridden
+        - set environment variable PLATFORM_COMPATIBILITY_OVERRIDE=1
+        - or use the '--platform-compatibility-override' option when running 'install-oracle.sh'
+
+  when: managed_host_checks and not platform_compatibility_override
+  tags: readiness_checks

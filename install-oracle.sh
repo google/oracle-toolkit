@@ -32,10 +32,11 @@ PB_PREP_HOST="prep-host.yml"
 PB_INSTALL_SW="install-sw.yml"
 PB_CONFIG_DB="config-db.yml"
 PB_CONFIG_RAC_DB="config-rac-db.yml"
+PB_COMPATIBLE="compatibility-tests.yml"
 #
 # These playbooks must exist
 #
-for PBOOK in "${PB_CHECK_INSTANCE}" "${PB_PREP_HOST}" "${PB_INSTALL_SW}" "${PB_CONFIG_DB}"; do
+for PBOOK in "${PB_COMPATIBLE}" "${PB_CHECK_INSTANCE}" "${PB_PREP_HOST}" "${PB_INSTALL_SW}" "${PB_CONFIG_DB}"; do
   if [[ ! -f "${PBOOK}" ]]; then
     printf "\n\033[1;31m%s\033[m\n\n" "The playbook ${PBOOK} does not exist; cannot continue."
     exit 126
@@ -269,6 +270,7 @@ ORACLE_METRICS_SECRET_PARAM="^projects/[^/]+/secrets/[^/]+/versions/[^/]+$"
 DATA_GUARD_PROTECTION_MODE="${DATA_GUARD_PROTECTION_MODE}"
 DATA_GUARD_PROTECTION_MODE_PARAM="^(Maximum\ Performance|Maximum\ Availability|Maximum\ Protection)$"
 
+PLATFORM_COMPATIBILITY_OVERRIDE="${PLATFORM_COMPATIBILITY_OVERRIDE:-0}"
 
 export ANSIBLE_DISPLAY_SKIPPED_HOSTS=false
 ###
@@ -285,7 +287,7 @@ GETOPT_OPTIONAL="$GETOPT_OPTIONAL,backup-start-hour:,backup-start-min:,archive-b
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-swlib-type:,ora-swlib-path:,ora-swlib-credentials:,instance-ip-addr:,primary-ip-addr:,instance-ssh-user:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,instance-ssh-key:,instance-hostname:,ntp-pref:,inventory-file:,compatible-rdbms:,instance-ssh-extra-args:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,help,validate,check-instance,prep-host,install-sw,config-db,debug,allow-install-on-vm,skip-database-config,swap-blk-device:"
-GETOPT_OPTIONAL="$GETOPT_OPTIONAL,install-workload-agent,oracle-metrics-secret:,db-password-secret:,data-guard-protection-mode:"
+GETOPT_OPTIONAL="$GETOPT_OPTIONAL,install-workload-agent,oracle-metrics-secret:,db-password-secret:,data-guard-protection-mode:,platform-compatibility-override"
 GETOPT_LONG="$GETOPT_MANDATORY,$GETOPT_OPTIONAL"
 GETOPT_SHORT="h"
 
@@ -584,6 +586,9 @@ while true; do
     ;;
   --validate)
     VALIDATE=1
+    ;;
+  --platform-compatibility-override)
+    PLATFORM_COMPATIBILITY_OVERRIDE=1
     ;;
   --help | -h)
     echo -e "\tUsage: $(basename $0)" >&2
@@ -1118,6 +1123,7 @@ export DB_PASSWORD_SECRET
 export INSTALL_WORKLOAD_AGENT
 export ORACLE_METRICS_SECRET
 export DATA_GUARD_PROTECTION_MODE
+export PLATFORM_COMPATIBILITY_OVERRIDE
 
 echo -e "Running with parameters from command line or environment variables:\n"
 set | grep -E '^(ORA_|BACKUP_|GCS_|ARCHIVE_|INSTANCE_|PB_|ANSIBLE_|CLUSTER|PRIMARY)' | grep -v '_PARAM='
@@ -1159,6 +1165,7 @@ for PLAYBOOK in ${PB_LIST}; do
   echo "Running Ansible playbook: ${ANSIBLE_COMMAND}"
   eval "${ANSIBLE_COMMAND}"
 done
+
 #
 # Show the files used by this session
 #
