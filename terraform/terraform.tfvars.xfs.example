@@ -1,0 +1,81 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# See variables.tf for a full list, and descriptions.
+# General settings
+gcs_source                   = "gs://your-gcs-bucket/oracle-toolkit.zip"
+ora_swlib_bucket             = "gs://your-oracle-software-bucket"
+project_id                   = "your-project-id"
+vm_service_account           = "your-vm-service-account@your-project-id.iam.gserviceaccount.com"
+control_node_service_account = "your-control-node-service-account@your-project-id.iam.gserviceaccount.com"
+
+# Primary node for the Single-instance deployment
+zone1       = "us-central1-b"
+subnetwork1 = ""
+
+# Standby node for the Multi-instance Data Guard deployment
+zone2       = "us-central1-c"
+subnetwork2 = ""
+
+# Instance settings
+instance_name        = "orcl"
+source_image_family  = "oracle-linux-8"
+source_image_project = "oracle-linux-cloud"
+machine_type         = "n4-standard-2"
+
+# Disk settings
+# By default, the list below will create /u01 (Oracle Home), /u02 (DATA), and /u03 (RECO), the minimum required for a basic Oracle installation.
+# Feel free to adjust the disk sizes and types to match your requirements.
+# You can add more disks to the list below to create additional disks for ASM or filesystem.
+# fs_disks will be mounted as /u01, /u02, /u03, etc and formatted as XFS
+# Disk type options "pd-balanced", "pd-ssd", "pd-standard", "hyperdisk-extreme"
+boot_disk_type    = "hyperdisk-balanced"
+boot_disk_size_gb    = 50
+
+swap_disk_type    = "hyperdisk-balanced"
+swap_disk_size_gb    = 50
+
+oracle_home_disk = {
+  size_gb = 50
+  type    = "hyperdisk-balanced"
+}
+
+data_disk = {
+  size_gb = 50
+  type    = "hyperdisk-balanced"
+}
+
+reco_disk = {
+  size_gb = 50
+  type    = "hyperdisk-balanced"
+}
+
+# Parameters below are optional
+# A full list of parameters can be found here https://google.github.io/oracle-toolkit/user-guide.html#parameters
+# The example below will install Oracle 19c, using the Oracle software stored in a GCS bucket, and will configure the backup destination to be RECO diskgroup.
+ora_version                = "19"
+ora_release                = "latest"
+ora_edition                = "EE"
+ora_backup_dest            = "/u03/backup"        
+ora_db_name                = "orcl"
+ora_db_container           = false    
+ora_disk_mgmt              = "FS"                
+ntp_pref                   = "169.254.169.254"
+ora_listener_port          = "1521"
+ora_redo_log_size          = "100MB"
+skip_database_config       = false
+install_workload_agent     = true
+oracle_metrics_secret      = ""
+db_password_secret         = ""
+data_guard_protection_mode = "Maximum Availability"

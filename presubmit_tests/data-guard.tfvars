@@ -50,7 +50,8 @@ reco_disk = {
 ora_version = "19"
 ora_release = "latest"
 ora_edition = "EE"
-ora_backup_dest = "+RECO"
+ora_backup_dest = "/u03/backup"
 ora_db_name = "orcl"
 ora_db_container = false
+ora_disk_mgmt = "FS"
 

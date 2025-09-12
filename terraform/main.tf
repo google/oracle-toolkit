@@ -13,38 +13,76 @@
 # limitations under the License.
 
 locals {
-  fs_disks = [
-    {
-      auto_delete  = true
-      device_name  = "oracle_home"
-      disk_size_gb = var.oracle_home_disk.size_gb
-      disk_type    = var.oracle_home_disk.type
-      disk_labels  = { purpose = "software" } # Do not modify this label
-    }
-  ]
-  asm_disks = [
-    {
-      auto_delete  = true
-      device_name  = "data"
-      disk_size_gb = var.data_disk.size_gb
-      disk_type    = var.data_disk.type
-      disk_labels  = { diskgroup = "data", purpose = "asm" }
-    },
-    {
-      auto_delete  = true
-      device_name  = "reco"
-      disk_size_gb = var.reco_disk.size_gb
-      disk_type    = var.reco_disk.type
-      disk_labels  = { diskgroup = "reco", purpose = "asm" }
-    },
-    {
-      auto_delete  = true
-      device_name  = "swap"
-      disk_size_gb = var.swap_disk_size_gb
-      disk_type    = var.swap_disk_type
-      disk_labels  = { purpose = "swap" }
-    }
-  ]
+  # ---- Mode helper
+  is_fs              = upper(var.ora_disk_mgmt) == "FS"
+  ora_disk_mgmt_flag = upper(var.ora_disk_mgmt)
+
+  # ---- Base disk definitions (do not change device_name values)
+  _u01 = {
+    auto_delete  = true
+    device_name  = "oracle_home"
+    disk_size_gb = var.oracle_home_disk.size_gb
+    disk_type    = var.oracle_home_disk.type
+    disk_labels  = { purpose = "software" }
+  }
+
+  # DATA / RECO in ASMUDEV and ASMLIB mode (with disk groups)
+  _data_asm = {
+    auto_delete  = true
+    device_name  = "data"
+    disk_size_gb = var.data_disk.size_gb
+    disk_type    = var.data_disk.type
+    disk_labels  = { diskgroup = "data", purpose = "asm" }
+  }
+  _reco_asm = {
+    auto_delete  = true
+    device_name  = "reco"
+    disk_size_gb = var.reco_disk.size_gb
+    disk_type    = var.reco_disk.type
+    disk_labels  = { diskgroup = "reco", purpose = "asm" }
+  }
+
+  # DATA / RECO in FS mode
+  _data_fs = {
+    auto_delete  = true
+    device_name  = "data"
+    disk_size_gb = var.data_disk.size_gb
+    disk_type    = var.data_disk.type
+    disk_labels  = { purpose = "data" }
+  }
+  _reco_fs = {
+    auto_delete  = true
+    device_name  = "reco"
+    disk_size_gb = var.reco_disk.size_gb
+    disk_type    = var.reco_disk.type
+    disk_labels  = { purpose = "reco" }
+  }
+
+  _swap = {
+    auto_delete  = true
+    device_name  = "swap"
+    disk_size_gb = var.swap_disk_size_gb
+    disk_type    = var.swap_disk_type
+    disk_labels  = { purpose = "swap" }
+  }
+
+  # ---- Build lists based on mode
+  # Filesystem disks (participate in XFS mounts via data_mounts_config)
+  fs_disks = concat(
+    [
+      local._u01
+    ],
+    local.is_fs ? [local._data_fs, local._reco_fs] : []
+  )
+
+  asm_disks = concat(
+    local.is_fs ? [] : [local._data_asm, local._reco_asm],
+    [local._swap]
+  )
+
+  # ---- DBCA destinations
+  data_dest    = local.is_fs ? "/u02/oradata" : "DATA"
+  reco_dest = local.is_fs ? "/u03/fast_recovery_area" : "RECO"
 
   # Takes the list of filesystem disks and converts them into a list of objects with the required fields by ansible
   data_mounts_config = [
@@ -71,30 +109,40 @@ locals {
     }
   ]
 
+  # Metadata
+  disk_metadata = {
+    "ora-disk-mgmt"            = upper(var.ora_disk_mgmt) # "FS" or "ASMUDEV" or "ASMLIB"
+    "ora-data-dest"            = local.data_dest          # "/u02/oradata" or "+DATA"
+    "ora-reco-dest"            = local.reco_dest          # "/u03/fast_recovery_area" or "+RECO"
+    "ora-data-mounts-json"     = jsonencode(local.data_mounts_config)
+    "ora-asm-disk-config-json" = local.is_fs ? "" : jsonencode(local.asm_disk_config)
+  }
+
   # Concatenetes both lists to be passed down to the instance module
   additional_disks = concat(local.fs_disks, local.asm_disks)
 
   project_id = var.project_id
 
-  is_multi_instance = (
-    var.zone1 != "" && var.zone2 != "" && var.subnetwork1 != "" && var.subnetwork2 != ""
-  )
+  subnetwork1_opt = var.subnetwork1 != "" ? var.subnetwork1 : null
+  subnetwork2_opt = var.subnetwork2 != "" ? var.subnetwork2 : null
+
+  is_multi_instance = (var.zone1 != "" && var.zone2 != "")
 
   instances = local.is_multi_instance ? {
     "${var.instance_name}-1" = {
       zone       = var.zone1
-      subnetwork = var.subnetwork1
+      subnetwork = local.subnetwork1_opt
       role       = "primary"
     }
     "${var.instance_name}-2" = {
       zone       = var.zone2
-      subnetwork = var.subnetwork2
+      subnetwork = local.subnetwork2_opt
       role       = "standby"
     }
     } : {
     "${var.instance_name}-1" = {
       zone       = var.zone1
-      subnetwork = var.subnetwork1
+      subnetwork = local.subnetwork1_opt
       role       = "primary"
     }
   }
@@ -117,9 +165,10 @@ resource "google_compute_instance_template" "default" {
   machine_type = var.machine_type
 
   network_interface {
-    # gets overridden during instance creation
-    subnetwork = var.subnetwork1
-  }
+  
+  subnetwork = local.subnetwork1_opt
+  network    = local.subnetwork1_opt == null ? "projects/${var.project_id}/global/networks/default" : null
+}
   disk {
     boot         = true
     auto_delete  = true
@@ -162,7 +211,9 @@ resource "google_compute_instance_from_template" "database_vm" {
   source_instance_template = google_compute_instance_template.default.self_link
 
   network_interface {
-    subnetwork = each.value.subnetwork
+  # Provide one of: subnetwork (preferred) OR default network
+  subnetwork = each.value.subnetwork
+  network    = each.value.subnetwork == null ? "projects/${var.project_id}/global/networks/default" : null
 
     dynamic "access_config" {
       for_each = var.assign_public_ip ? [1] : []
@@ -189,8 +240,12 @@ locals {
 
 locals {
   common_flags = join(" ", compact([
+    local.ora_disk_mgmt_flag != "" ? "--ora-disk-mgmt ${local.ora_disk_mgmt_flag}" : "",
     length(local.asm_disk_config) > 0 ? "--ora-asm-disks-json '${jsonencode(local.asm_disk_config)}'" : "",
     length(local.data_mounts_config) > 0 ? "--ora-data-mounts-json '${jsonencode(local.data_mounts_config)}'" : "",
+    # Keep DBCA destinations aligned with the computed mode
+    "--ora-data-dest ${local.data_dest}",
+    "--ora-reco-dest ${local.reco_dest}",
     "--swap-blk-device /dev/disk/by-id/google-swap",
     var.ora_swlib_bucket != "" ? "--ora-swlib-bucket ${var.ora_swlib_bucket}" : "",
     var.ora_version != "" ? "--ora-version ${var.ora_version}" : "",
@@ -232,8 +287,9 @@ resource "google_compute_instance" "control_node" {
   }
 
   network_interface {
-    subnetwork         = var.subnetwork1
-    subnetwork_project = local.project_id
+  subnetwork         = local.subnetwork1_opt
+  network            = local.subnetwork1_opt == null ? "projects/${var.project_id}/global/networks/default" : null
+  subnetwork_project = local.subnetwork1_opt != null ? local.project_id : null
 
     dynamic "access_config" {
       for_each = var.assign_public_ip ? [1] : []
@@ -244,6 +300,18 @@ resource "google_compute_instance" "control_node" {
   service_account {
     email  = var.control_node_service_account
     scopes = ["cloud-platform"]
+  }
+
+  lifecycle {
+    # FS/ASMUDEV/ASMLIB-specific guard for backup dest
+    precondition {
+      condition = (
+        (local.is_fs && (var.ora_backup_dest == "" || can(regex("^/.*$", var.ora_backup_dest))))
+        ||
+        (!local.is_fs && (var.ora_backup_dest == "" || can(regex("^\\+.*$", var.ora_backup_dest)) || can(regex("^/.*$", var.ora_backup_dest))))
+      )
+      error_message = "FS mode: ora_backup_dest must be an absolute path like '/u03/backup'. ASMUDEV/ASMLIB mode: ora_backup_dest must be an ASMUDEV/ASMLIB diskgroup like '+RECO'."
+    }
   }
 
   metadata_startup_script = templatefile("${path.module}/scripts/setup.sh.tpl", {
@@ -270,3 +338,4 @@ output "database_vm_names" {
   description = "Names of the created database VMs from instance templates"
   value       = [for vm in google_compute_instance_from_template.database_vm : vm.name]
 }
+
