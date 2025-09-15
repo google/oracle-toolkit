@@ -13,7 +13,9 @@ Before using this toolkit, a small number of Google Cloud prerequisites are requ
 - A [Cloud Storage bucket](https://cloud.google.com/storage/docs/buckets) where the required software media can be staged. (Details on the required software can be found in the [Downloading and staging the Oracle Software](user-guide.md#downloading-and-staging-the-oracle-software) section of the main user guide).
 - A [Compute Engine default service account](https://cloud.google.com/compute/docs/access/service-accounts#default_service_account) with the **Storage Object Viewer** (`roles/storage.objectViewer`) role on the Cloud Storage bucket.
 
-Additionally, a VM to act as the Ansible [Control Node](https://docs.ansible.com/ansible/2.9/user_guide/basic_concepts.html#control-node) with the JMESpath and Google Cloud CLI utilities installed, and the toolkit downloaded.
+> **NOTE:** This toolkit allows you to install any addition of Oracle Database including Free edition. When installing Free edition, the storage bucket prerequisites are not mandatory. See the (Oracle Database Free)[#oracle-database-free] section of this document for the quick-start installation command specific to Free edition.
+
+A VM to act as the Ansible [Control Node](https://docs.ansible.com/ansible/2.9/user_guide/basic_concepts.html#control-node) with the JMESpath and Google Cloud CLI utilities installed, and the toolkit downloaded is also required.
 
 For details on creating and configuring the Ansible Control Node see the [Ansible Control Node Provisioning & Setup](compute-vm-user-guide.md#ansible-control-node-provisioning--setup) section of the full [Oracle Toolkit for Google Cloud - Compute Engine VM User Guide](compute-vm-user-guide.md).
 
@@ -136,3 +138,20 @@ bash ./install-oracle.sh \
   --ora-asm-disks-json '[{"diskgroup":"DATA","disks":[{"blk_device":"/dev/disk/by-id/google-oracle-asm-data-1","name":"DATA1"}]},{"diskgroup":"RECO","disks":[{"blk_device":"/dev/disk/by-id/google-oracle-asm-reco-1","name":"RECO1"}]}]' \
   --ora-db-name ORCL
 ```
+
+### Oracle Database Free
+
+Provisioning [Oracle Database Free](https://www.oracle.com/database/free/) edition is even simpler. The installation automatically sources the required RPM files directly from the Oracle website, although you can still download and stage the software if you prefer. Therefore, there's no need to set up or provide the installation script with details of a Google Cloud storage bucket.
+
+Installing the software and setting up an Oracle Database Free database can be as simple as:
+
+```bash
+./install-oracle.sh \
+  --instance-ip-addr ${INSTANCE_IP_ADDR} \
+  --instance-ssh-key "${HOME}/.ssh/id_rsa_oracle_toolkit" \
+  --ora-edition FREE \
+  --ora-data-mounts-json '[{"purpose":"software","blk_device":"/dev/disk/by-id/google-oracle-disk-1","name":"u01","fstype":"xfs","mount_point":"/u01","mount_opts":"nofail"}]' \
+  --backup-dest /u01/app/oracle/fast_recovery_area/FREE
+```
+
+For additional details on Oracle Database Free edition installs see the [Oracle Database Free Edition Specific Details and Changes](user-guide.md#oracle-database-free-edition-specific-details-and-changes) section of the main user guide.

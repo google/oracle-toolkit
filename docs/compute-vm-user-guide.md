@@ -288,6 +288,8 @@ Optionally, add the version you wish to install to the above command using the `
 
 While the toolkit is compatible with GI and ASM, the quickest and easiest start is usually to deploy Free Edition for familiarity with the toolkit and it's operation. Then complement with full EE or SE2 installations.
 
+Free edition installs will, by default, source the required RPM files directly from the Oracle website - it is not mandatory to download and stage the software in advance for this edition.
+
 For example, the simplest command to create a Free Edition database:
 
 ```bash
@@ -295,7 +297,6 @@ bash ./install-oracle.sh \
   --instance-ip-addr ${INSTANCE_IP_ADDR} \
   --instance-ssh-key "${HOME}/.ssh/id_rsa_oracle_toolkit" \
   --ora-edition free \
-  --ora-swlib-bucket gs://${BUCKET_NAME} \
   --ora-data-mounts-json '[{"purpose":"software","blk_device":"/dev/disk/by-id/google-oracle-u01","name":"u01","fstype":"xfs","mount_point":"/u01","mount_opts":"nofail"}]' \
   --backup-dest /opt/oracle/fast_recovery_area/FREE
 ```
