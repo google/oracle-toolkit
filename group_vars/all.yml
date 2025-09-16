@@ -146,7 +146,7 @@ home_name: "{% if free_edition %}dbhomeFree{% else %}dbhome_1{% endif %}"
 oracle_sid: "{% if db_config_type == 'SI' %}{{ db_name }}{% else %}{{ db_name }}{{ instance_num }}{% endif %}"
 asm_sid: "{% if db_config_type == 'SI' %}+ASM{% else %}+ASM{{ instance_num }}{% endif %}"
 run_initial_bu: true
-password_pattern: "^[a-zA-Z0-9@+~*]{1,30}$"
+password_pattern: "^[a-zA-Z0-9@+~*]{8,30}$"
 
 # Installation options:
 create_db: true
