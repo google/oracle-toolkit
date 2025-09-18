@@ -9,7 +9,8 @@ Supports usage with:
 
 ## Quick Start
 
-1. Create a Google Cloud VM to act as a [control node](/docs/user-guide.md#control-node-requirements); it should be on a VPC network that has SSH access to the database hosts.
+1. Create a Google Cloud VM to act as a [control node](/docs/user-guide.md#control-node-requirements); it should be on a VPC network that has SSH access to the database host.
+1. Create a Google Cloud VM to act as the database host. Add aditional disks named u01, data, and reco for oracle_home, database data, and recovery are respectively.
 1. [Extract the toolkit code](/docs/user-guide.md#installing-the-toolkit) on the control node.
 1. Create a Cloud Storage bucket to host Oracle software images.
      ```bash
@@ -17,41 +18,34 @@ Supports usage with:
      ```
 1. [Download software](/docs/user-guide.md#downloading-and-staging-the-oracle-software) from Oracle and populate the bucket. Use [check-swlib.sh](/docs/user-guide.md#validating-media) to determine which files are required for your Oracle version.
 
-1. Create an SSH key, and populate to an Ansible user on each database host.
-1. Create a JSON file `db1_asm.json` with ASM disk devices:
-   ```json
-   [
-     {
-       "diskgroup": "DATA",
-       "disks": [
-         {
-           "name": "DATA_1",
-           "blk_device": "/dev/mapper/3600a098038314352502b4f782f446155"
-         }
-       ]
-     },
-     {
-       "diskgroup": "RECO",
-       "disks": [
-         {
-           "name": "RECO_1",
-           "blk_device": "/dev/mapper/3600a098038314352502b4f782f446162"
-         }
-       ]
-     }
-   ]
-   ```
+1. Create an SSH key, and populate to an Ansible user on the database host.
 1. Create a JSON file `db1_mounts.json` with disk mounts:
    ```json
    [
      {
        "purpose": "software",
-       "blk_device": "/dev/mapper/3600a098038314352502b4f782f446161",
+       "blk_device": "/dev/disk/by-id/google-oracle_home",
        "name": "u01",
        "fstype": "xfs",
        "mount_point": "/u01",
        "mount_opts": "nofail"
-     }
+     },
+     {
+       "purpose": "data",
+       "blk_device": "/dev/disk/by-id/google-data",
+       "name": "u02",
+       "fstype": "xfs",
+       "mount_point": "/u02",
+       "mount_opts": "nofail"
+     },
+     {
+       "purpose": "reco",
+       "blk_device": "/dev/disk/by-id/google-reco",
+       "name": "u03",
+       "fstype": "xfs",
+       "mount_point": "/u03",
+       "mount_opts": "nofail"
+     },
    ]
    ```
 1. Execute `install-oracle.sh`:
@@ -63,11 +57,11 @@ Supports usage with:
    --backup-dest /u01/rman \
    --ora-swlib-path /u01/oracle_install \
    --ora-version 19 \
+   --ora-release latest \
    --ora-swlib-type gcs \
-   --ora-asm-disks db1_asm.json \
    --ora-data-mounts db1_mounts.json \
-   --ora-data-destination DATA \
-   --ora-reco-destination RECO \
+   --ora-data-destination /u02/oradata \
+   --ora-reco-destination /u03/fast_recovery_area \
    --ora-db-name orcl \
    --instance-ip-addr 172.16.1.1
    ```
