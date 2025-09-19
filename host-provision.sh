@@ -87,9 +87,6 @@ echo -e "Running with parameters from command line or environment variables:\n"
 set | grep -E '^(ORA_|INVENTORY_|INSTANCE_)' | grep -v '_PARAM='
 echo
 
-ANSIBLE_PARAMS="-i ${INVENTORY_FILE} ${ANSIBLE_PARAMS}"
-ANSIBLE_EXTRA_PARAMS="${*}"
-
 export ANSIBLE_DISPLAY_SKIPPED_HOSTS=false
 
 ANSIBLE_PLAYBOOK="ansible-playbook"
@@ -103,8 +100,25 @@ fi
 # exit on any error from the following scripts
 set -e
 
+echo "ANSIBLE_PLAYBOOK: $ANSIBLE_PLAYBOOK"
+
 PLAYBOOK="host-provision.yml"
-ANSIBLE_COMMAND="${ANSIBLE_PLAYBOOK} ${ANSIBLE_PARAMS} ${ANSIBLE_EXTRA_PARAMS} ${PLAYBOOK}"
-echo
-echo "Running Ansible playbook: ${ANSIBLE_COMMAND}"
-eval ${ANSIBLE_COMMAND}
+declare -a CMD_ARRAY=()
+CMD_ARRAY+=(${ANSIBLE_PLAYBOOK})
+CMD_ARRAY+=(-i "$INVENTORY_FILE")
+
+if [[ -n "$ANSIBLE_PARAMS" ]]; then
+  echo "Processing ANSIBLE_PARAMS string: [$ANSIBLE_PARAMS]"
+  CMD_ARRAY+=(-e "$ANSIBLE_PARAMS")
+fi
+
+# Add any passthrough arguments from the script command line
+if [[ "$#" -gt 0 ]]; then
+  CMD_ARRAY+=("$@")
+fi
+
+declare -a CMDLINE=("${CMD_ARRAY[@]}")
+CMDLINE+=("${PLAYBOOK}")
+
+printf "Running Ansible playbook: %s\n" "${CMDLINE[*]}"
+"${CMDLINE[@]}"

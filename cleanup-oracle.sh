@@ -249,23 +249,6 @@ echo -e "Running with parameters from command line or environment variables:\n"
 set | grep -E '^(ORA_|INVENTORY_)' | grep -v '_PARAM='
 echo
 
-ANSIBLE_PARAMS="-i ${INVENTORY_FILE}"
-ANSIBLE_EXTRA_PARAMS="${*}"
-
-if [[ -n "${ORA_ASM_DISKS_JSON}" ]]; then
-  ANSIBLE_EXTRA_PARAMS=${ANSIBLE_EXTRA_PARAMS}" -e '{\"asm_disk_input\": ${ORA_ASM_DISKS_JSON}}'"
-fi
-if [[ -n "${ORA_DATA_MOUNTS_JSON}" ]]; then
-  ANSIBLE_EXTRA_PARAMS=${ANSIBLE_EXTRA_PARAMS}" -e '{\"data_mounts_input\": ${ORA_DATA_MOUNTS_JSON}}'"
-fi
-
-echo "Ansible params: ${ANSIBLE_EXTRA_PARAMS}"
-
-if [ $VALIDATE -eq 1 ]; then
-    echo "Exiting because of --validate"
-    exit
-fi
-
 export ANSIBLE_NOCOWS=1
 
 ANSIBLE_PLAYBOOK="ansible-playbook"
@@ -276,14 +259,48 @@ else
     echo "Found Ansible: $(type ansible-playbook)"
 fi
 
+# Initialize command array
+declare -a CMD_ARRAY=()
+
+CMD_ARRAY+=($ANSIBLE_PLAYBOOK)
+CMD_ARRAY+=(-i "$INVENTORY_FILE")
+
+if [[ -n "$ANSIBLE_PARAMS" ]]; then
+  echo "Processing ANSIBLE_PARAMS string: [$ANSIBLE_PARAMS]"
+  CMD_ARRAY+=(-e "$ANSIBLE_PARAMS")
+fi
+
+# Add any passthrough arguments from the script command line
+if [[ "$#" -gt 0 ]]; then
+  CMD_ARRAY+=("$@")
+fi
+
+# Add the JSON arguments. Each part must be a separate array element
+if [[ -n "${ORA_ASM_DISKS_JSON}" ]]; then
+  # The '-e' is one element. The JSON string is the next.
+  CMD_ARRAY+=(-e "{\"asm_disk_input\":${ORA_ASM_DISKS_JSON}}")
+fi
+
+if [[ -n "${ORA_DATA_MOUNTS_JSON}" ]]; then
+  CMD_ARRAY+=(-e "{\"data_mounts_input\":${ORA_DATA_MOUNTS_JSON}}")
+fi
+
+if [ $VALIDATE -eq 1 ]; then
+  echo "Exiting because of --validate"
+  exit
+fi
+
 # exit on any error from the following scripts
 set -e
 
 for PLAYBOOK in brute-cleanup.yml; do
-    ANSIBLE_COMMAND="${ANSIBLE_PLAYBOOK} ${ANSIBLE_PARAMS} ${ANSIBLE_EXTRA_PARAMS} ${PLAYBOOK}"
-    echo
-    echo "Running Ansible playbook: ${ANSIBLE_COMMAND}"
-    eval "${ANSIBLE_COMMAND}"
+  # Create a temporary array for this specific run by copying the base array
+  declare -a CMDLINE=("${CMD_ARRAY[@]}")
+  CMDLINE+=("${PLAYBOOK}")
+
+  printf "Running Ansible playbook: %s\n" "${CMDLINE[*]}"
+
+  "${CMDLINE[@]}"
 done
 
 exit 0
