@@ -1,0 +1,144 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+kernel_version_full: "{{ (lookup('env', 'PB_KERNEL_VERSION') | trim) or ansible_kernel }}"
+
+# -- Oracle Version Variables (Set in your playbook or other variable files) --
+# The following variable are required, and are set earlier in this playbook.
+# As they are derived from existing variables, they are place just below those variables.
+# For example, in a host_vars file or via command line:
+#
+# oracle_major_ver is the first part of the version string (e.g., "19" from "19.3.0")
+# oracle_ru_ver is the full version, including the Release Update (RU) (e.g., "19.3.0")
+#
+# Explicitly set these variable for testing if necessary:
+# oracle_major_ver: "19"
+# oracle_ru_ver: "19.3.0"
+
+# -- Comprehensive Oracle/Linux Compatibility Matrix --
+# This matrix defines the minimum and maximum requirements for Oracle Grid/RDBMS installations.
+# The `supported: false` flag indicates an incompatible combination.
+# The `max_linux_release` prevents installation on newer, unsupported OS versions.
+# The structure is organized by Oracle version, Linux version, and includes minimum requirements for each combination, if supported.
+oracle_compatibility_matrix:
+  "11":
+    "7":
+      supported: true
+      min_linux_release: "7.0"
+      max_linux_release: "7.9"
+      min_db_ru: "11.2.0.4"
+      min_kernel:
+        rh: "3.10.0-123.el7"
+        uek: "3.8.13-35.el7uek"
+    "8":
+      supported: false # Only RDBMS is supported with 19c GI, not a standalone 11.2 GI.
+    "9":
+      supported: false
+  "12.1":
+    "7":
+      supported: true
+      min_linux_release: "7.0"
+      max_linux_release: "7.9"
+      min_db_ru: "12.1.0.1"
+      min_kernel:
+        rh: "3.10.0-123.el7.x86_64"
+        uek: "4.1.12-61.el7uek.x86_64"
+    "8":
+      supported: false
+    "9":
+      supported: false
+  "12.2":
+    "7":
+      supported: true
+      min_linux_release: "7.0"
+      max_linux_release: "7.9"
+      min_db_ru: "12.2.0.1"
+      min_kernel:
+        rh: "3.10.0-547.el7"
+        uek: "4.1.12-32.el7uek"
+    "8":
+      supported: false # Only RDBMS is supported with 19c GI, not a standalone 12.2 GI.
+    "9":
+      supported: false
+  "18":
+    "7":
+      supported: true
+      min_linux_release: "7.0"
+      max_linux_release: "7.9"
+      min_db_ru: "18.1.0.0"
+      min_kernel:
+        rh: "3.10.0-693.el7"
+        uek: "4.14.35.el7uek"
+    "8":
+      supported: false
+    "9":
+      supported: false
+  "19":
+    "7":
+      supported: true
+      min_linux_release: "7.0"
+      max_linux_release: "7.9"
+      min_db_ru: "19.3.0.0"
+      min_kernel:
+        rh: "3.10.0-862.11.6.el7"
+        uek: "4.14.35.el7uek"
+    "8":
+      supported: true
+      min_linux_release: "8.0"
+      max_linux_release: "8.10"
+      min_db_ru: "19.3.0.0"
+      min_kernel:
+        rh: "4.18.0-80.el8"
+        uek: "4.14.35.el8uek"
+    "9":
+      supported: true
+      min_linux_release: "9.0"
+      max_linux_release: "9.6"
+      # The minimum RU for RHEL/OL 9 compatibility is 19.19.0.
+      min_db_ru: "19.19.0.0"
+      min_kernel:
+        rh: "5.14.0-70.22.1.0.2.el9"
+        uek: "5.15.0-1.43.4.2.el9uek"
+  "21":
+    "7":
+      supported: false
+    "8":
+      supported: true
+      min_linux_release: "8.0"
+      max_linux_release: "8.10"
+      min_db_ru: "21.3.0.0"
+      min_kernel:
+        rh: "4.18.0-305.el8"
+        uek: "5.4.17.el8uek"
+    "9":
+      supported: false # Oracle 21 support on Linux 9 is not available at this time.
+  "23":
+    "7":
+      supported: false
+    "8":
+      supported: true
+      min_linux_release: "8.0"
+      max_linux_release: "8.10"
+      min_db_ru: "23.0.0.0"  # using 23.0.0.0 as is set by roles/common/tasks/populate-vars.yml
+      min_kernel:
+        rh: "4.18.0-372.26.1.el8"
+        uek: "5.15.0-202.135.2.el8uek"
+    "9":
+      supported: true
+      min_linux_release: "9.0"
+      max_linux_release: "9.6"
+      min_db_ru: "23.0.0.0"
+      min_kernel:
+        rh: "5.14.0-284.30.1.el9"
+        uek: "5.15.0-201.135.6.el9uek"
