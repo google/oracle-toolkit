@@ -1,0 +1,74 @@
+#!/bin/bash
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+while IFS=':' read -r ORACLE_SID ORACLE_HOME AUTOSTART_FLAG; do
+    if [[ "$AUTOSTART_FLAG" =~ [Yy] ]]; then
+        PATH_SAVE="$PATH"
+        LD_LIBRARY_PATH_SAVE="$LD_LIBRARY_PATH"
+        export ORACLE_SID ORACLE_HOME
+        export PATH="$ORACLE_HOME/bin:$PATH"
+        export LD_LIBRARY_PATH="$ORACLE_HOME/lib:$LD_LIBRARY_PATH"
+        if ! pgrep -f "tnslsnr.*{{ listener_name }}" ; then
+            echo "Starting listener {{ listener_name }}"
+            "$ORACLE_HOME"/bin/lsnrctl start {{ listener_name }}
+        fi
+        if ! pgrep -f "ora_smon_$ORACLE_SID" ; then
+            # startup is in separate sqlplus calls due to dbms_output not working correctly
+            echo "Starting Oracle instance $ORACLE_SID"
+            sqlplus -S / as sysdba <<EOF
+WHENEVER OSERROR EXIT FAILURE
+WHENEVER SQLERROR EXIT FAILURE
+STARTUP MOUNT;
+EXIT;
+EOF
+            if [ $? -ne 0 ]; then
+                echo "ERROR: Failed to mount $ORACLE_SID"
+            else
+                IFS="," read -r db_role db_mode <<<"$(sqlplus -S / as sysdba <<EOF
+SET PAGES 0 FEED OFF VERIFY OFF HEADING OFF ECHO OFF COLSEP , TRIMSPOOL ON TAB OFF
+SELECT database_role, open_mode FROM v\$database;
+EXIT;
+EOF
+)"
+                if [[ "$db_role" =~ "PRIMARY" ]]; then
+                    echo "Current role is PRIMARY."
+                    if [[ "$db_mode" != "READ WRITE" ]]; then
+                        echo "Opening database."
+                        sqlplus -S / as sysdba <<EOF
+WHENEVER OSERROR EXIT FAILURE
+WHENEVER SQLERROR EXIT FAILURE
+SET PAGES 0 FEED OFF VERIFY OFF HEADING OFF ECHO OFF
+ALTER DATABASE OPEN;
+EXIT;
+EOF
+                    else
+                        echo "Database is already open."
+                    fi
+                elif [[ "$db_role" =~ "PHYSICAL STANDBY" ]]; then
+                    echo "Current role is PHYSICAL STANDBY. Starting managed recovery."
+                    sqlplus -S / as sysdba <<EOF
+ALTER DATABASE RECOVER MANAGED STANDBY DATABASE DISCONNECT FROM SESSION;
+EXIT;
+EOF
+                else
+                    echo "Unrecognized database role: $db_role. Database will remain in MOUNT mode."
+                fi
+            fi
+        fi
+        PATH="$PATH_SAVE"
+        LD_LIBRARY_PATH="$LD_LIBRARY_PATH_SAVE"
+        export PATH LD_LIBRARY_PATH
+    fi
+done < <(sed 's/#.*//; /^[[:space:]]*$/d' /etc/oratab)

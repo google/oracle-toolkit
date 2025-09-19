@@ -275,6 +275,7 @@
     - "/etc/systemd/system/graphical.target.wants/oracle-ohasd.service"
     - "/etc/systemd/system/multi-user.target.wants/oracle-ohasd.service"
     - "/etc/systemd/system/multi-user.target.wants/oracleasm.service"
+    - "/lib/systemd/system/dbora.service"
     - "/opt/oracle.ahf"
     - "/var/log/oracleasm"
     - "/var/log/oracleohasd"

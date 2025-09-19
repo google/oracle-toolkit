@@ -96,6 +96,14 @@
       when: cluster_type == "DG"
       tags: dg-create,dg-mode
 
+    - include_role:
+        name: db-start
+      when:
+        - cluster_type != "RAC"
+        - ora_disk_management == "fs"
+        - not free_edition
+      tags: db-start
+
 - name: Get and Log Oracle DBID
   hosts: dbasm
   remote_user: "{{ oracle_user }}"
