@@ -1,0 +1,67 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- name: Ensure scripts directory is present
+  file:
+    path: "{{ scripts_dir }}"
+    state: directory
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
+    mode: u=wrx,go=
+  tags: db-start
+
+- name: Copy startup and shutdown scripts to target server
+  become: true
+  become_user: "{{ oracle_user }}"
+  template:
+    src: "{{ item }}.j2"
+    dest: "{{ scripts_dir }}/{{ item }}"
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
+    mode: u=wrx,go=
+  with_items:
+    - "start_all.sh"
+    - "stop_all.sh"
+    - "dbstart_func.sh"
+  tags: db-start
+
+- name: Set up automatic Oracle database stop and start services
+  become: true
+  block:
+    - name: Ensure autostart in oratab
+      lineinfile:
+        path: /etc/oratab
+        regexp: '^{{ oracle_sid }}\:([^:]+)\:N'
+        line: '{{ oracle_sid }}:\1:Y'
+        backrefs: true
+        backup: true
+
+    - name: Copy dbora.service definition to target server
+      template:
+        src: "dbora.service.j2"
+        dest: "/lib/systemd/system/dbora.service"
+        owner: root
+        group: root
+        mode: u=wr,g=r,o=r
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: true
+
+    - name: Enable automatic stop and start of Oracle instance
+      systemd:
+        name: dbora.service
+        enabled: true
+  tags: db-start

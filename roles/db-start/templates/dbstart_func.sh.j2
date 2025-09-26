@@ -1,0 +1,200 @@
+#!/bin/bash
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+LOG_FILE="{{ logs_dir }}/dbora.service.log"
+mkdir -p "$(dirname "${LOG_FILE}")"
+DATE_FORMAT="+%Y-%m-%d %H:%M:%S"
+
+log() {
+    local level=$1
+    local message=$2
+    printf "[%s] [%s] %s\n" "$(date "${DATE_FORMAT}")" "${level}" "${message}" | tee -a "${LOG_FILE}" >&2
+}
+
+run_sql() {
+    local sql_command="$1"
+    local output
+
+    if [[ -z "${ORACLE_HOME}" ]]; then
+        log "ERROR" "ORACLE_HOME is not set."
+        return 1
+    fi
+
+    output="$("${ORACLE_HOME}"/bin/sqlplus -S / as sysdba <<EOF
+        SET PAGES 0 LINESIZE 200 FEED OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF TRIMSPOOL ON
+        WHENEVER SQLERROR EXIT 1
+        WHENEVER OSERROR EXIT 1
+        ${sql_command}
+        EXIT 0
+EOF
+    )"
+    if [[ $? -ne 0 ]]; then
+        log "ERROR" "SQL execution failed: ${sql_command}. Output: ${output}"
+        return 1
+    fi
+    # Trim whitespace and return the output
+    if [[ "${output}" =~ [^[:space:]] ]]; then
+        echo "${output}" | xargs
+    fi
+    return 0
+}
+
+get_db_status() {
+    local status
+    status=$(run_sql "SELECT open_mode || '|' || database_role FROM v\$database;")
+    if [[ $? -eq 0 && -n "${status}" ]]; then
+        echo "${status}"
+    else
+        echo "DOWN|UNKNOWN" # DB is not reachable/down
+    fi
+}
+
+start_listener() {
+    local lsnr="$1"
+    if ! command -v "${ORACLE_HOME}/bin/lsnrctl" &> /dev/null; then
+        log "ERROR" "lsnrctl command not found. Ensure ORACLE_HOME is correctly set and exported."
+        return 1
+    fi
+
+    local status_output
+    status_output="$("${ORACLE_HOME}"/bin/lsnrctl status "${lsnr}" 2>&1)"
+    local exit_code=$?
+
+    if [[ ${exit_code} -eq 0 && "${status_output}" =~ "The listener supports no services" ]]; then
+        log "INFO" "Listener is running, but no services registered. Skipping."
+        return 0
+    elif [[ ${exit_code} -eq 0 ]]; then
+        log "INFO" "Listener is already running and serving services. Skipping."
+        return 0
+    fi
+
+    log "INFO" "Listener is not running. Starting listener ${lsnr}..."
+    "${ORACLE_HOME}"/bin/lsnrctl start "${lsnr}" || {
+        log "FATAL" "Failed to start the listener."
+        return 1
+    }
+    log "SUCCESS" "Listener started."
+    return 0
+}
+
+stop_listener() {
+    local lsnr="$1"
+    if pgrep -f "tnslsnr.*${lsnr}" ; then
+        log "INFO" "Stopping listener ${lsnr}"
+        "$ORACLE_HOME"/bin/lsnrctl stop "${lsnr}" || {
+            log "FATAL" "Failed to stop the listener."
+            return 1
+        }
+    fi
+    return 0
+}
+
+startup_db() {
+    local current_status
+    local open_mode
+    local db_role
+    local final_command=""
+
+    if ! pgrep -f "[ora|db]_smon_$ORACLE_SID" ; then
+        log "INFO" "${ORACLE_SID}: Attempting initial STARTUP MOUNT..."
+        run_sql "STARTUP MOUNT;" || {
+            log "FATAL" "${ORACLE_SID}: Failed to STARTUP MOUNT."
+            return 2
+        }
+    fi
+
+    current_status=$(get_db_status)
+    open_mode=$(echo "${current_status}" | cut -d'|' -f1)
+    db_role=$(echo "${current_status}" | cut -d'|' -f2)
+    log "INFO" "${ORACLE_SID}: Successfully mounted. Identified role: ${db_role}."
+
+    case "${db_role}" in
+        PRIMARY)
+            if [[ "${open_mode}" != "READ WRITE" ]]; then
+                final_command="ALTER DATABASE OPEN;"
+                log "INFO" "${ORACLE_SID}: Primary role detected. Opening database for READ WRITE."
+            else
+                log "INFO" "${ORACLE_SID}: Already open."
+            fi
+            ;;
+        PHYSICAL\ STANDBY)
+            log "INFO" "${ORACLE_SID}: Standby role detected. Starting recovery."
+            if ! run_sql "ALTER DATABASE RECOVER MANAGED STANDBY DATABASE DISCONNECT FROM SESSION;" ; then
+                log "ERROR" "Couldn't start automatic recovery"
+                return 3
+                # Check for ADG flag
+            elif [[ -f "${ORACLE_HOME}/dbs/${ORACLE_SID}.adg" ]] ; then
+                final_command='ALTER DATABASE OPEN READ ONLY;'
+                log "INFO" "${ORACLE_SID}: Active Data Guard flag found. Opening READ ONLY."
+            fi
+            ;;
+        *)
+            log "WARN" "${ORACLE_SID}: Unknown database role (${db_role}). Leaving in MOUNTED state."
+            return 0
+            ;;
+    esac
+
+    log "INFO" "${ORACLE_SID}: Executing final command: ${final_command}"
+    run_sql "${final_command}" || {
+        log "FATAL" "${ORACLE_SID}: Failed to execute final role command."
+        return 4
+    }
+
+    log "SUCCESS" "${ORACLE_SID}: Database started successfully."
+    return 0
+}
+
+shutdown_db() {
+    local current_status
+    local open_mode
+    local db_role
+    local stop_command=""
+
+    current_status="$(get_db_status)"
+    open_mode=$(echo "${current_status}" | cut -d'|' -f1)
+    db_role=$(echo "${current_status}" | cut -d'|' -f2)
+    log "INFO" "${ORACLE_SID}: Current status is ${open_mode} / ${db_role}."
+
+    if [[ "${open_mode}" == "DOWN" ]]; then
+        log "INFO" "${ORACLE_SID} is already down. Skipping shutdown."
+        return 0
+    fi
+    case "${db_role}" in
+        PRIMARY)
+            stop_command="SHUTDOWN IMMEDIATE;"
+            log "INFO" "${ORACLE_SID}: Primary role detected. Shutting down."
+            ;;
+        PHYSICAL\ STANDBY)
+            if run_sql "ALTER DATABASE RECOVER MANAGED STANDBY DATABASE CANCEL;" ; then
+                log "INFO" "${ORACLE_SID}: Automatic recovery is stopped."
+            fi
+            # to avoid ORA-01109: database not open
+            stop_command='SHUTDOWN ABORT;'
+            ;;
+        *)
+            log "WARN" "${ORACLE_SID}: Unknown database role (${db_role}). Skipping shutdown."
+            return 0
+            ;;
+    esac
+
+    log "INFO" "${ORACLE_SID}: Executing stop command: ${stop_command}"
+    run_sql "${stop_command}" || {
+        log "FATAL" "${ORACLE_SID}: Failed to execute stop command."
+        return 2
+    }
+
+    log "SUCCESS" "${ORACLE_SID}: Database shut down successfully."
+    return 0
+}
