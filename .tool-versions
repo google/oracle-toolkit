@@ -1,0 +1,6 @@
+# This file pins the required versions of runtime dependencies for the oracle-toolkit.
+# It is used by the build script to generate an accurate SBOM and ensures a
+# consistent environment for developers.
+
+ansible 2.16.5
+python 3.9.2
