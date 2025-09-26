@@ -1,0 +1,62 @@
+---
+# Disk space check role - main orchestration
+
+# Load common role defaults as a fallback (handles include_role without meta deps on 2.9)
+- name: Load common defaults (fallback)
+  include_vars:
+    dir: "{{ role_path }}/../common/defaults"
+  when:
+    - oracle_base is not defined or oracle_home is not defined or grid_home is not defined
+  tags: disk_space_check
+
+# Load disk space requirements from vars directory
+- name: Load disk space requirements
+  include_vars: "{{ role_path }}/vars/requirements.yml"
+  when: disk_space_requirements is not defined
+  tags: disk_space_check
+
+- name: Validate required variables for check type
+  assert:
+    that:
+      - oracle_ver is defined
+      - (disk_check_type != 'oracle_home') or (oracle_home is defined and oracle_base is defined)
+      - (disk_check_type != 'gi') or (grid_home is defined and oracle_base is defined)
+      - (disk_check_type != 'rac') or (grid_home is defined and oracle_home is defined)
+      - (disk_check_type != 'patch') or (grid_home is defined or oracle_home is defined)
+      - (disk_check_type != 'db') or ((ora_disk_management | default('fs') | lower) != 'fs') or (oracle_home is defined)
+    fail_msg: >-
+      Missing required variables for disk_check_type {{ disk_check_type }}. Ensure 'common' defaults are loaded
+      (role dependency) or include roles/common/defaults via include_vars.
+  when:
+    - disk_check_type is defined
+    - disk_check_type in ['oracle_home', 'gi', 'rac', 'patch', 'db']
+  tags: disk_space_check
+
+- name: Validate disk space for component
+  include_tasks: check_path.yml
+  vars:
+    check_path: "{{ requirement.path }}"
+    required_mb: "{{ requirement.mb }}"
+    check_description: "{{ requirement.desc }}"
+  loop: "{{ disk_space_requirements[disk_check_type] | default([]) }}"
+  loop_control:
+    loop_var: requirement
+  when:
+    - disk_check_type is defined
+    - disk_space_requirements is defined
+    - disk_space_requirements[disk_check_type] is defined
+    - (disk_check_type != 'db') or ((ora_disk_management | default('fs') | lower) == 'fs')
+    - (disk_check_type != 'db') or (oracle_home is defined)
+    - requirement.when | default(true) | bool
+  tags: disk_space_check
+
+- name: Validate specific path if provided
+  include_tasks: check_path.yml
+  vars:
+    check_path: "{{ disk_check_path }}"
+    required_mb: "{{ disk_check_required_mb | default(disk_space_minimum_mb | default(1024)) }}"
+    check_description: "{{ disk_check_description | default('custom path') }}"
+  when:
+    - disk_check_path is defined
+    - disk_check_type is not defined
+  tags: disk_space_check
