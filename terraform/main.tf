@@ -13,11 +13,11 @@
 # limitations under the License.
 
 locals {
-  # ---- Mode helper
+  # Mode helper
   is_fs              = upper(var.ora_disk_mgmt) == "FS"
   ora_disk_mgmt_flag = upper(var.ora_disk_mgmt)
 
-  # ---- Base disk definitions (do not change device_name values)
+  # Base disk definitions (do not change device_name values)
   _u01 = {
     auto_delete  = true
     device_name  = "oracle_home"
@@ -66,7 +66,7 @@ locals {
     disk_labels  = { purpose = "swap" }
   }
 
-  # ---- Build lists based on mode
+  # Build lists based on mode
   # Filesystem disks (participate in XFS mounts via data_mounts_config)
   fs_disks = concat(
     [
@@ -80,7 +80,7 @@ locals {
     [local._swap]
   )
 
-  # ---- DBCA destinations
+  # DBCA destinations
   data_dest    = local.is_fs ? "/u02/oradata" : "DATA"
   reco_dest = local.is_fs ? "/u03/fast_recovery_area" : "RECO"
 
@@ -251,6 +251,7 @@ locals {
     var.ora_version != "" ? "--ora-version ${var.ora_version}" : "",
     var.ora_backup_dest != "" ? "--backup-dest ${var.ora_backup_dest}" : "",
     var.ora_db_name != "" ? "--ora-db-name ${var.ora_db_name}" : "",
+    var.ora_db_domain != "" ? "--ora-db-domain ${var.ora_db_domain}" : "",
     var.ora_db_container != "" ? "--ora-db-container ${var.ora_db_container}" : "",
     var.ntp_pref != "" ? "--ntp-pref ${var.ntp_pref}" : "",
     var.ora_release != "" ? "--ora-release ${var.ora_release}" : "",

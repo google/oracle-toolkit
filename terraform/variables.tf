@@ -87,12 +87,23 @@ variable "ora_db_container" {
 variable "ora_db_name" {
   type        = string
   default     = ""
-  description = "Database name, must be up to 8 characters."
+  description = "The Oracle database name. Must be empty or 1-8 characters, using only letters, numbers, or underscores."
   validation {
     condition     = var.ora_db_name == "" || can(regex("^[a-zA-Z0-9_]{1,8}$", var.ora_db_name))
-    error_message = "Invalid DB name. It must be 1-8 alphanumeric characters or underscores."
+    error_message = "The ora_db_name must be empty or contain only letters, numbers, and underscores and be between 1 and 8 characters long."
   }
 }
+
+variable "ora_db_domain" {
+  type        = string
+  default     = ""
+  description = "The Oracle database domain name. Must be empty or 1-128 characters long, using only letters, or numbers."
+  validation {
+    condition     = var.ora_db_domain == "" || can(regex("^[a-zA-Z0-9]{1,128}$", var.ora_db_domain))
+    error_message = "The ora_db_domain must be empty or contain only letters and numbers, and be between 1 and 128 characters long."
+  }
+}
+
 
 variable "ora_edition" {
   type        = string
@@ -357,4 +368,3 @@ variable "ora_disk_mgmt" {
     error_message = "Enter FS (XFS) or ASMUDEV or ASMLIB."
   }
 }
-
