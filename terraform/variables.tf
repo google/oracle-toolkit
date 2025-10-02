@@ -99,8 +99,8 @@ variable "ora_db_domain" {
   default     = ""
   description = "The Oracle database domain name. Must be empty or 1-128 characters long, using only letters, or numbers."
   validation {
-    condition     = var.ora_db_domain == "" || can(regex("^[A-Za-z][A-Za-z0-9._]{0,127}$", var.ora_db_domain))
-    error_message = "The ora_db_domain must be empty or start with a letter and may only contain letters, digits, underscores, and periods, and be between 1 and 128 characters long."
+    condition     = var.ora_db_domain == "" || can(regex("^[A-Za-z][A-Za-z0-9._-]{0,127}$", var.ora_db_domain))
+    error_message = "The ora_db_domain must be empty or start with a letter and may only contain letters, digits, underscores, hyphens, periods, and be between 1 and 128 characters long."
   }
 }
 
