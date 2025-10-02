@@ -52,6 +52,7 @@ ora_release = "latest"
 ora_edition = "EE"
 ora_backup_dest = "/u03/backup"
 ora_db_name = "orcl"
+ora_db_domain = "test2.example_domain01.com"
 ora_db_container = false
 ora_disk_mgmt = "FS"
 

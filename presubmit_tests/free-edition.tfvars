@@ -50,5 +50,6 @@ ora_release = ""
 ora_edition = "FREE"
 ora_backup_dest = "/u01"
 ora_db_name = "orcl"
+ora_db_domain = "test1.example_domain01.com"
 ora_db_container = true
 
