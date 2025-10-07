@@ -18,11 +18,17 @@
     oracle_rel: "{{ found_rel | trim }}"
   vars:
     found_rel: >-
+      {% set base_release = (gi_patches | selectattr('base', 'equalto', oracle_ver) | list | first | default({})).base | default('') %}
+      {% set latest_release = (gi_patches | selectattr('base', 'equalto', oracle_ver) | list | last | default({})).release | default('base') %}
+      {% set matched_patch = gi_patches | selectattr('base', 'equalto', oracle_ver) | selectattr('release', 'equalto', oracle_rel) | list | first %}
       {% if oracle_rel == "latest" %}
-        {{ (gi_patches | selectattr('base', 'equalto', oracle_ver) | list | last | default({})).release | default('base') }}
+        {{ latest_release }}
+      {% elif oracle_rel == base_release %}
+        base
+      {% elif matched_patch is defined %}
+        {{ matched_patch.release }}
       {% else %}
-        {% set matched_patch = gi_patches | selectattr('base', 'equalto', oracle_ver) | selectattr('release', 'equalto', oracle_rel) | list | first %}
-        {{ matched_patch.release | default((gi_patches | selectattr('base', 'equalto', oracle_ver) | list | last | default({})).release) if matched_patch is defined else (gi_patches | selectattr('base', 'equalto', oracle_ver) | list | last | default({})).release }}
+        {{ latest_release }}
       {% endif %}
   when:
     - not free_edition
