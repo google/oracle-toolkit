@@ -23,7 +23,7 @@ echo
 # Some variables
 #
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
-skip_compatible_rdbms="false"
+INSTALL_WORKLOAD_AGENT="${INSTALL_WORKLOAD_AGENT:-true}"
 #
 # Playbooks
 #
@@ -53,7 +53,7 @@ done
 #
 INVENTORY_DIR="./inventory_files"           # Where to save the inventory files
 INVENTORY_FILE="${INVENTORY_DIR}/inventory" # Default, the whole name will be built later using some parameters
-INSTANCE_HOSTGROUP_NAME="dbasm"             # Constant used for both SI and RAC installations
+DBASM_GROUP="${INSTANCE_HOSTGROUP_NAME:-dbasm}"         # Constant used for both SI and RAC installations
 #
 if [[ ! -d "${INVENTORY_DIR}" ]]; then
   mkdir -p "${INVENTORY_DIR}"
@@ -271,7 +271,6 @@ DATA_GUARD_PROTECTION_MODE="${DATA_GUARD_PROTECTION_MODE}"
 DATA_GUARD_PROTECTION_MODE_PARAM="^(Maximum\ Performance|Maximum\ Availability|Maximum\ Protection)$"
 
 SKIP_PLATFORM_COMPATIBILITY="${SKIP_PLATFORM_COMPATIBILITY:-0}"
-
 export ANSIBLE_DISPLAY_SKIPPED_HOSTS=false
 ###
 GETOPT_MANDATORY="ora-swlib-bucket:"
@@ -285,7 +284,7 @@ GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-pga-target-mb:,ora-sga-target-mb:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,backup-redundancy:,archive-redundancy:,archive-online-days:,backup-level0-days:,backup-level1-days:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,backup-start-hour:,backup-start-min:,archive-backup-min:,backup-script-location:,backup-log-location:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-swlib-type:,ora-swlib-path:,ora-swlib-credentials:,instance-ip-addr:,primary-ip-addr:,instance-ssh-user:"
-GETOPT_OPTIONAL="$GETOPT_OPTIONAL,instance-ssh-key:,instance-hostname:,ntp-pref:,inventory-file:,compatible-rdbms:,instance-ssh-extra-args:"
+GETOPT_OPTIONAL="$GETOPT_OPTIONAL,instance-ssh-key:,instance-hostname:,ntp-pref:,inventory-file:,compatible-rdbms:,instance-ssh-extra-args:,nodes-json:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,help,validate,check-instance,prep-host,install-sw,config-db,debug,allow-install-on-vm,skip-database-config,swap-blk-device:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,install-workload-agent,oracle-metrics-secret:,db-password-secret:,data-guard-protection-mode:,skip-platform-compatibility"
 GETOPT_LONG="$GETOPT_MANDATORY,$GETOPT_OPTIONAL"
@@ -424,7 +423,7 @@ while true; do
     shift
     ;;
   --ora-db-container)
-    ORA_DB_CONTAINER="$2"
+    ORA_DB_CONTAINER="$(echo "$2" | tr '[:lower:]' '[:upper:]')"
     shift
     ;;
   --ora-db-type)
@@ -539,6 +538,10 @@ while true; do
     INSTANCE_SSH_EXTRA_ARGS="$2"
     shift
     ;;
+  --nodes-json)
+    NODES_JSON="$2"
+    shift
+    ;;
   --ntp-pref)
     NTP_PREF="$2"
     shift
@@ -617,7 +620,8 @@ if [[ -n "${PARAM_PB_LIST}" ]]; then
 fi
 #
 # Parameter defaults
-#
+# (normalize hostgroup in case presubmit/env sets it empty)
+INSTANCE_HOSTGROUP_NAME="${INSTANCE_HOSTGROUP_NAME:-dbasm}"
 INSTANCE_HOSTNAME="${INSTANCE_HOSTNAME:-$INSTANCE_IP_ADDR}"
 ORA_STAGING="${ORA_STAGING:-$ORA_SWLIB_PATH}"
 [[ "$COMPATIBLE_RDBMS" == "0" ]] && {
@@ -832,22 +836,24 @@ ORA_STAGING="${ORA_STAGING:-$ORA_SWLIB_PATH}"
   echo "Incorrect parameter provided for backup-start-min: $BACKUP_LOG_LOCATION"
   exit 1
 }
-[[ ! "$INSTANCE_IP_ADDR" =~ ${INSTANCE_IP_ADDR_PARAM} ]] && [[ "$CLUSTER_TYPE" != "RAC" ]] && {
-  echo "Incorrect parameter provided for instance-ip-addr: $INSTANCE_IP_ADDR"
-  exit 1
-}
-[[ "$INSTANCE_IP_ADDR" == "$PRIMARY_IP_ADDR" ]] && [[ "$CLUSTER_TYPE" != "RAC" ]] && {
-  echo "ERROR: Both instance-ip-addr and primary-ip-addr are set to: $INSTANCE_IP_ADDR"
-  exit 1
-}
-[[ ! "$PRIMARY_IP_ADDR" =~ ${PRIMARY_IP_ADDR_PARAM} ]] && [[ "$CLUSTER_TYPE" == "DG" ]] && {
-  echo "Incorrect parameter provided for primary-ip-addr: $PRIMARY_IP_ADDR"
-  exit 1
-}
-[[ -n "$PRIMARY_IP_ADDR" ]] && [[ "$CLUSTER_TYPE" != "DG" ]] && {
-  echo "Parameter cluster-type: $CLUSTER_TYPE, but primary-ip-addr should only be used with cluster-type: DG"
-  exit 1
-}
+if [[ -z "${NODES_JSON}" ]]; then
+  [[ ! "$INSTANCE_IP_ADDR" =~ ${INSTANCE_IP_ADDR_PARAM} ]] && [[ "$CLUSTER_TYPE" != "RAC" ]] && {
+    echo "Incorrect parameter provided for instance-ip-addr: $INSTANCE_IP_ADDR"
+    exit 1
+  }
+  [[ "$INSTANCE_IP_ADDR" == "$PRIMARY_IP_ADDR" ]] && [[ "$CLUSTER_TYPE" != "RAC" ]] && {
+    echo "ERROR: Both instance-ip-addr and primary-ip-addr are set to: $INSTANCE_IP_ADDR"
+    exit 1
+  }
+  [[ ! "$PRIMARY_IP_ADDR" =~ ${PRIMARY_IP_ADDR_PARAM} ]] && [[ "$CLUSTER_TYPE" == "DG" ]] && {
+    echo "Incorrect parameter provided for primary-ip-addr: $PRIMARY_IP_ADDR"
+    exit 1
+  }
+  [[ -n "$PRIMARY_IP_ADDR" ]] && [[ "$CLUSTER_TYPE" != "DG" ]] && {
+    echo "Parameter cluster-type: $CLUSTER_TYPE, but primary-ip-addr should only be used with cluster-type: DG"
+    exit 1
+  }
+fi
 [[ ! "$INSTANCE_SSH_USER" =~ $INSTANCE_SSH_USER_PARAM ]] && {
   echo "Incorrect parameter provided for instance-ssh-user: $INSTANCE_SSH_USER"
   exit 1
@@ -898,7 +904,9 @@ if [ "${ORA_EDITION}" = "FREE" ]; then
   ORA_DISK_MGMT=FS
   ORA_ROLE_SEPARATION=FALSE
   ORA_DB_CONTAINER=TRUE
-  ORA_VERSION="23.0.0.0.0"
+  if [[ ! "${ORA_VERSION}" =~ ^23\. ]]; then
+    ORA_VERSION="23.0.0.0.0"
+  fi
   [[ ! "${ORA_DATA_DESTINATION}" =~ ^(/([^/]+))*/?$ ]] && ORA_DATA_DESTINATION="/u02/oradata" || true
   [[ ! "${ORA_RECO_DESTINATION}" =~ ^(/([^/]+))*/?$ ]] && ORA_RECO_DESTINATION="/opt/oracle/fast_recovery_area" || true
   if (( ORA_PDB_COUNT > 16 )); then
@@ -931,26 +939,29 @@ if [[ "${skip_compatible_rdbms}" != "true" ]]; then
 fi
 
 # Mandatory options
-if [[ ! -f "$ORA_DATA_MOUNTS" && -z "$ORA_DATA_MOUNTS_JSON" ]]; then
-  echo "Please specify --ora-data-mounts or --ora-data-mounts-json"
-  exit 2
+if [[ -z "${NODES_JSON}" ]]; then
+  if [[ ! -f "$ORA_DATA_MOUNTS" && -z "$ORA_DATA_MOUNTS_JSON" ]]; then
+    echo "Please specify --ora-data-mounts or --ora-data-mounts-json"
+    exit 2
+  fi
+
+  if [[ -f "$ORA_DATA_MOUNTS" && -n "$ORA_DATA_MOUNTS_JSON" ]]; then
+    echo "WARNING: ignoring --ora-data-mounts because --ora-data-mounts-json is specified"
+  fi
+
+  if [[ "$ORA_DISK_MGMT" != "FS" && ( ! -f "$ORA_ASM_DISKS" && -z "$ORA_ASM_DISKS_JSON" ) ]]; then
+    echo "Please specify --ora-asm-disks or --ora-asm-disks-json"
+    exit 2
+  fi
+
+  if [[ -f "$ORA_ASM_DISKS" && -n "$ORA_ASM_DISKS_JSON" ]]; then
+    echo "WARNING: ignoring --ora-asm-disks because --ora-asm-disks-json is specified"
+  fi
 fi
 
-if [[ -f "$ORA_DATA_MOUNTS" && -n "$ORA_DATA_MOUNTS_JSON" ]]; then
-  echo "WARNING: ignoring --ora-data-mounts because --ora-data-mounts-json is specified"
-fi
-
-if [[ "$ORA_DISK_MGMT" != "FS" && ( ! -f "$ORA_ASM_DISKS" && -z "$ORA_ASM_DISKS_JSON" ) ]]; then
-  echo "Please specify --ora-asm-disks or --ora-asm-disks-json"
-  exit 2
-fi
-
-if [[ -f "$ORA_ASM_DISKS" && -n "$ORA_ASM_DISKS_JSON" ]]; then
-  echo "WARNING: ignoring --ora-asm-disks because --ora-asm-disks-json is specified"
-fi
-
-# if the hostgroup is not the default then error out when there is no corresponding group_vars/var.yml file
-if [ "${INSTANCE_HOSTGROUP_NAME}" != "dbasm" -a ! -r group_vars/${INSTANCE_HOSTGROUP_NAME}.yml ]; then
+# Default empty to dbasm to avoid false "custom hostgroup" errors
+INSTANCE_HOSTGROUP_NAME="${INSTANCE_HOSTGROUP_NAME:-dbasm}"
+if [ "${INSTANCE_HOSTGROUP_NAME}" != "dbasm" ] && [ ! -r "group_vars/${INSTANCE_HOSTGROUP_NAME}.yml" ]; then
   echo "Custom ansible hostgroup defined as ${INSTANCE_HOSTGROUP_NAME} but no corresponding group_vars/${INSTANCE_HOSTGROUP_NAME}.yml file found"
   exit 2
 fi
@@ -960,10 +971,73 @@ fi
 #
 if [[ -z ${INVENTORY_FILE_PARAM} ]]; then
   COMMON_OPTIONS="ansible_ssh_user=${INSTANCE_SSH_USER} ansible_ssh_private_key_file=${INSTANCE_SSH_KEY} ansible_ssh_extra_args=${INSTANCE_SSH_EXTRA_ARGS}"
-  #
+#
+  if [[ -n "${NODES_JSON}" ]]; then
+    # New logic: Build inventory from the --nodes-json parameter for parallel execution.
+    command -v jq >/dev/null 2>&1 || {
+      echo >&2 "jq is needed but has not been detected in this system; cannot continue."
+      exit 2
+    }
+
+    primary_name=$(echo "${NODES_JSON}" | jq -r '.primary | keys[0]')
+    has_secondaries=$(echo "${NODES_JSON}" | jq -r 'if .secondaries | length > 0 then "true" else "false" end')
+
+    if [[ "${has_secondaries}" == "true" ]]; then
+      CLUSTER_TYPE="DG"
+      INVENTORY_FILE="${INVENTORY_FILE}_${ORA_DB_NAME}_${CLUSTER_TYPE}"
+    else
+      CLUSTER_TYPE="NONE"
+      INVENTORY_FILE="${INVENTORY_FILE}_${primary_name}_${ORA_DB_NAME}"
+    fi
+    
+    # Build Primary Group
+    echo "[primary]" >"${INVENTORY_FILE}"
+    primary_node_details=$(echo "${NODES_JSON}" | jq -r --arg common_opts "${COMMON_OPTIONS}" '.primary | to_entries[0] | "\(.key) ansible_ssh_host=\(.value.ip) asm_disk_input='\''\(.value.asm_disks_json)'\'' data_mounts_input='\''\(.value.data_mounts_json)'\'' \($common_opts)"')
+    echo "${primary_node_details}" >>"${INVENTORY_FILE}"
+    echo "" >>"${INVENTORY_FILE}"
+
+    # Build standby Group (if any)
+    if [[ "${has_secondaries}" == "true" ]]; then
+      echo "[standby]" >>"${INVENTORY_FILE}"
+      standby_node_details=$(echo "${NODES_JSON}" | jq -r --arg common_opts "${COMMON_OPTIONS}" '.secondaries[] | "\(.name) ansible_ssh_host=\(.ip) asm_disk_input='\''\(.asm_disks_json)'\'' data_mounts_input='\''\(.data_mounts_json)'\'' \($common_opts)"')
+      echo "${standby_node_details}" >>"${INVENTORY_FILE}"
+      echo "" >>"${INVENTORY_FILE}"
+
+      # Set primary_ip_addr for standby playbook from primary node info
+      PRIMARY_IP_ADDR=$(echo "${NODES_JSON}" | jq -r '.primary | to_entries[0].value.ip')
+    fi
+
+    # Build Common Group
+    echo "[common:children]" >>"${INVENTORY_FILE}"
+    echo "primary" >>"${INVENTORY_FILE}"
+    if [[ "${has_secondaries}" == "true" ]]; then
+      echo "standby" >>"${INVENTORY_FILE}"
+    fi
+
+    echo "" >>"${INVENTORY_FILE}"
+    echo "[dbasm:children]" >>"${INVENTORY_FILE}"
+    echo "primary" >>"${INVENTORY_FILE}"
+    PRIMARY_IP_FROM_JSON=$(echo "${NODES_JSON}" | jq -r '.primary | to_entries[0].value.ip')
+    PRIMARY_IP_ADDR="${PRIMARY_IP_FROM_JSON}"   # do NOT export; used later only for Phase 3
+    standby_LIST=$(echo "${NODES_JSON}" | jq -r '.secondaries[]? | "\(.name) \(.ip)"')
+    
+    primary_ip=$(echo "${NODES_JSON}" | jq -r '.primary | to_entries[0].value.ip')
+
+    echo "" >>"${INVENTORY_FILE}"
+    echo "[aliases]" >>"${INVENTORY_FILE}"
+    echo "primary1 ansible_host=${primary_ip} ansible_ssh_host=${primary_ip} ${COMMON_OPTIONS}" >>"${INVENTORY_FILE}"
+
+    if [[ "${has_secondaries}" == "true" ]]; then
+     # standby1, standby2, ... for every standby
+      echo "${NODES_JSON}" | jq -r --arg common_opts "${COMMON_OPTIONS}" '
+        .secondaries
+        | to_entries[]
+        | "standby\((.key|tonumber)+1) ansible_host=\(.value.ip) ansible_ssh_host=\(.value.ip) " + $common_opts
+      ' >>"${INVENTORY_FILE}"
+    fi
+  # ---- Start of Legacy / Backward-Compatible Logic ----
+  elif [[ "${CLUSTER_TYPE}" = "RAC" ]]; then
   # If $CLUSTER_TYPE = RAC then we use $CLUSTER_CONFIG[_JSON] to build the inventory file
-  #
-  if [[ "${CLUSTER_TYPE}" = "RAC" ]]; then
     # We will be using jq to process the JSON configuration so we check if jq is installed on the system first
     command -v jq >/dev/null 2>&1 || {
       echo >&2 "jq is needed for the RAC feature but has not been detected in this system; cannot continue."
@@ -1010,15 +1084,24 @@ EOF
     IFS="${OLDIFS}"
     echo "${CLUSTER_CONFIG_JSON}" | jq -rc "${JQF}" >>"${INVENTORY_FILE}"
 
-  elif [[ ! -z ${PRIMARY_IP_ADDR} ]]; then
-    INVENTORY_FILE="${INVENTORY_FILE}_${INSTANCE_HOSTNAME}_${ORA_DB_NAME}"
-    cat <<EOF >"${INVENTORY_FILE}"
-[${INSTANCE_HOSTGROUP_NAME}]
-${INSTANCE_HOSTNAME} ansible_ssh_host=${INSTANCE_IP_ADDR} ${COMMON_OPTIONS}
+  elif [[ -n "${PRIMARY_IP_ADDR}" ]]; then # Legacy DG
+  INVENTORY_FILE="${INVENTORY_FILE}_${INSTANCE_HOSTNAME}_${ORA_DB_NAME}"
+  cat <<EOF >"${INVENTORY_FILE}"
+[standby]
+${INSTANCE_HOSTNAME} ansible_host=${INSTANCE_IP_ADDR} ansible_ssh_host=${INSTANCE_IP_ADDR} ${COMMON_OPTIONS}
 
 [primary]
-primary1 ansible_ssh_host=${PRIMARY_IP_ADDR} ${COMMON_OPTIONS}
+primary ansible_host=${PRIMARY_IP_ADDR} ansible_ssh_host=${PRIMARY_IP_ADDR} ${COMMON_OPTIONS}
+
+[common:children]
+primary
+standby
+
+[aliases]
+primary1 ansible_host=${PRIMARY_IP_ADDR} ansible_ssh_host=${PRIMARY_IP_ADDR} ${COMMON_OPTIONS}
+standby1  ansible_host=${INSTANCE_IP_ADDR}  ansible_ssh_host=${INSTANCE_IP_ADDR}  ${COMMON_OPTIONS}
 EOF
+
   else # Non RAC
     INVENTORY_FILE="${INVENTORY_FILE}_${INSTANCE_HOSTNAME}_${ORA_DB_NAME}"
     cat <<EOF >"${INVENTORY_FILE}"
@@ -1029,11 +1112,49 @@ EOF
 else
   INVENTORY_FILE="${INVENTORY_FILE_PARAM}"
 fi
-if [[ -f "${INVENTORY_FILE}" ]]; then
-  printf "\n\033[1;36m%s\033[m\n\n" "Inventory file for this execution: ${INVENTORY_FILE}."
-else
-  printf "\n\033[1;31m%s\033[m\n\n" "Cannot find the inventory file ${INVENTORY_FILE}; cannot continue."
-  exit 124
+# Fix RAC inventories that declare [dbasm:vars] before [dbasm] (Ansible parser error)
+if ! grep -q '^\[dbasm\]' "${INVENTORY_FILE}" && grep -q '^\[dbasm:vars\]' "${INVENTORY_FILE}"; then
+  printf "\n\033[1;33m%s\033[m\n" "Detected [dbasm:vars] without [dbasm] — prepending an empty [dbasm] group."
+  tmp="$(mktemp)"; { echo "[dbasm]"; echo; cat "${INVENTORY_FILE}"; } > "${tmp}" && mv "${tmp}" "${INVENTORY_FILE}"
+fi
+if grep -q '\[primary\]' "${INVENTORY_FILE}" || grep -q '\[standby\]' "${INVENTORY_FILE}"; then
+  DBASM_NAME="${INSTANCE_HOSTGROUP_NAME:-dbasm}"
+  TMP_INV="$(mktemp)"
+  # Delete any existing [dbasm] section to avoid duplicates
+  awk -v g="[$DBASM_NAME]" '
+    BEGIN{skip=0}
+    {
+      if ($0==g) {skip=1; next}
+      if (skip && /^\[/) {skip=0}
+      if (!skip) print $0
+    }
+  ' "${INVENTORY_FILE}" > "${TMP_INV}"
+
+  # Collect first tokens (hostnames) from [primary] and [standby]
+  primary_hosts="$(awk '
+    $0=="[primary]"{flag=1; next}
+    /^\[/ {if(flag){flag=0}}
+    flag && $0 !~ /^[[:space:]]*(#|;|$)/ {print $1}
+  ' "${INVENTORY_FILE}" | awk '!seen[$0]++')"
+
+  standby_hosts="$(awk '
+    $0=="[standby]"{flag=1; next}
+    /^\[/ {if(flag){flag=0}}
+    flag && $0 !~ /^[[:space:]]*(#|;|$)/ {print $1}
+  ' "${INVENTORY_FILE}" | awk '!seen[$0]++')"
+
+  # Union (unique, preserve order)
+  union_hosts="$(printf "%s\n%s\n" "${primary_hosts}" "${standby_hosts}" | awk 'NF && !seen[$0]++')"
+
+  # If we found any hosts, append a fresh [dbasm] group
+  if [ -n "${union_hosts}" ]; then
+    {
+      printf "\n[%s]\n" "${DBASM_NAME}"
+      printf "%s\n" "${union_hosts}"
+    } >> "${TMP_INV}"
+  fi
+
+  mv "${TMP_INV}" "${INVENTORY_FILE}"
 fi
 #
 # Build the log file for this session
@@ -1113,7 +1234,6 @@ export ORA_VERSION
 export ORA_RELEASE
 export PB_LIST
 export ORA_PGA_TARGET_MB
-export PRIMARY_IP_ADDR
 export ORA_SGA_TARGET_MB
 export SWAP_BLK_DEVICE
 export DB_PASSWORD_SECRET
@@ -1126,6 +1246,16 @@ echo -e "Running with parameters from command line or environment variables:\n"
 set | grep -E '^(ORA_|BACKUP_|GCS_|ARCHIVE_|INSTANCE_|PB_|ANSIBLE_|CLUSTER|PRIMARY)' | grep -v '_PARAM='
 echo
 
+ANSIBLE_PARAMS="-i ${INVENTORY_FILE} ${ANSIBLE_PARAMS}"
+ANSIBLE_EXTRA_PARAMS="${*}"
+
+echo "Ansible params: ${ANSIBLE_EXTRA_PARAMS}"
+
+if [ $VALIDATE -eq 1 ]; then
+  echo "Exiting because of --validate"
+  exit
+fi
+
 export ANSIBLE_NOCOWS=1
 
 ANSIBLE_PLAYBOOK="ansible-playbook"
@@ -1136,43 +1266,130 @@ else
   echo "Found Ansible: $(type ansible-playbook)"
 fi
 
-# Initialize command array
-declare -a CMD_ARRAY+=($ANSIBLE_PLAYBOOK -i "$INVENTORY_FILE")
-
-if [[ -n "$ANSIBLE_PARAMS" ]]; then
-  echo "Processing ANSIBLE_PARAMS string: [$ANSIBLE_PARAMS]"
-  CMD_ARRAY+=(-e "$ANSIBLE_PARAMS")
-fi
-
-# Add any passthrough arguments from the script command line
-CMD_ARRAY+=("$@")
-
-# not using backslash-escaped double quotes in the JSON strings
-if [[ -n "${ORA_ASM_DISKS_JSON}" ]]; then
-  CMD_ARRAY+=(-e $(printf '%s' '{"asm_disk_input":'"${ORA_ASM_DISKS_JSON}}") )
-fi
-
-if [[ -n "${ORA_DATA_MOUNTS_JSON}" ]]; then
-  CMD_ARRAY+=(-e $(printf '%s' '{"data_mounts_input":'"${ORA_DATA_MOUNTS_JSON}}") )
-fi
-
-if [ $VALIDATE -eq 1 ]; then
-  echo "Exiting because of --validate"
-  exit
-fi
-
 # exit on any error from the following scripts
 set -e
+# Orchestrated execution with parallel prep/install then primary then standby
 
-for PLAYBOOK in ${PB_LIST}; do
-  # Create a temporary array for this specific run by copying the base array
-  declare -a CMDLINE=("${CMD_ARRAY[@]}")
-  CMDLINE+=("${PLAYBOOK}")
+_ORIG_PB_LIST="${PB_LIST}"
+DBASM_GROUP="${INSTANCE_HOSTGROUP_NAME:-dbasm}"
 
-  printf "Running Ansible playbook: %s\n" "${CMDLINE[*]}"
-  "${CMDLINE[@]}"
+has_group() {
+  local group="$1"
+  local file="${INVENTORY_FILE}"
+  awk -v g="[$group]" '
+    $0==g {flag=1; next}
+    /^\[/ {if(flag){exit}; flag=0}
+    flag && $0 !~ /^[[:space:]]*(#|;|$)/ {count++}
+    END { if (count>0) print "true"; else print "false"; }
+  ' "$file"
+}
+
+list_hosts() {
+  local group="$1"
+  local file="${INVENTORY_FILE}"
+  awk -v g="[$group]" '
+    $0==g {flag=1; next}
+    /^\[/ {if(flag){exit}; flag=0}
+    flag && $0 !~ /^[[:space:]]*(#|;|$)/ {print $1}
+  ' "$file"
+}
+
+PRIMARY_GROUP_PRESENT="$(has_group primary)"
+STANDBY_GROUP_PRESENT="$(has_group standby)"
+
+WANT_CONFIG_DB="false"
+case " ${PB_LIST} " in
+  *" ${PB_CONFIG_DB} "*) WANT_CONFIG_DB="true" ;;
+esac
+
+FORKS_OPT="--forks ${ANSIBLE_FORKS:-10}"
+
+if [ "$PRIMARY_GROUP_PRESENT" = "true" ] || [ "$STANDBY_GROUP_PRESENT" = "true" ]; then
+  echo
+  echo "Detected groups in inventory: primary=${PRIMARY_GROUP_PRESENT}, standby=${STANDBY_GROUP_PRESENT}"
+  echo "Executing in phases with per-host parallelism. WANT_CONFIG_DB=${WANT_CONFIG_DB}"
+
+# Phase 1: base prep on ALL (primary+standbys)
+PHASE1_GROUP="${INSTANCE_HOSTGROUP_NAME:-dbasm}"
+
+for PLAYBOOK in "${PB_CHECK_INSTANCE}" "${PB_PREP_HOST}" "${PB_INSTALL_SW}"; do
+  echo
+  echo "Phase 1 -> ${PLAYBOOK} on group: ${PHASE1_GROUP}"
+  ${ANSIBLE_PLAYBOOK} ${ANSIBLE_PARAMS} ${ANSIBLE_EXTRA_PARAMS} ${FORKS_OPT} \
+    -i "${INVENTORY_FILE}" -l "${PHASE1_GROUP}" "${PLAYBOOK}"
 done
 
+# Phase 2: PRIMARY only — full database build
+unset PRIMARY_IP_ADDR
+if [ "$PRIMARY_GROUP_PRESENT" = "true" ]; then
+  PRIMARY_SLICE="primary"
+  PRIMARY_HOST="$(list_hosts primary | head -n1)"
+else
+  PRIMARY_SLICE="${DBASM_GROUP}[0]"
+  PRIMARY_HOST="$(list_hosts "${DBASM_GROUP}" | head -n1)"
+fi
+
+echo
+echo "Phase 2 -> ${PB_CONFIG_DB} on primary slice: ${PRIMARY_SLICE}"
+env -u PRIMARY_IP_ADDR ${ANSIBLE_PLAYBOOK} ${ANSIBLE_PARAMS} ${ANSIBLE_EXTRA_PARAMS} ${FORKS_OPT} \
+  -i "${INVENTORY_FILE}" -l "${PRIMARY_SLICE}" \
+  --skip-tags "dg-config,dg_config,dg-create,dg_create,dg-mode,dg_mode" \
+  -e "install_workload_agent=${INSTALL_WORKLOAD_AGENT}" \
+  "${PB_CONFIG_DB}"
+
+# Phase 3: STANDBYS — listener + workload-agent + active-duplicate + DG + DBID
+
+if [ "$STANDBY_GROUP_PRESENT" = "true" ]; then
+  STANDBY_SLICE="standby"
+  STANDBYS="$(list_hosts standby)"
+else
+  STANDBY_SLICE="${DBASM_GROUP}[1:]"
+  DBASM_HOSTS="$(list_hosts "${DBASM_GROUP}")"
+  STANDBYS="$(printf "%s\n" "${DBASM_HOSTS}" | tail -n +2)"
+fi
+
+if [ -n "${STANDBYS}" ]; then
+  # Resolve PRIMARY_IP (prefer ansible_host= from primary/first dbasm host line)
+  if [ "$PRIMARY_GROUP_PRESENT" = "true" ]; then
+    PRIMARY_HOST_LINE="$(awk -v g='[primary]' '
+      $0==g {f=1; next} /^\[/ {if(f){exit}; f=0}
+      f && $0 !~ /^[[:space:]]*(#|;|$)/ {print; exit}
+    ' "${INVENTORY_FILE}")"
+  else
+    PRIMARY_HOST_LINE="$(awk -v g="[${DBASM_GROUP}]" '
+      $0==g {f=1; next} /^\[/ {if(f){exit}; f=0}
+      f && $0 !~ /^[[:space:]]*(#|;|$)/ {print; exit}
+    ' "${INVENTORY_FILE}")"
+  fi
+
+  PRIMARY_IP="$(printf "%s\n" "${PRIMARY_HOST_LINE}" \
+               | sed -n 's/.*ansible_host=\([^[:space:]]*\).*/\1/p')"
+  [ -n "${PRIMARY_IP}" ] || PRIMARY_IP="${PRIMARY_HOST}"
+
+  echo
+  echo "Phase 3 -> ${PB_CONFIG_DB} on standby slice: ${STANDBY_SLICE} (PRIMARY_IP_ADDR=${PRIMARY_IP})"
+
+  PRIMARY_IP_ADDR="${PRIMARY_IP}" ${ANSIBLE_PLAYBOOK} ${ANSIBLE_PARAMS} ${ANSIBLE_EXTRA_PARAMS} ${FORKS_OPT} \
+    -i "${INVENTORY_FILE}" -l "${STANDBY_SLICE}" \
+    --skip-tags "db-create,db_create,db-adjustments,db_adjustments,db-backups,db_backups,validation-scripts,validation_scripts" \
+    -e 'grid_home={{ oracle_home }}' \
+    -e 'grid_user={{ oracle_user }}' \
+    -e 'lsnr_owner_user={{ oracle_user }}' \
+    -e "install_workload_agent=${INSTALL_WORKLOAD_AGENT}" \
+    "${PB_CONFIG_DB}"
+else
+  echo "No standbys detected; skipping Phase 3."
+fi
+else
+  echo "No [primary]/[standby] groups found; running legacy flow."
+  # Fallback to legacy behavior (single-host / old flow)
+  for PLAYBOOK in ${_ORIG_PB_LIST}; do
+    ANSIBLE_COMMAND="${ANSIBLE_PLAYBOOK} ${ANSIBLE_PARAMS} ${ANSIBLE_EXTRA_PARAMS} ${PLAYBOOK}"
+    echo
+    echo "Legacy flow -> ${ANSIBLE_COMMAND}"
+    eval "${ANSIBLE_COMMAND}"
+  done
+fi
 #
 # Show the files used by this session
 #

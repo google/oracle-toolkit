@@ -228,21 +228,31 @@ resource "random_id" "suffix" {
 }
 
 locals {
-  database_vm_nodes = [
-    for vm in google_compute_instance_from_template.database_vm : {
-      name = vm.name
-      zone = vm.zone
-      ip   = vm.network_interface[0].network_ip
-      role = local.instances[vm.name].role
+  database_vm_nodes_structured = {
+    primary = {
+      for vm in google_compute_instance_from_template.database_vm : vm.name => {
+        name             = vm.name
+        ip               = vm.network_interface[0].network_ip
+        zone             = vm.zone
+        asm_disks_json   = local.is_fs ? "" : jsonencode(local.asm_disk_config)
+        data_mounts_json = jsonencode(local.data_mounts_config)
+      } if local.instances[vm.name].role == "primary"
     }
-  ]
+    secondaries = [
+      for vm in google_compute_instance_from_template.database_vm : {
+        name             = vm.name
+        ip               = vm.network_interface[0].network_ip
+        zone             = vm.zone
+        asm_disks_json   = local.is_fs ? "" : jsonencode(local.asm_disk_config)
+        data_mounts_json = jsonencode(local.data_mounts_config)
+      } if local.instances[vm.name].role == "standby"
+    ]
+  }
 }
 
 locals {
   common_flags = join(" ", compact([
     local.ora_disk_mgmt_flag != "" ? "--ora-disk-mgmt ${local.ora_disk_mgmt_flag}" : "",
-    length(local.asm_disk_config) > 0 ? "--ora-asm-disks-json '${jsonencode(local.asm_disk_config)}'" : "",
-    length(local.data_mounts_config) > 0 ? "--ora-data-mounts-json '${jsonencode(local.data_mounts_config)}'" : "",
     # Keep DBCA destinations aligned with the computed mode
     "--ora-data-dest ${local.data_dest}",
     "--ora-reco-dest ${local.reco_dest}",
@@ -316,11 +326,11 @@ resource "google_compute_instance" "control_node" {
   }
 
   metadata_startup_script = templatefile("${path.module}/scripts/setup.sh.tpl", {
-    gcs_source             = var.gcs_source
-    database_vm_nodes_json = jsonencode(local.database_vm_nodes)
-    common_flags           = local.common_flags
-    deployment_name        = var.deployment_name
-    delete_control_node    = var.delete_control_node
+    gcs_source          = var.gcs_source
+    database_vm_nodes_json   = jsonencode(local.database_vm_nodes_structured)
+    common_flags        = local.common_flags
+    deployment_name     = var.deployment_name
+    delete_control_node = var.delete_control_node
   })
 
   metadata = {
@@ -339,4 +349,3 @@ output "database_vm_names" {
   description = "Names of the created database VMs from instance templates"
   value       = [for vm in google_compute_instance_from_template.database_vm : vm.name]
 }
-

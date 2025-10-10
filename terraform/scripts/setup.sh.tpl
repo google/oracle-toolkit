@@ -36,13 +36,13 @@ cleanup() {
     echo "Public SSH key found. Attempting to remove it from OS Login..."
     if ! gcloud --quiet compute os-login ssh-keys remove --key-file=/root/.ssh/google_compute_engine.pub; then
       echo "WARNING: Failed to remove SSH key."
-    fi
+fi
     echo "Public SSH key has been removed from the control node's service account OS Login profile"
   fi
-  %{ if delete_control_node }
-  echo "Deleting '$control_node_name' GCE instance in zone '$control_node_zone' in project '$control_node_project_id'..."
-  gcloud --quiet compute instances delete "$control_node_name" --zone="$control_node_zone" --project="$control_node_project_id"
-  %{ endif }
+   %{ if delete_control_node }
+   echo "Deleting '$control_node_name' GCE instance in zone '$control_node_zone' in project '$control_node_project_id'..."
+   gcloud --quiet compute instances delete "$control_node_name" --zone="$control_node_zone" --project="$control_node_project_id"
+   %{ endif }
 }
 
 trap cleanup SIGINT SIGTERM EXIT
@@ -125,12 +125,16 @@ DEST_DIR="/oracle-toolkit"
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get --quiet update || exit 1
-apt-get install --quiet --assume-yes ansible python3-jmespath unzip python3-google-auth || exit 1
+apt-get install --quiet --assume-yes ansible python3-jmespath unzip python3-google-auth jq || exit 1
 
 
 echo "Downloading ${gcs_source} to /tmp"
-if ! gcloud --quiet storage cp "${gcs_source}" /tmp/; then
-  error_message="ERROR: Failed to download ${gcs_source}. Make sure the file exists and that the service account $control_node_sa has 'roles/storage.objectViewer' role on the bucket."
+gcloud --quiet storage cp "${gcs_source}" /tmp/
+exit_code=$?
+echo "gcloud storage cp command finished with exit code: $exit_code"
+
+if [[ $exit_code -ne 0 ]]; then
+  error_message="ERROR: Failed to download ${gcs_source}. gcloud exit code: $exit_code"
   echo "$error_message"
   send_startup_script_failure_status "$error_message"
   exit 1
@@ -139,21 +143,6 @@ zip_file="$(basename "${gcs_source}")"
 mkdir -p "$DEST_DIR"
 echo "Extracting files from $zip_file to $DEST_DIR"
 unzip -qq -o "/tmp/$zip_file" -d "$DEST_DIR"
-
-num_nodes="$(echo '${database_vm_nodes_json}' | jq "length")"
-echo "num_nodes=$num_nodes"
-
-primary_ip=""
-if [[ "$num_nodes" -gt 1 ]]; then
-  primary_ip="$(echo '${database_vm_nodes_json}' | jq -r '.[] | select(.role == "primary") | .ip')"
-  if [[ -z "$primary_ip" ]]; then
-    error_message="ERROR: Could not find a primary node with role 'primary'."
-    echo "$error_message"
-    send_startup_script_failure_status "$error_message"
-    exit 1
-  fi
-  echo "PRIMARY_IP: $primary_ip"
-fi
 
 cd "$DEST_DIR"
 
@@ -171,7 +160,7 @@ EOF
 export DEPLOYMENT_NAME="${deployment_name}"
 
 ssh_user=""
-for node in $(echo '${database_vm_nodes_json}' | jq -c '.[] | select(.role == "primary")'); do
+for node in $(echo '${database_vm_nodes_json}' | jq -c '(.primary | values[]), .secondaries[] | select(.!=null)'); do
   node_name="$(echo "$node" | jq -r '.name')"
   node_ip="$(echo "$node" | jq -r '.ip')"
   node_zone="$(echo "$node" | jq -r '.zone')"
@@ -192,12 +181,13 @@ for node in $(echo '${database_vm_nodes_json}' | jq -c '.[] | select(.role == "p
     exit 1
   }
 
-  ssh_user="$(gcloud --quiet compute os-login describe-profile --format='value(posixAccounts[0].username)')" || {
-    error_message="ERROR: Failed to extract the POSIX username. This may be due to OS Login not being enabled or missing IAM permissions."
-    echo "$error_message"
-    send_startup_script_failure_status "$error_message"
-    exit 1
-  }
+  if [[ -z "$ssh_user" ]]; then
+    ssh_user="$(gcloud --quiet compute os-login describe-profile --format='value(posixAccounts[0].username)')" || {
+      error_message="ERROR: Failed to extract the POSIX username. This may be due to OS Login not being enabled or missing IAM permissions."
+      echo "$error_message"
+      send_startup_script_failure_status "$error_message"
+      exit 1
+    }
 
   if [[ -f "/root/.ssh/google_compute_engine.pub" ]]; then
     echo "Setting expiration on SSH key"
@@ -206,56 +196,20 @@ for node in $(echo '${database_vm_nodes_json}' | jq -c '.[] | select(.role == "p
     fi
   fi
 
-    echo "Configuring PRIMARY node: $node_name, IP: $node_ip, Zone: $node_zone"
-    bash install-oracle.sh \
-    --cluster-type NONE \
-    --instance-ip-addr "$node_ip" \
-    --instance-ssh-user "$ssh_user" \
-    --instance-ssh-key /root/.ssh/google_compute_engine \
-    ${common_flags}
-    
-    exit_code=$?
-
-    if [[ $exit_code -ne 0 ]]; then
-      echo "Error: Primary setup failed for $node_name. Exiting."
-      send_ansible_completion_status $exit_code
-      exit $exit_code
-    fi
+  fi
 done
 
+bash install-oracle.sh \
+  --nodes-json '${database_vm_nodes_json}' \
+  --instance-ssh-user "$ssh_user" \
+  --instance-ssh-key /root/.ssh/google_compute_engine \
+  ${common_flags}
 
-if [[ "$num_nodes" -gt 1 ]]; then
-  for node in $(echo '${database_vm_nodes_json}' | jq -c '.[] | select(.role == "standby")'); do
-    node_name="$(echo "$node" | jq -r '.name')"
-    node_ip="$(echo "$node" | jq -r '.ip')"
-    node_zone="$(echo "$node" | jq -r '.zone')"
-
-    echo "Verifying primary node is reachable at $primary_ip..."
-
-    if ping -c 3 "$primary_ip"; then
-      echo "Primary node is reachable. Proceeding with standby setup."
-    else
-      echo "Error: Primary node $primary_ip is not reachable. Cannot continue with standby setup."
-      send_ansible_completion_status 1
-      exit 1
-    fi
-
-    echo "Configuring STANDBY node: $node_name, IP: $node_ip, Zone: $node_zone"
-    bash install-oracle.sh \
-    --cluster-type DG \
-    --primary-ip-addr "$primary_ip" \
-    --instance-ip-addr "$node_ip" \
-    --instance-ssh-user "$ssh_user" \
-    --instance-ssh-key /root/.ssh/google_compute_engine \
-    ${common_flags}
-
-    exit_code=$?
-    if [[ $exit_code -ne 0 ]]; then
-      echo "Error: Standby setup failed for $node_name. Exiting."
-      send_ansible_completion_status $exit_code
-      exit $exit_code
-    fi
-  done
+exit_code=$?
+if [[ $exit_code -ne 0 ]]; then
+  echo "Error: Standby setup failed for $node_name. Exiting."
+  send_ansible_completion_status $exit_code
+  exit $exit_code
 fi
 
 send_ansible_completion_status 0
