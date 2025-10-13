@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Google Cloud Log Entry has a maximum size of 256 KiB.
+# We truncate the error message to this size to guarantee the entire log payload is accepted.
+readonly MAX_ERROR_SIZE=250000 # leaving 6 KiB margin for other JSON fields
+
 control_node_name="$(curl -fsS http://metadata.google.internal/computeMetadata/v1/instance/name -H 'Metadata-Flavor: Google')" || {
   echo "Error: Failed to retrieve control node's instance name"
   exit 1
@@ -52,20 +56,16 @@ heartbeat_interval=60
 
 send_heartbeat() {
   while true; do
-    timestamp=$(date --rfc-3339=seconds)
-    payload=$(cat <<EOF
-{
-  "heartbeat": "true",
-  "state": "heartbeat",
-  "timestamp": "$timestamp",
-  "deployment_name": "${deployment_name}",
-  "instanceName": "$control_node_name",
-  "instanceId": "$control_node_vmid",
-  "zone": "$control_node_zone"
-}
-EOF
-)
-    gcloud logging write "$cloud_log_name" "$payload" --payload-type=json || exit 1
+    json_payload=$(jq -n \
+    --arg heartbeat "true" \
+    --arg state "heartbeat" \
+    --arg timestamp "$(date --rfc-3339=seconds)" \
+    --arg deployment_name "${deployment_name}" \
+    --arg instanceName "$control_node_name" \
+    --arg instanceId "$control_node_vmid" \
+    --arg zone "$control_node_zone" \
+    '{heartbeat: $heartbeat, state: $state, timestamp: $timestamp, deployment_name: $deployment_name, instanceName: $instanceName, instanceId: $instanceId, zone: $zone}')
+    gcloud logging write "$cloud_log_name" "$json_payload" --payload-type=json || exit 1
     sleep "$heartbeat_interval"
   done
 }
@@ -78,41 +78,32 @@ send_ansible_completion_status() {
     state="ansible_completed_failure"
   fi
 
-  timestamp=$(date --rfc-3339=seconds)
-  payload=$(cat <<EOF
-{
-  "state": "$state",
-  "event_type": "ANSIBLE_RUNNER_SCRIPT_END",
-  "timestamp": "$timestamp",
-  "deployment_name": "${deployment_name}",
-  "instanceName": "$control_node_name",
-  "instanceId": "$control_node_vmid",
-  "zone": "$control_node_zone"
-}
-EOF
-  )
-echo "Sending a signal to Cloud Logging to indicate Ansible completion status"
-echo "JSON payload to be sent: $payload"
-gcloud logging write "$cloud_log_name" "$payload" --payload-type=json || exit 1
+  json_payload=$(jq -n \
+  --arg state "$state" \
+  --arg event_type "ANSIBLE_RUNNER_SCRIPT_END" \
+  --arg timestamp "$(date --rfc-3339=seconds)" \
+  --arg deployment_name "${deployment_name}" \
+  --arg instanceName "$control_node_name" \
+  --arg instanceId "$control_node_vmid" \
+  --arg zone "$control_node_zone" \
+  '{state: $state, step_name: "bootstrap Ansible scripts", timestamp: $timestamp, deployment_name: $deployment_name, instanceName: $instanceName, instanceId: $instanceId, zone: $zone}')
+  echo "Sending a signal to Cloud Logging to indicate Ansible completion status"
+  echo "JSON payload to be sent: $json_payload"
+  gcloud logging write "$cloud_log_name" "$json_payload" --payload-type=json || exit 1
 }
 
 send_startup_script_failure_status() {
-  error_message=$1
-  timestamp=$(date --rfc-3339=seconds)
-  payload=$(cat <<EOF
-{
-  "state": "ansible_start_failure",
-  "step_name": "bootstrap Ansible scripts",
-  "error_message": "$error_message",
-  "timestamp": "$timestamp",
-  "deployment_name": "${deployment_name}",
-  "instanceName": "$control_node_name",
-  "instanceId": "$control_node_vmid",
-  "zone": "$control_node_zone"
-}
-EOF
-  )
-gcloud logging write "$cloud_log_name" "$payload" --payload-type=json || exit 1
+  json_payload=$(jq -n \
+  --arg state "ansible_start_failure" \
+  --arg step_name "bootstrap Ansible scripts" \
+  --arg error_message "$1" \
+  --arg timestamp "$(date --rfc-3339=seconds)" \
+  --arg deployment_name "${deployment_name}" \
+  --arg instanceName "$control_node_name" \
+  --arg instanceId "$control_node_vmid" \
+  --arg zone "$control_node_zone" \
+  '{state: $state, step_name: $step_name, error_message: $error_message, timestamp: $timestamp, deployment_name: $deployment_name, instanceName: $instanceName, instanceId: $instanceId, zone: $zone}')
+  gcloud logging write "$cloud_log_name" "$json_payload" --payload-type=json || exit 1
 }
 
 send_heartbeat &
@@ -207,16 +198,26 @@ for node in $(echo '${database_vm_nodes_json}' | jq -c '.[] | select(.role == "p
   fi
 
     echo "Configuring PRIMARY node: $node_name, IP: $node_ip, Zone: $node_zone"
+    temp_log=$(mktemp)
     bash install-oracle.sh \
     --cluster-type NONE \
     --instance-ip-addr "$node_ip" \
     --instance-ssh-user "$ssh_user" \
     --instance-ssh-key /root/.ssh/google_compute_engine \
-    ${common_flags}
+    ${common_flags} 2>&1 | tee "$temp_log"
     
-    exit_code=$?
+    exit_code=$${PIPESTATUS[0]}
 
-    if [[ $exit_code -ne 0 ]]; then
+    # Exit code 52 indicates a failure in the install-oracle.sh script.
+    if [[ $exit_code -eq 52 ]]; then
+      error_message=$(head -c "$MAX_ERROR_SIZE" "$temp_log")
+      if [[ $(wc -c < "$temp_log") -gt "$MAX_ERROR_SIZE" ]]; then
+        error_message+="... LOG TRUNCATED TO $MAX_ERROR_SIZE BYTES ..."
+      fi
+      send_startup_script_failure_status "$error_message"
+      exit $exit_code
+    # Any other non-zero exit code is assumed to be a failure in the Ansible playbook.
+    elif [[ $exit_code -ne 0 ]]; then
       echo "Error: Primary setup failed for $node_name. Exiting."
       send_ansible_completion_status $exit_code
       exit $exit_code
@@ -241,16 +242,26 @@ if [[ "$num_nodes" -gt 1 ]]; then
     fi
 
     echo "Configuring STANDBY node: $node_name, IP: $node_ip, Zone: $node_zone"
+    temp_log=$(mktemp)
     bash install-oracle.sh \
     --cluster-type DG \
     --primary-ip-addr "$primary_ip" \
     --instance-ip-addr "$node_ip" \
     --instance-ssh-user "$ssh_user" \
     --instance-ssh-key /root/.ssh/google_compute_engine \
-    ${common_flags}
+    ${common_flags} 2>&1 | tee "$temp_log"
 
-    exit_code=$?
-    if [[ $exit_code -ne 0 ]]; then
+    exit_code=$${PIPESTATUS[0]}
+    # Exit code 52 indicates a failure in the install-oracle.sh script.
+    if [[ $exit_code -eq 52 ]]; then
+      error_message=$(head -c "$MAX_ERROR_SIZE" "$temp_log")
+      if [[ $(wc -c < "$temp_log") -gt "$MAX_ERROR_SIZE" ]]; then
+        error_message+="... LOG TRUNCATED TO $MAX_ERROR_SIZE BYTES ..."
+      fi
+      send_startup_script_failure_status "$error_message"
+      exit $exit_code
+    # Any other non-zero exit code is assumed to be a failure in the Ansible playbook.
+    elif [[ $exit_code -ne 0 ]]; then
       echo "Error: Standby setup failed for $node_name. Exiting."
       send_ansible_completion_status $exit_code
       exit $exit_code

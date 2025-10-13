@@ -24,7 +24,7 @@ out="$(getopt -T)"
 if [ $? != 4 ]; then
     echo -e "Your getopt does not support long parameters, possibly you're on a Mac, if so please install gnu-getopt with brew"
     echo -e "\thttps://brewformulas.org/Gnu-getopt"
-    exit
+    exit 52
 fi
 
 ORA_VERSION="${ORA_VERSION:-19.3.0.0.0}"
@@ -52,7 +52,7 @@ options="$(getopt --longoptions "$GETOPT_LONG" --options "$GETOPT_SHORT" -- "$@"
 
 [ $? -eq 0 ] || {
     echo "Invalid options provided: $@" >&2
-    exit 1
+    exit 52
 }
 
 eval set -- "$options"
@@ -94,7 +94,7 @@ while true; do
         echo -e "\tUsage: $(basename $0)" >&2
         echo "${GETOPT_MANDATORY}" | sed 's/,/\n/g' | sed 's/:/ <value>/' | sed 's/\(.\+\)/\t --\1/'
         echo "${GETOPT_OPTIONAL}"  | sed 's/,/\n/g' | sed 's/:/ <value>/' | sed 's/\(.\+\)/\t [ --\1 ]/'
-        exit 2
+        exit 52
         ;;
     --)
         shift
@@ -106,24 +106,24 @@ done
 
 [[ ! "$ORA_VERSION" =~ $ORA_VERSION_PARAM ]] && {
     echo "Incorrect parameter provided for ora-version: $ORA_VERSION"
-    exit 1
+    exit 52
 }
 [[ ! "$ORA_RELEASE" =~ $ORA_RELEASE_PARAM ]] && {
     echo "Incorrect parameter provided for ora-release: $ORA_RELEASE"
-    exit 1
+    exit 52
 }
 [[ ! "$ORA_EDITION" =~ $ORA_EDITION_PARAM ]] && {
     echo "Incorrect parameter provided for ora-edition: $ORA_EDITION"
-    exit 1
+    exit 52
 }
 [[ ! "$ORA_SWLIB_BUCKET" =~ $ORA_SWLIB_BUCKET_PARAM ]] && {
     echo "Incorrect parameter provided for ora-swlib-bucket: $ORA_SWLIB_BUCKET"
     echo "Example: gs://my-gcs-bucket"
-    exit 1
+    exit 52
 }
 [[ ! "$ORA_DISK_MGMT" =~ $ORA_DISK_MGMT_PARAM ]] && {
     echo "Incorrect parameter provided for ora-disk-mgmt: $ORA_DISK_MGMT"
-    exit 1
+    exit 52
 }
 
 # Oracle Database free edition parameter overrides
@@ -135,7 +135,7 @@ fi
 # Mandatory options
 if [ "${ORA_SWLIB_BUCKET}" = "" ]; then
     echo "Please specify a GS bucket with --ora-swlib-bucket"
-    exit 2
+    exit 52
 fi
 
 # Trim tailing slashes from variables with paths
@@ -153,7 +153,7 @@ INVENTORY_FILE="localhost,"
 ANSIBLE_PLAYBOOK="ansible-playbook"
 if ! type ansible-playbook >/dev/null 2>&1; then
     echo "Ansible executable not found in path"
-    exit 3
+    exit 52
 else
     echo "Found Ansible: $(type ansible-playbook)"
 fi

@@ -39,7 +39,7 @@ PB_COMPATIBLE="compatibility-tests.yml"
 for PBOOK in "${PB_COMPATIBLE}" "${PB_CHECK_INSTANCE}" "${PB_PREP_HOST}" "${PB_INSTALL_SW}" "${PB_CONFIG_DB}"; do
   if [[ ! -f "${PBOOK}" ]]; then
     printf "\n\033[1;31m%s\033[m\n\n" "The playbook ${PBOOK} does not exist; cannot continue."
-    exit 126
+    exit 52
   else
     if [[ -z "${PB_LIST}" ]]; then
       PB_LIST="${PBOOK}"
@@ -61,7 +61,7 @@ if [[ ! -d "${INVENTORY_DIR}" ]]; then
     printf "\n\033[1;36m%s\033[m\n\n" "Successfully created the ${INVENTORY_DIR} directory to save the inventory files."
   else
     printf "\n\033[1;31m%s\033[m\n\n" "Unable to create the ${INVENTORY_DIR} directory to save the inventory files; cannot continue."
-    exit 123
+    exit 52
   fi
 fi
 #
@@ -75,7 +75,7 @@ if [[ ! -d "${LOG_DIR}" ]]; then
     printf "\n\033[1;36m%s\033[m\n\n" "Successfully created the ${LOG_DIR} directory to save the ansible logs."
   else
     printf "\n\033[1;31m%s\033[m\n\n" "Unable to create the ${LOG_DIR} directory to save the ansible logs; cannot continue."
-    exit 123
+    exit 52
   fi
 fi
 
@@ -297,7 +297,7 @@ options="$(getopt --longoptions "$GETOPT_LONG" --options "$GETOPT_SHORT" -- "$@"
 
 [ $? -eq 0 ] || {
   echo "Invalid options provided: $@" >&2
-  exit 1
+  exit 52
 }
 
 eval set -- "$options"
@@ -595,7 +595,7 @@ while true; do
     echo "${GETOPT_MANDATORY}" | sed 's/,/\n/g' | sed 's/:/ <value>/' | sed 's/\(.\+\)/\t --\1/'
     echo "${GETOPT_OPTIONAL}"  | sed 's/,/\n/g' | sed 's/:/ <value>/' | sed 's/\(.\+\)/\t [ --\1 ]/'
     echo -e "\t -- [parameters sent to ansible]"
-    exit 2
+    exit 52s
     ;;
   --)
     shift
@@ -629,265 +629,265 @@ ORA_STAGING="${ORA_STAGING:-$ORA_SWLIB_PATH}"
 #
 [[ ! "$ORA_VERSION" =~ $ORA_VERSION_PARAM ]] && {
   echo "Incorrect parameter provided for ora-version: $ORA_VERSION"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_RELEASE" =~ $ORA_RELEASE_PARAM ]] && {
   echo "Incorrect parameter provided for ora-release: $ORA_RELEASE"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_EDITION" =~ $ORA_EDITION_PARAM ]] && {
   echo "Incorrect parameter provided for ora-edition: $ORA_EDITION"
-  exit 1
+  exit 52
 }
 [[ "$ORA_EDITION" != "EE" ]] && [[ "$CLUSTER_TYPE" == "DG" ]] && {
   echo "ora-edition should be EE with cluster-type DG"
-  exit 1
+  exit 52
 }
 [[ ! "$CLUSTER_TYPE" =~ $CLUSTER_TYPE_PARAM ]] && {
   echo "Incorrect parameter provided for cluster-type: $CLUSTER_TYPE"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_SWLIB_BUCKET" =~ $ORA_SWLIB_BUCKET_PARAM && "$ORA_EDITION" != "FREE" ]] && {
   echo "Incorrect (or no) parameter provided for ora-swlib-bucket: $ORA_SWLIB_BUCKET"
   echo "Example: gs://my-gcs-bucket"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_SWLIB_TYPE" =~ $ORA_SWLIB_TYPE_PARAM ]] && {
   echo "Incorrect parameter provided for ora-swlib-type: $ORA_SWLIB_TYPE"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_SWLIB_PATH" =~ $ORA_SWLIB_PATH_PARAM ]] && {
   echo "Incorrect parameter provided for ora-swlib-path: $ORA_SWLIB_PATH"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_SWLIB_CREDENTIALS" =~ $ORA_SWLIB_CREDENTIALS_PARAM ]] && {
   echo "Incorrect parameter provided for ora-swlib-credentials: $ORA_SWLIB_CREDENTIALS"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_STAGING" =~ $ORA_STAGING_PARAM ]] && {
   echo "Incorrect parameter provided for ora-staging: $ORA_STAGING"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_DB_NAME" =~ $ORA_DB_NAME_PARAM ]] && {
   echo "Incorrect parameter provided for ora-db-name: $ORA_DB_NAME"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_DB_DOMAIN" =~ $ORA_DB_DOMAIN_PARAM ]] && {
   echo "Incorrect parameter provided for ora-db-domain: $ORA_DB_DOMAIN"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_DB_CHARSET" =~ $ORA_DB_CHARSET_PARAM ]] && {
   echo "Incorrect parameter provided for ora-db-charset: $ORA_DB_CHARSET"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_DB_NCHARSET" =~ $ORA_DB_NCHARSET_PARAM ]] && {
   echo "Incorrect parameter provided for ora-db-ncharset: $ORA_DB_NCHARSET"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_DISK_MGMT" =~ $ORA_DISK_MGMT_PARAM ]] && {
   echo "Incorrect parameter provided for ora-disk-mgmt: $ORA_DISK_MGMT"
-  exit 1
+  exit 52
 }
 [[ "$ORA_DISK_MGMT" == "FS" ]] && [[ "$CLUSTER_TYPE" == "RAC" ]] && {
   echo "Must use ASM with RAC installations"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_ROLE_SEPARATION" =~ $ORA_ROLE_SEPARATION_PARAM ]] && {
   echo "Incorrect parameter provided for ora-role-separation: $ORA_ROLE_SEPARATION"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_DATA_DESTINATION" =~ $ORA_DATA_DESTINATION_PARAM ]] && {
   echo "Incorrect parameter provided for ora-data-destination: $ORA_DATA_DESTINATION"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_RECO_DESTINATION" =~ $ORA_RECO_DESTINATION_PARAM ]] && {
   echo "Incorrect parameter provided for ora-reco-destination: $ORA_RECO_DESTINATION"
-  exit 1
+  exit 52
 }
 [[ "$ORA_DISK_MGMT" == "FS" && ( "${ORA_DATA_DESTINATION:0:1}" == "+" || "${ORA_RECO_DESTINATION:0:1}" == "+"  || "${BACKUP_DEST:0:1}" == "+" ) ]] && {
   echo "Cannot specify an ASM diskgroup for ora-data-destination, ora-reco-destination, or backup-dest when not using ASM"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_ASM_DISKS" =~ $ORA_ASM_DISKS_PARAM ]] && {
   echo "Incorrect parameter provided for ora-asm-disks: $ORA_ASM_DISKS"
-  exit 1
+  exit 52
 }
 [[ -n "$ORA_ASM_DISKS_JSON" && ! "$ORA_ASM_DISKS_JSON" =~ $ORA_ASM_DISKS_JSON_PARAM ]] && {
   echo "Incorrect parameter provided for ora-asm-disks-json: $ORA_ASM_DISKS_JSON"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_DATA_MOUNTS" =~ $ORA_DATA_MOUNTS_PARAM ]] && {
   echo "Incorrect parameter provided for ora-data-mounts: $ORA_DATA_MOUNTS"
-  exit 1
+  exit 52
 }
 [[ -n "$ORA_DATA_MOUNTS_JSON" && ! "$ORA_DATA_MOUNTS_JSON" =~ $ORA_DATA_MOUNTS_JSON_PARAM ]] && {
   echo "Incorrect parameter provided for ora-data-mounts-json: $ORA_DATA_MOUNTS_JSON"
-  exit 1
+  exit 52
 }
 [[ ! "$CLUSTER_CONFIG" =~ $CLUSTER_CONFIG_PARAM ]] && {
   echo "Incorrect parameter provided for cluster-config: $CLUSTER_CONFIG"
-  exit 1
+  exit 52
 }
 [[ -n "$CLUSTER_CONFIG_JSON" && ! "$CLUSTER_CONFIG_JSON" =~ $CLUSTER_CONFIG_JSON_PARAM ]] && {
   echo "Incorrect parameter provided for cluster-config-json: $CLUSTER_CONFIG_JSON"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_LISTENER_PORT" =~ $ORA_LISTENER_PORT_PARAM ]] && {
   echo "Incorrect parameter provided for ora-listener-port: $ORA_LISTENER_PORT"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_LISTENER_NAME" =~ $ORA_LISTENER_NAME_PARAM ]] && {
   echo "Incorrect parameter provided for ora-listener-name: $ORA_LISTENER_NAME"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_DB_CONTAINER" =~ $ORA_DB_CONTAINER_PARAM ]] && {
   echo "Incorrect parameter provided for ora-db-container: $ORA_DB_CONTAINER"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_DB_TYPE" =~ $ORA_DB_TYPE_PARAM ]] && {
   echo "Incorrect parameter provided for ora-db-type: $ORA_DB_TYPE"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_PDB_NAME_PREFIX" =~ $ORA_PDB_NAME_PREFIX_PARAM ]] && {
   echo "Incorrect parameter provided for ora-pdb-name-prefix: $ORA_PDB_NAME_PREFIX"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_PDB_COUNT" =~ $ORA_PDB_COUNT_PARAM ]] && {
   echo "Incorrect parameter provided for ora-pdb-count: $ORA_PDB_COUNT"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_REDO_LOG_SIZE" =~ $ORA_REDO_LOG_SIZE_PARAM ]] && {
   echo "Incorrect parameter provided for ora-redo-log-size: $ORA_REDO_LOG_SIZE"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_PGA_TARGET_MB" =~ $ORA_PGA_TARGET_MB_PARAM ]] && {
   echo "Incorrect parameter provided for ora-pga-target-mb: $ORA_PGA_TARGET_MB"
-  exit 1
+  exit 52
 }
 [[ ! "$ORA_SGA_TARGET_MB" =~ $ORA_SGA_TARGET_MB_PARAM ]] && {
   echo "Incorrect parameter provided for ora-sga-target-mb: $ORA_SGA_TARGET_MB"
-  exit 1
+  exit 52
 }
 [[ ! "$BACKUP_DEST" =~ $BACKUP_DEST_PARAM ]] && [[ "$PB_LIST" =~ "config-db.yml" ]] && {
   echo "Incorrect parameter provided for backup-dest: $BACKUP_DEST"
-  exit 1
+  exit 52
 }
 [[ -n "$GCS_BACKUP_CONFIG" && ! "$GCS_BACKUP_CONFIG" =~ $GCS_BACKUP_CONFIG_PARAM ]] && [[ "$BACKUP_DEST" != "/mnt" ]] && {
   echo "Incorrect parameter provided for gcs-backup-config: $GCS_BACKUP_CONFIG"
-  exit 1
+  exit 52
 }
 [[ -n "$GCS_BACKUP_BUCKET" && ! "$GCS_BACKUP_BUCKET" =~ $GCS_BACKUP_BUCKET_PARAM ]] && [[ "$GCS_BACKUP_CONFIG" != "manual" ]] && {
   echo "Incorrect parameter provided for gcs-backup-bucket: $GCS_BACKUP_BUCKET"
-  exit 1
+  exit 52
 }
 [[ ! "$GCS_BACKUP_TEMP_PATH" =~ $GCS_BACKUP_TEMP_PATH_PARAM ]] && [[ "$GCS_BACKUP_CONFIG" != "manual" ]] && {
   echo "Incorrect parameter provided for gcs-backup-temp-path: $GCS_BACKUP_TEMP_PATH"
-  exit 1
+  exit 52
 }
 [[ -n "$NFS_BACKUP_CONFIG" && ! "$NFS_BACKUP_CONFIG" =~ $NFS_BACKUP_CONFIG_PARAM ]] && [[ "${!BACKUP_DEST:0:1}" == "/" ]] && {
   echo "Incorrect parameter provided for nfs-backup-config: $NFS_BACKUP_CONFIG"
-  exit 1
+  exit 52
 }
 [[ -n "$NFS_BACKUP_MOUNT" && ! "$NFS_BACKUP_MOUNT" =~ $NFS_BACKUP_MOUNT_PARAM && -n "$NFS_BACKUP_CONFIG" ]] && {
   echo "Incorrect parameter provided for nfs-backup-mount: $NFS_BACKUP_MOUNT"
-  exit 1
+  exit 52
 }
 [[ ! "$BACKUP_REDUNDANCY" =~ $BACKUP_REDUNDANCY_PARAM ]] && {
   echo "Incorrect parameter provided for backup-redundancy: $BACKUP_REDUNDANCY"
-  exit 1
+  exit 52
 }
 [[ ! "$ARCHIVE_REDUNDANCY" =~ $ARCHIVE_REDUNDANCY_PARAM ]] && {
   echo "Incorrect parameter provided for archive-redundancy: $ARCHIVE_REDUNDANCY"
-  exit 1
+  exit 52
 }
 [[ ! "$ARCHIVE_ONLINE_DAYS" =~ $ARCHIVE_ONLINE_DAYS_PARAM ]] && {
   echo "Incorrect parameter provided for archive-online-days: $ARCHIVE_ONLINE_DAYS"
-  exit 1
+  exit 52
 }
 [[ ! "$BACKUP_LEVEL0_DAYS" =~ $BACKUP_LEVEL0_DAYS_PARAM ]] && {
   echo "Incorrect parameter provided for backup-level0-days: $BACKUP_LEVEL0_DAYS"
-  exit 1
+  exit 52
 }
 [[ ! "$BACKUP_LEVEL1_DAYS" =~ $BACKUP_LEVEL1_DAYS_PARAM ]] && {
   echo "Incorrect parameter provided for backup-level1-days: $BACKUP_LEVEL1_DAYS"
-  exit 1
+  exit 52
 }
 [[ ! "$BACKUP_START_HOUR" =~ $BACKUP_START_HOUR_PARAM ]] && {
   echo "Incorrect parameter provided for backup-start-hour: $BACKUP_START_HOUR"
-  exit 1
+  exit 52
 }
 [[ ! "$BACKUP_START_MIN" =~ $BACKUP_START_MIN_PARAM ]] && {
   echo "Incorrect parameter provided for backup-start-min: $BACKUP_START_MIN"
-  exit 1
+  exit 52
 }
 [[ ! "$ARCHIVE_BACKUP_MIN" =~ $ARCHIVE_BACKUP_MIN_PARAM ]] && {
   echo "Incorrect parameter provided for archive-backup-min: $ARCHIVE_BACKUP_MIN"
-  exit 1
+  exit 52
 }
 [[ ! "$BACKUP_SCRIPT_LOCATION" =~ $BACKUP_SCRIPT_LOCATION_PARAM ]] && {
   echo "Incorrect parameter provided for backup-start-min: $BACKUP_SCRIPT_LOCATION"
-  exit 1
+  exit 52
 }
 [[ ! "$BACKUP_LOG_LOCATION" =~ $BACKUP_LOG_LOCATION_PARAM ]] && {
   echo "Incorrect parameter provided for backup-start-min: $BACKUP_LOG_LOCATION"
-  exit 1
+  exit 52
 }
 [[ ! "$INSTANCE_IP_ADDR" =~ ${INSTANCE_IP_ADDR_PARAM} ]] && [[ "$CLUSTER_TYPE" != "RAC" ]] && {
   echo "Incorrect parameter provided for instance-ip-addr: $INSTANCE_IP_ADDR"
-  exit 1
+  exit 52
 }
 [[ "$INSTANCE_IP_ADDR" == "$PRIMARY_IP_ADDR" ]] && [[ "$CLUSTER_TYPE" != "RAC" ]] && {
   echo "ERROR: Both instance-ip-addr and primary-ip-addr are set to: $INSTANCE_IP_ADDR"
-  exit 1
+  exit 52
 }
 [[ ! "$PRIMARY_IP_ADDR" =~ ${PRIMARY_IP_ADDR_PARAM} ]] && [[ "$CLUSTER_TYPE" == "DG" ]] && {
   echo "Incorrect parameter provided for primary-ip-addr: $PRIMARY_IP_ADDR"
-  exit 1
+  exit 52
 }
 [[ -n "$PRIMARY_IP_ADDR" ]] && [[ "$CLUSTER_TYPE" != "DG" ]] && {
   echo "Parameter cluster-type: $CLUSTER_TYPE, but primary-ip-addr should only be used with cluster-type: DG"
-  exit 1
+  exit 52
 }
 [[ ! "$INSTANCE_SSH_USER" =~ $INSTANCE_SSH_USER_PARAM ]] && {
   echo "Incorrect parameter provided for instance-ssh-user: $INSTANCE_SSH_USER"
-  exit 1
+  exit 52
 }
 [[ ! "$INSTANCE_SSH_KEY" =~ $INSTANCE_SSH_KEY_PARAM ]] && {
   echo "Incorrect parameter provided for instance-ssh-key: $INSTANCE_SSH_KEY"
-  exit 1
+  exit 52
 }
 [[ ! "$NTP_PREF" =~ $NTP_PREF_PARAM ]] && {
   echo "Incorrect parameter provided for ntp-pref: $NTP_PREF"
-  exit 1
+  exit 52
 }
 [[ ! "$SWAP_BLK_DEVICE" =~ $SWAP_BLK_DEVICE_PARAM ]] && {
   echo "Incorrect parameter provided for swap-blk-device: $SWAP_BLK_DEVICE"
-  exit 1
+  exit 52
 }
 [[ ! "$COMPATIBLE_RDBMS" =~ $COMPATIBLE_RDBMS_PARAM ]] && {
   echo "Incorrect parameter provided for compatible-rdbms: $COMPATIBLE_RDBMS"
-  exit 1
+  exit 52
 }
 [[ -n "$DB_PASSWORD_SECRET" && ! "$DB_PASSWORD_SECRET" =~ $DB_PASSWORD_SECRET_PARAM ]] && {
   echo "Incorrect parameter provided for db-password-secret: $DB_PASSWORD_SECRET"
   echo "Expected format: projects/<project>/secrets/<secret_name>/versions/<version>"
-  exit 1
+  exit 52
 }
 [[ -n "$ORACLE_METRICS_SECRET" && ! "$ORACLE_METRICS_SECRET" =~ $ORACLE_METRICS_SECRET_PARAM ]] && {
   echo "Incorrect parameter provided for oracle-metrics-secret: $ORACLE_METRICS_SECRET"
   echo "Expected format: projects/<project>/secrets/<secret_name>/versions/<version>"
-  exit 1
+  exit 52
 }
 # if ORACLE_METRICS_SECRET is specified, INSTALL_WORKLOAD_AGENT must be as well
 if [[ -n "$ORACLE_METRICS_SECRET" && "$INSTALL_WORKLOAD_AGENT" == false ]]; then
   echo "--install-workload-agent must be specified when using --oracle-metrics-secret"
-  exit 1
+  exit 52
 fi
 
 [[ -n "$DATA_GUARD_PROTECTION_MODE" && ! "$DATA_GUARD_PROTECTION_MODE" =~ $DATA_GUARD_PROTECTION_MODE_PARAM ]] && {
   echo "Incorrect parameter provided for data-guard-protection-mode: $DATA_GUARD_PROTECTION_MODE"
   echo "data-guard-protection-mode must be one of: 'Maximum Performance', 'Maximum Availability', or 'Maximum Protection'."
-  exit 1
+  exit 52
 }
 
 # Parameter overrides for features that Free Edition does not support
@@ -926,14 +926,14 @@ if [[ "${skip_compatible_rdbms}" != "true" ]]; then
 
   if ((NON_DOTTED_COMPAT > NON_DOTTED_VER)); then
     printf "\n\033[1;36m%s\033[m\n\n" "compatible-rdbms cannot be higher than the database version being installed."
-    exit 2
+    exit 52
   fi
 fi
 
 # Mandatory options
 if [[ ! -f "$ORA_DATA_MOUNTS" && -z "$ORA_DATA_MOUNTS_JSON" ]]; then
   echo "Please specify --ora-data-mounts or --ora-data-mounts-json"
-  exit 2
+  exit 52
 fi
 
 if [[ -f "$ORA_DATA_MOUNTS" && -n "$ORA_DATA_MOUNTS_JSON" ]]; then
@@ -942,7 +942,7 @@ fi
 
 if [[ "$ORA_DISK_MGMT" != "FS" && ( ! -f "$ORA_ASM_DISKS" && -z "$ORA_ASM_DISKS_JSON" ) ]]; then
   echo "Please specify --ora-asm-disks or --ora-asm-disks-json"
-  exit 2
+  exit 52
 fi
 
 if [[ -f "$ORA_ASM_DISKS" && -n "$ORA_ASM_DISKS_JSON" ]]; then
@@ -952,7 +952,7 @@ fi
 # if the hostgroup is not the default then error out when there is no corresponding group_vars/var.yml file
 if [ "${INSTANCE_HOSTGROUP_NAME}" != "dbasm" -a ! -r group_vars/${INSTANCE_HOSTGROUP_NAME}.yml ]; then
   echo "Custom ansible hostgroup defined as ${INSTANCE_HOSTGROUP_NAME} but no corresponding group_vars/${INSTANCE_HOSTGROUP_NAME}.yml file found"
-  exit 2
+  exit 52
 fi
 
 #
@@ -967,7 +967,7 @@ if [[ -z ${INVENTORY_FILE_PARAM} ]]; then
     # We will be using jq to process the JSON configuration so we check if jq is installed on the system first
     command -v jq >/dev/null 2>&1 || {
       echo >&2 "jq is needed for the RAC feature but has not been detected in this system; cannot continue."
-      exit 2
+      exit 52
     }
 
     # Verify that the cluster configuration exists
@@ -976,7 +976,7 @@ if [[ -z ${INVENTORY_FILE_PARAM} ]]; then
         CLUSTER_CONFIG_JSON=$(<"${CLUSTER_CONFIG}")
       else
         printf "\n\033[1;31m%s\033[m\n\n" "Cluster type is set to ${CLUSTER_TYPE} but we cannot find the configuration file ${CLUSTER_CONFIG} and --cluster-config-json is empty; cannot continue."
-        exit 2
+        exit 52
       fi
     fi
 
@@ -1033,7 +1033,7 @@ if [[ -f "${INVENTORY_FILE}" ]]; then
   printf "\n\033[1;36m%s\033[m\n\n" "Inventory file for this execution: ${INVENTORY_FILE}."
 else
   printf "\n\033[1;31m%s\033[m\n\n" "Cannot find the inventory file ${INVENTORY_FILE}; cannot continue."
-  exit 124
+  exit 52
 fi
 #
 # Build the log file for this session
@@ -1131,7 +1131,7 @@ export ANSIBLE_NOCOWS=1
 ANSIBLE_PLAYBOOK="ansible-playbook"
 if ! type ansible-playbook >/dev/null 2>&1; then
   echo "Ansible executable not found in path"
-  exit 3
+  exit 52
 else
   echo "Found Ansible: $(type ansible-playbook)"
 fi
