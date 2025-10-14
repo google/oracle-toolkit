@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Note that this is a Terraform template file (.tpl). Terraform interprets ${} expressions and replaces them with values at runtime.
+# To prevent Terraform from interpreting shell variables, escape them with $$ (e.g., use $${VAR} to render ${VAR} in the output).
+
+
 # Google Cloud Log Entry has a maximum size of 256 KiB.
 # We truncate the error message to this size to guarantee the entire log payload is accepted.
 readonly MAX_ERROR_SIZE=250000 # leaving 6 KiB margin for other JSON fields
@@ -204,8 +208,10 @@ for node in $(echo '${database_vm_nodes_json}' | jq -c '.[] | select(.role == "p
     --instance-ip-addr "$node_ip" \
     --instance-ssh-user "$ssh_user" \
     --instance-ssh-key /root/.ssh/google_compute_engine \
-    ${common_flags} 2>&1 | tee "$temp_log"
-    
+    ${common_flags} 2>&1 | tee "$temp_log" # The ${common_flags} is passed in from terraform/main.tf.
+
+    # ${} variables are Terraform placeholders replaced with actual values at runtime.
+    # Terraform uses $$ to escape $, so $${PIPESTATUS[0]} becomes ${PIPESTATUS[0]} when Terraform renders the file.
     exit_code="$${PIPESTATUS[0]}"
 
     # Exit code 52 indicates a failure in the install-oracle.sh script.
@@ -249,8 +255,10 @@ if [[ "$num_nodes" -gt 1 ]]; then
     --instance-ip-addr "$node_ip" \
     --instance-ssh-user "$ssh_user" \
     --instance-ssh-key /root/.ssh/google_compute_engine \
-    ${common_flags} 2>&1 | tee "$temp_log"
+    ${common_flags} 2>&1 | tee "$temp_log"  # The ${common_flags} is passed in from terraform/main.tf.
 
+    # ${} variables are Terraform placeholders replaced with actual values at runtime.
+    # Terraform uses $$ to escape $, so $${PIPESTATUS[0]} becomes ${PIPESTATUS[0]} when Terraform renders the file.
     exit_code="$${PIPESTATUS[0]}"
     # Exit code 52 indicates a failure in the install-oracle.sh script.
     if [[ "$exit_code" -eq 52 ]]; then
