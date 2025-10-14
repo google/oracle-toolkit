@@ -1,8 +1,11 @@
 #!/bin/bash
 
-# Note that this is a Terraform template file (.tpl). Terraform replaces variables wrapped in curly braces after a dollar sign at runtime.
-# To prevent Terraform from interpreting shell variables, escape the dollar sign with another dollar sign.
-
+%{ if false }
+# The following is a template-only comment and will not appear in the rendered script:
+#
+# Since this is a Terraform template file, to output a literal shell variable,
+# you must escape the dollar sign. Use a double-dollar-sign to prevent Terraform from interpolating it.
+%{ endif }
 
 # Google Cloud Log Entry has a maximum size of 256 KiB.
 # We truncate the error message to this size to guarantee the entire log payload is accepted.
@@ -34,9 +37,10 @@ control_node_sa="$(curl -fsS http://metadata.google.internal/computeMetadata/v1/
 }
 
 cleanup() {
-  if [[ -n "$heartbeat_pid" ]]; then
+  if [[ -n "$heartbeat_pid" ]] && kill -0 "$heartbeat_pid" >/dev/null 2>&1; then
     echo "Stopping heartbeat process $heartbeat_pid"
     kill "$heartbeat_pid" >/dev/null 2>&1
+    timeout 5s wait "$heartbeat_pid" 2>/dev/null
   fi
   # https://cloud.google.com/compute/docs/troubleshooting/troubleshoot-os-login#invalid_argument
   echo "Deleting public SSH key from the control node's service account OS Login profile to prevent exceeding the 32KiB limit"
@@ -110,7 +114,12 @@ send_startup_script_failure_status() {
   gcloud logging write "$cloud_log_name" "$json_payload" --payload-type=json || exit 1
 }
 
-send_heartbeat >/dev/null 2>&1 &
+# Run send_heartbeat in the background. We redirect its output to stderr (>&2)
+# to prevent the script from hanging.
+# The main script pipes its output to `tee`. If this background process also
+# wrote to stdout, it would keep the pipe open, and `tee` would wait
+# forever. The main `2>&1` ensures these heartbeat logs are still captured.
+send_heartbeat >&2 &
 heartbeat_pid=$!
 
 echo "Heartbeat started with PID $heartbeat_pid"
