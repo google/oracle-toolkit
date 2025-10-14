@@ -208,12 +208,8 @@ for node in $(echo '${database_vm_nodes_json}' | jq -c '.[] | select(.role == "p
     --instance-ip-addr "$node_ip" \
     --instance-ssh-user "$ssh_user" \
     --instance-ssh-key /root/.ssh/google_compute_engine \
-    ${common_flags} 2>&1 | tee "$temp_log" # The ${common_flags} is passed in from terraform/main.tf.
-
-    # ${} variables are Terraform placeholders replaced with actual values at runtime.
-    # Terraform uses $$ to escape $, so $${PIPESTATUS[0]} becomes ${PIPESTATUS[0]} when Terraform renders the file.
+    ${common_flags} 2>&1 | tee "$temp_log" # The common_flags is passed in from terraform/main.tf.
     exit_code="$${PIPESTATUS[0]}"
-
     # Exit code 52 indicates a failure in the install-oracle.sh script.
     if [[ "$exit_code" -eq 52 ]]; then
       error_message=$(head -c "$MAX_ERROR_SIZE" "$temp_log")
@@ -255,10 +251,7 @@ if [[ "$num_nodes" -gt 1 ]]; then
     --instance-ip-addr "$node_ip" \
     --instance-ssh-user "$ssh_user" \
     --instance-ssh-key /root/.ssh/google_compute_engine \
-    ${common_flags} 2>&1 | tee "$temp_log"  # The ${common_flags} is passed in from terraform/main.tf.
-
-    # ${} variables are Terraform placeholders replaced with actual values at runtime.
-    # Terraform uses $$ to escape $, so $${PIPESTATUS[0]} becomes ${PIPESTATUS[0]} when Terraform renders the file.
+    ${common_flags} 2>&1 | tee "$temp_log"  # The common_flags is passed in from terraform/main.tf.
     exit_code="$${PIPESTATUS[0]}"
     # Exit code 52 indicates a failure in the install-oracle.sh script.
     if [[ "$exit_code" -eq 52 ]]; then
