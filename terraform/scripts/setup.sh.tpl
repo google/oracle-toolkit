@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Note that this is a Terraform template file (.tpl). Terraform interprets ${} expressions and replaces them with values at runtime.
-# To prevent Terraform from interpreting shell variables, escape them with $$ (e.g., use $${VAR} to render ${VAR} in the output).
+# Note that this is a Terraform template file (.tpl). Terraform replaces variables wrapped in curly braces after a dollar sign at runtime.
+# To prevent Terraform from interpreting shell variables, escape the dollar sign with another dollar sign.
 
 
 # Google Cloud Log Entry has a maximum size of 256 KiB.
