@@ -106,7 +106,7 @@ send_startup_script_failure_status() {
   gcloud logging write "$cloud_log_name" "$json_payload" --payload-type=json || exit 1
 }
 
-send_heartbeat &
+send_heartbeat >/dev/null 2>&1 &
 heartbeat_pid=$!
 
 echo "Heartbeat started with PID $heartbeat_pid"
