@@ -86,7 +86,7 @@ send_ansible_completion_status() {
   --arg instanceName "$control_node_name" \
   --arg instanceId "$control_node_vmid" \
   --arg zone "$control_node_zone" \
-  '{state: $state, step_name: "bootstrap Ansible scripts", timestamp: $timestamp, deployment_name: $deployment_name, instanceName: $instanceName, instanceId: $instanceId, zone: $zone}')
+  '{state: $state, event_type: $event_type, timestamp: $timestamp, deployment_name: $deployment_name, instanceName: $instanceName, instanceId: $instanceId, zone: $zone}')
   echo "Sending a signal to Cloud Logging to indicate Ansible completion status"
   echo "JSON payload to be sent: $json_payload"
   gcloud logging write "$cloud_log_name" "$json_payload" --payload-type=json || exit 1
