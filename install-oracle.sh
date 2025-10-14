@@ -595,7 +595,7 @@ while true; do
     echo "${GETOPT_MANDATORY}" | sed 's/,/\n/g' | sed 's/:/ <value>/' | sed 's/\(.\+\)/\t --\1/'
     echo "${GETOPT_OPTIONAL}"  | sed 's/,/\n/g' | sed 's/:/ <value>/' | sed 's/\(.\+\)/\t [ --\1 ]/'
     echo -e "\t -- [parameters sent to ansible]"
-    exit 52s
+    exit 52
     ;;
   --)
     shift

@@ -206,21 +206,21 @@ for node in $(echo '${database_vm_nodes_json}' | jq -c '.[] | select(.role == "p
     --instance-ssh-key /root/.ssh/google_compute_engine \
     ${common_flags} 2>&1 | tee "$temp_log"
     
-    exit_code=$${PIPESTATUS[0]}
+    exit_code="$${PIPESTATUS[0]}"
 
     # Exit code 52 indicates a failure in the install-oracle.sh script.
-    if [[ $exit_code -eq 52 ]]; then
+    if [[ "$exit_code" -eq 52 ]]; then
       error_message=$(head -c "$MAX_ERROR_SIZE" "$temp_log")
       if [[ $(wc -c < "$temp_log") -gt "$MAX_ERROR_SIZE" ]]; then
         error_message+="... LOG TRUNCATED TO $MAX_ERROR_SIZE BYTES ..."
       fi
       send_startup_script_failure_status "$error_message"
-      exit $exit_code
+      exit "$exit_code"
     # Any other non-zero exit code is assumed to be a failure in the Ansible playbook.
-    elif [[ $exit_code -ne 0 ]]; then
+    elif [[ "$exit_code" -ne 0 ]]; then
       echo "Error: Primary setup failed for $node_name. Exiting."
-      send_ansible_completion_status $exit_code
-      exit $exit_code
+      send_ansible_completion_status "$exit_code"
+      exit "$exit_code"
     fi
 done
 
@@ -251,20 +251,20 @@ if [[ "$num_nodes" -gt 1 ]]; then
     --instance-ssh-key /root/.ssh/google_compute_engine \
     ${common_flags} 2>&1 | tee "$temp_log"
 
-    exit_code=$${PIPESTATUS[0]}
+    exit_code="$${PIPESTATUS[0]}"
     # Exit code 52 indicates a failure in the install-oracle.sh script.
-    if [[ $exit_code -eq 52 ]]; then
-      error_message=$(head -c "$MAX_ERROR_SIZE" "$temp_log")
+    if [[ "$exit_code" -eq 52 ]]; then
+      error_message="$(head -c "$MAX_ERROR_SIZE" "$temp_log")"
       if [[ $(wc -c < "$temp_log") -gt "$MAX_ERROR_SIZE" ]]; then
         error_message+="... LOG TRUNCATED TO $MAX_ERROR_SIZE BYTES ..."
       fi
       send_startup_script_failure_status "$error_message"
-      exit $exit_code
+      exit "$exit_code"
     # Any other non-zero exit code is assumed to be a failure in the Ansible playbook.
-    elif [[ $exit_code -ne 0 ]]; then
+    elif [[ "$exit_code" -ne 0 ]]; then
       echo "Error: Standby setup failed for $node_name. Exiting."
-      send_ansible_completion_status $exit_code
-      exit $exit_code
+      send_ansible_completion_status "$exit_code"
+      exit "$exit_code"
     fi
   done
 fi
