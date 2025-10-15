@@ -56,14 +56,7 @@ class AnsibleInventoryGenerator:
         
         self.ssh_user = os.getenv('INSTANCE_SSH_USER')
         self.ssh_key = os.getenv('INSTANCE_SSH_KEY')
-        ssh_extra_args = os.getenv('INSTANCE_SSH_EXTRA_ARGS', DEFAULT_SSH_EXTRA_ARGS)
-        # Split SSH extra args into list and reformat as -o <arg> entries
-        ssh_extra_args_list = ssh_extra_args.split()
-        self.ssh_extra_args = [
-            f"-o {ssh_extra_args_list[i+1]}"
-            for i in range(0, len(ssh_extra_args_list), 2)
-            if ssh_extra_args_list[i] == '-o'
-        ]
+        self.ssh_extra_args = os.getenv('INSTANCE_SSH_EXTRA_ARGS', DEFAULT_SSH_EXTRA_ARGS)
         self.hostgroup_name = os.getenv('INSTANCE_HOSTGROUP_NAME')
         self.hostname = os.getenv('INSTANCE_HOSTNAME')
         self.ip_addr = os.getenv('INSTANCE_IP_ADDR')
