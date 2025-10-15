@@ -17,6 +17,14 @@
   include_tasks:
     file: install.yml
   tags: workload-agent
+  
+- name: Log workload agent installation
+  ansible.builtin.shell:
+    cmd: "/usr/bin/google_cloud_workload_agent logusage -s ACTION -a 5"
+  register: log_result
+  changed_when: false
+  ignore_errors: true
+  tags: workload-agent
 
 - name: Create a database user for the Google Cloud Agent for Compute Workloads to collect Oracle metrics
   include_tasks:
