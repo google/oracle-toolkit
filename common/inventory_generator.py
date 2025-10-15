@@ -163,7 +163,7 @@ class AnsibleInventoryGenerator:
                         'ansible_ssh_host': self.ip_addr,
                         'ansible_ssh_user': self.ssh_user,
                         'ansible_ssh_private_key_file': self.ssh_key,
-                        'ansible_ssh_extra_args': self.ssh_extra_args
+                        'ansible_ssh_common_args': self.ssh_extra_args
                     }
                 }
             }
@@ -180,7 +180,7 @@ class AnsibleInventoryGenerator:
                         'ansible_ssh_host': self.ip_addr,
                         'ansible_ssh_user': self.ssh_user,
                         'ansible_ssh_private_key_file': self.ssh_key,
-                        'ansible_ssh_extra_args': self.ssh_extra_args
+                        'ansible_ssh_common_args': self.ssh_extra_args
                     }
                 }
             },
@@ -190,7 +190,7 @@ class AnsibleInventoryGenerator:
                         'ansible_ssh_host': self.primary_ip_addr,
                         'ansible_ssh_user': self.ssh_user,
                         'ansible_ssh_private_key_file': self.ssh_key,
-                        'ansible_ssh_extra_args': self.ssh_extra_args
+                        'ansible_ssh_common_args': self.ssh_extra_args
                     }
                 }
             }
@@ -210,7 +210,7 @@ class AnsibleInventoryGenerator:
                 'vip_ip': node['vip_ip'],
                 'ansible_ssh_user': self.ssh_user,
                 'ansible_ssh_private_key_file': self.ssh_key,
-                'ansible_ssh_extra_args': self.ssh_extra_args
+                'ansible_ssh_common_args': self.ssh_extra_args
             }
         
         group_vars = {
