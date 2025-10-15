@@ -2,9 +2,10 @@
 """
 Ansible YAML Inventory Generator for Oracle Database Deployments
 
-This script generates Ansible inventory files based on environment variables for two Oracle deployment scenarios:
+This script generates Ansible inventory files based on environment variables for three Oracle deployment scenarios:
 1. Single-instance Oracle Database
 2. Multi-instance Oracle RAC
+3. Oracle Data Guard
 
 The script reads configuration from environment variables and generates
 inventory file in YAML format based on the deployment type.
@@ -22,8 +23,8 @@ Environment Variables (Input):
   - CLUSTER_CONFIG:         Path to the JSON cluster configuration file (for RAC).
   - CLUSTER_CONFIG_JSON:    A string containing the JSON cluster configuration (alternative to CLUSTER_CONFIG).
   - INSTANCE_HOSTNAME:      Optional hostname for the target server. Defaults to value of INSTANCE_IP_ADDR.
-  - INSTANCE_IP_ADDR:       The IP address of the target server to host the Oracle software and database (for single instance installations).
-  - PRIMARY_IP_ADDR:        The IP address of the primary server to use as source of primary database for Data Guard configuration (for single instance installations).
+  - INSTANCE_IP_ADDR:       The IP address of the target server to host the Oracle software and database (for single instance and Data Guard standby installations).
+  - PRIMARY_IP_ADDR:        The IP address of the primary server to use as source of primary database for Data Guard configuration.
 Output:
   - Creates an inventory file in the current directory.
   - On success, it prints the full path of the created inventory file to standard output.
@@ -128,10 +129,8 @@ class AnsibleInventoryGenerator:
             ('INSTANCE_SSH_USER', self.ssh_user),
             ('INSTANCE_SSH_KEY', self.ssh_key),
             ('INSTANCE_HOSTGROUP_NAME', self.hostgroup_name),
-            ('INSTANCE_IP_ADDR', self.ip_addr),
             ('ORA_DB_NAME', self.db_name),
             ('CLUSTER_CONFIG_JSON', self.cluster_config_json),
-            ('PRIMARY_IP_ADDR', self.primary_ip_addr)
         ]
         
         missing_vars = [name for name, value in required_vars if not value]
@@ -142,6 +141,25 @@ class AnsibleInventoryGenerator:
         
         return True
     
+    def validate_dg_vars(self) -> bool:
+        """Validate environment variables for Data Guard deployment."""
+        required_vars = [
+            ('INSTANCE_SSH_USER', self.ssh_user),
+            ('INSTANCE_SSH_KEY', self.ssh_key),
+            ('INSTANCE_HOSTGROUP_NAME', self.hostgroup_name),
+            ('INSTANCE_IP_ADDR', self.ip_addr),
+            ('ORA_DB_NAME', self.db_name),
+            ('INSTANCE_HOSTNAME', self.hostname),
+            ('PRIMARY_IP_ADDR', self.primary_ip_addr),
+        ]
+        
+        missing_vars = [name for name, value in required_vars if not value]
+        
+        if missing_vars:
+            print(f"Missing required environment variables for Data Guard deployment: {', '.join(missing_vars)}")
+            return False
+        
+        return True
     
     def generate_single_instance_inventory(self) -> Dict:
         """Generate YAML inventory structure for single-instance Oracle database."""
@@ -150,6 +168,33 @@ class AnsibleInventoryGenerator:
                 'hosts': {
                     self.hostname: {
                         'ansible_ssh_host': self.ip_addr,
+                        'ansible_ssh_user': self.ssh_user,
+                        'ansible_ssh_private_key_file': self.ssh_key,
+                        'ansible_ssh_extra_args': self.ssh_extra_args
+                    }
+                }
+            }
+        }
+        
+        return inventory
+    
+    def generate_dg_inventory(self) -> Dict:
+        """Generate YAML inventory structure for Oracle Data Guard."""
+        inventory = {
+            self.hostgroup_name: {
+                'hosts': {
+                    self.hostname: {
+                        'ansible_ssh_host': self.ip_addr,
+                        'ansible_ssh_user': self.ssh_user,
+                        'ansible_ssh_private_key_file': self.ssh_key,
+                        'ansible_ssh_extra_args': self.ssh_extra_args
+                    }
+                }
+            },
+            'primary': {
+                'hosts': {
+                    'primary1': {
+                        'ansible_ssh_host': self.primary_ip_addr,
                         'ansible_ssh_user': self.ssh_user,
                         'ansible_ssh_private_key_file': self.ssh_key,
                         'ansible_ssh_extra_args': self.ssh_extra_args
@@ -201,6 +246,8 @@ class AnsibleInventoryGenerator:
         """Generate appropriate filename based on deployment type."""
         if self.cluster_type and self.cluster_type.upper() == 'RAC':
             return f"inventory_{self.db_name}_RAC.yml"
+        elif self.cluster_type and self.cluster_type.upper() == 'DG':
+            return f"inventory_{self.hostname}_{self.db_name}_DG.yml"
         else:
             return f"inventory_{self.hostname}_{self.db_name}.yml"
     
@@ -221,12 +268,16 @@ class AnsibleInventoryGenerator:
         Args:
             output_dir: Directory where to save the inventory file
         """
-        is_rac = self.cluster_type and self.cluster_type.upper() == 'RAC'
+        cluster_type_upper = self.cluster_type.upper() if self.cluster_type else 'NONE'
         
-        if is_rac:
+        if cluster_type_upper == 'RAC':
             if not self.validate_rac_vars():
                 return False
             inventory_dict = self.generate_rac_inventory()
+        elif cluster_type_upper == 'DG':
+            if not self.validate_dg_vars():
+                return False
+            inventory_dict = self.generate_dg_inventory()
         else:
             if not self.validate_single_instance_vars():
                 return False

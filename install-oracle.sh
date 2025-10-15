@@ -1039,7 +1039,8 @@ export SWAP_BLK_DEVICE
 export DB_PASSWORD_SECRET
 export INSTALL_WORKLOAD_AGENT
 export ORACLE_METRICS_SECRET
-
+export DATA_GUARD_PROTECTION_MODE
+export SKIP_PLATFORM_COMPATIBILITY
 
 #
 # Build the inventory file if no inventory file specified on the command line
@@ -1072,8 +1073,6 @@ else
   printf "\n\033[1;31m%s\033[m\n\n" "Cannot find the inventory file ${INVENTORY_FILE}; cannot continue."
   exit 124
 fi
-export DATA_GUARD_PROTECTION_MODE
-export SKIP_PLATFORM_COMPATIBILITY
 
 echo -e "Running with parameters from command line or environment variables:\n"
 set | grep -E '^(ORA_|BACKUP_|GCS_|ARCHIVE_|INSTANCE_|PB_|ANSIBLE_|CLUSTER|PRIMARY)' | grep -v '_PARAM='
