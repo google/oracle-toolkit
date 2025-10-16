@@ -1,0 +1,27 @@
+ora_cluster_type: RAC
+instance_ssh_user: ansible
+instance_ssh_key: /home/ansible/.ssh/id_rsa
+ora_swlib_bucket: gs://my-swlib-bucket
+db_password_secret: projects/my-project/secrets/db-password/versions/1
+ora_version: 19.3.0.0.0
+db_name: ORCL
+cluster_config_json:
+  - scan_name: "scan.test-rac.internal"
+    scan_port: 1521
+    cluster_name: "test-rac-cluster"
+    cluster_domain: home
+    public_net: "eth1"
+    private_net: "vxlan0"
+    scan_ip1: "10.0.0.210"
+    scan_ip2: "10.0.0.211"
+    scan_ip3: "10.0.0.212"
+    dg_name: "DG_NAME"
+    nodes:
+      - node_name: "rac-node1"
+        host_ip: "10.0.0.20"
+        vip_name: "rac-node1-vip"
+        vip_ip: "10.0.0.21"
+      - node_name: "rac-node2"
+        host_ip: "10.0.0.22"
+        vip_name: "rac-node2-vip"
+        vip_ip: "10.0.0.23"

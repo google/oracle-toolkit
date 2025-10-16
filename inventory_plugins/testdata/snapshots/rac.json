@@ -1,0 +1,69 @@
+{
+    "_meta": {
+        "hostvars": {
+            "rac-node1": {
+                "ansible_ssh_host": "10.0.0.20",
+                "vip_name": "rac-node1-vip",
+                "vip_ip": "10.0.0.21",
+                "ora_cluster_type": "RAC",
+                "instance_ssh_user": "ansible",
+                "instance_ssh_key": "/home/ansible/.ssh/id_rsa",
+                "ora_swlib_bucket": "gs://my-swlib-bucket",
+                "db_password_secret": "projects/my-project/secrets/db-password/versions/1",
+                "ora_version": "19.3.0.0.0",
+                "db_name": "ORCL",
+                "inventory_hostname": "rac-node1",
+                "inventory_hostname_short": "rac-node1",
+                "group_names": [
+                    "dbasm"
+                ]
+            },
+            "rac-node2": {
+                "ansible_ssh_host": "10.0.0.22",
+                "vip_name": "rac-node2-vip",
+                "vip_ip": "10.0.0.23",
+                "ora_cluster_type": "RAC",
+                "instance_ssh_user": "ansible",
+                "instance_ssh_key": "/home/ansible/.ssh/id_rsa",
+                "ora_swlib_bucket": "gs://my-swlib-bucket",
+                "db_password_secret": "projects/my-project/secrets/db-password/versions/1",
+                "ora_version": "19.3.0.0.0",
+                "db_name": "ORCL",
+                "inventory_hostname": "rac-node2",
+                "inventory_hostname_short": "rac-node2",
+                "group_names": [
+                    "dbasm"
+                ]
+            }
+        },
+        "groupvars": {
+            "dbasm": {
+                "scan_name": "scan.test-rac.internal",
+                "scan_port": 1521,
+                "cluster_name": "test-rac-cluster",
+                "cluster_domain": "home",
+                "public_net": "eth1",
+                "private_net": "vxlan0",
+                "scan_ip1": "10.0.0.210",
+                "scan_ip2": "10.0.0.211",
+                "scan_ip3": "10.0.0.212",
+                "dg_name": "DG_NAME"
+            }
+        }
+    },
+    "all": {
+        "hosts": [],
+        "children": [
+            "ungrouped"
+        ]
+    },
+    "ungrouped": {
+        "hosts": []
+    },
+    "dbasm": {
+        "hosts": [
+            "rac-node1",
+            "rac-node2"
+        ]
+    }
+}

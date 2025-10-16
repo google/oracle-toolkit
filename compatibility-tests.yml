@@ -21,7 +21,7 @@
 
   vars:
     managed_host_checks: true
-    skip_platform_compatibility: "{{ lookup('env', 'SKIP_PLATFORM_COMPATIBILITY') == '1' }}"
+    skip_platform_compatibility: "{{ _skip_platform_compatibility | default(false) | bool }}"
 
   pre_tasks:
     - name: Oracle_rel

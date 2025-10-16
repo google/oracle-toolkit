@@ -54,6 +54,5 @@
 
 - name: (debug) Display the swap partition ID
   debug:
-    msg: "{{ swap_partition_id }}"
-    verbosity: 1
-  tags: populate-swap-partition-id
+    var: swap_partition_id
+  when: swap_blk_device is defined

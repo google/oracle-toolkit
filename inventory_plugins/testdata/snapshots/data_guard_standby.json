@@ -1,0 +1,57 @@
+{
+    "_meta": {
+        "hostvars": {
+            "primary1": {
+                "ansible_ssh_host": "10.0.0.1",
+                "ansible_ssh_user": "ansible",
+                "ansible_ssh_private_key_file": "/home/ansible/.ssh/id_rsa",
+                "is_primary_node": true,
+                "inventory_hostname": "primary1",
+                "inventory_hostname_short": "primary1",
+                "group_names": [
+                    "primary"
+                ]
+            },
+            "standby-1": {
+                "ansible_ssh_host": "10.0.0.2",
+                "ora_cluster_type": "DG",
+                "instance_ip_addr": "10.0.0.2",
+                "instance_hostname": "standby-1",
+                "primary_ip_addr": "10.0.0.1",
+                "instance_ssh_user": "ansible",
+                "instance_ssh_key": "/home/ansible/.ssh/id_rsa",
+                "ora_swlib_bucket": "gs://my-swlib-bucket",
+                "db_password_secret": "projects/my-project/secrets/db-password/versions/1",
+                "ora_version": "19.3.0.0.0",
+                "db_name": "ORCL",
+                "is_standby_node": true,
+                "ansible_ssh_user": "ansible",
+                "ansible_ssh_private_key_file": "/home/ansible/.ssh/id_rsa",
+                "inventory_hostname": "standby-1",
+                "inventory_hostname_short": "standby-1",
+                "group_names": [
+                    "dbasm"
+                ]
+            }
+        }
+    },
+    "all": {
+        "hosts": [],
+        "children": [
+            "ungrouped"
+        ]
+    },
+    "dbasm": {
+        "hosts": [
+            "standby-1"
+        ]
+    },
+    "primary": {
+        "hosts": [
+            "primary1"
+        ]
+    },
+    "ungrouped": {
+        "hosts": []
+    }
+}

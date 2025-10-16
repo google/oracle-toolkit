@@ -30,6 +30,10 @@
         become_user_check: root
       tags: readiness_checks
 
+    - name: Display is_standby_node status
+      debug:
+        msg: "This node is identified as a standby node: {{ is_standby_node | default(false) }}"
+
   tasks:
     - include_role:
         name: lsnr-create
@@ -49,7 +53,7 @@
       when:
         - create_db | bool
         - cluster_type != "RAC"
-        - lookup('env', 'PRIMARY_IP_ADDR') is not defined or lookup('env', 'PRIMARY_IP_ADDR') | length == 0
+        - not is_standby_node | default(false)
       tags: primary-db
 
     - name: Skip installation of Google Cloud Agent for Compute Workloads if non-RHEL OS detected
@@ -80,8 +84,7 @@
       when:
         - create_db | bool
         - cluster_type != "RAC"
-        - lookup('env', 'PRIMARY_IP_ADDR') is defined
-        - lookup('env', 'PRIMARY_IP_ADDR') | length > 0
+        - is_standby_node | default(false)
       tags: active-duplicate
 
     - include_role:
