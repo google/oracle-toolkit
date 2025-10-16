@@ -13,159 +13,177 @@
 # limitations under the License.
 
 ---
-# Defined boolean if installing Free Edition
-free_edition: "{{ oracle_edition == 'FREE' }}"
-gi_install: "{{ not free_edition and not ora_disk_management == 'fs' }}"
-
-# Installation related variables:
-swlib_path: "{{ lookup('env','ORA_SWLIB_PATH') | lower | default(swlib_path_default,true) }}"
-swlib_unzip_path: "{{ lookup('env','ORA_STAGING') | lower | default(swlib_path,true) }}"
-swlib_mount_type: "{{ lookup('env','ORA_SWLIB_TYPE') | lower | default('gcs',true) }}"  # absent for gcsfuse or nfs
-swlib_mount_src: "{{ lookup('env','ORA_SWLIB_BUCKET') | default('',true) | regex_replace ('^gs://') }}"
-swlib_gcs_service_account_file: "{{ lookup('env','ORA_SWLIB_CREDENTIALS') | default('',true) }}"
-swlib_path_default: "{{ oracle_user_data_mounts | selectattr('purpose', 'match', '^software$') | map(attribute='mount_point') | list | first }}/swlib"
-
-# Installation related variables from dbasm
-oracle_user_data_mounts_default:
-  - { purpose: software, blk_device: /dev/BOGUS, fstype: xfs, mount_point: /u01, mount_opts: "nofail" }
-  - { purpose: diag, blk_device: /dev/BOGUS, fstype: xfs, mount_point: /u02, mount_opts: "nofail" }
-data_mounts_definition_file: "{{ lookup('env','ORA_DATA_MOUNTS') | default('data_mounts_config.json',true) }}"
-data_mounts_input: "{{ lookup('file',data_mounts_definition_file,errors='ignore') }}"
-oracle_user_data_mounts: "{{ data_mounts_input | default(oracle_user_data_mounts_default,true) }}"
-asm_disks_default:
-  - diskgroup: "{{ data_destination }}"
-    disks:
-      - name: DATA1
-        blk_device: /dev/BOGUS
-  - diskgroup: "{{ reco_destination }}"
-    disks:
-      - name: RECO1
-        blk_device: /dev/BOGUS
-  - diskgroup: DEMO
-    disks:
-      - name: DEMO1
-        blk_device: /dev/BOGUS
-asm_definition_file: "{{ lookup('env','ORA_ASM_DISKS') | default('asm_disk_config.json',true) }}"
-asm_disk_input: "{{ lookup('file',asm_definition_file,errors='ignore') }}"
-asm_disks: "{% if gi_install %}{{ asm_disk_input | default(asm_disks_default,true) }}{% else %}[]{% endif %}"
-
-## The toolkit can optionally configure swap space
-# If your RAM size is less than or equal to 2 GB, your swap size should be 1.5 times of the RAM. For example, if your RAM size is 2 GB, you should create swap space of 3GB
-# If your RAM size is between 2 GB and 16 GB, your swap size should be the same size of the RAM. For example, if your RAM size is 4 GB, you should create swap space of 4GB
-# If your RAM size is more than 16 GB, your swap size should be 16 GB. For example, if your RAM size is 32 GB, it is enough if you create a swap space of 16GB
-swap_blk_device: "{{ lookup('env','SWAP_BLK_DEVICE') | lower | default('',true) }}"
-
-# ntp preferred server
-ntp_preferred: "{{ lookup('env','NTP_PREF') | lower | default('',true) }}"
-
-# Google Cloud Secret Manager resource containing the password to be used for both the Oracle SYS and SYSTEM users
-db_password_secret: "{{ lookup('env','DB_PASSWORD_SECRET') | lower | default('',true) }}"
-
-# DB configuration related variables:
-db_name: "{{ lookup('env','ORA_DB_NAME') | default('ORCL',true) }}"
-db_domain: "{{ lookup('env','ORA_DB_DOMAIN') | default('',true) }}"
-oracle_ver: "{{ lookup('env','ORA_VERSION') | default('19.3.0.0.0',true) }}"
-oracle_ver_base: "{{ oracle_ver | regex_replace('^(.*?\\..*?)\\..*$', '\\1') }}"
-oracle_rel: "{{ lookup('env','ORA_RELEASE') | default('latest',true) }}"
-oracle_edition: "{{ lookup('env','ORA_EDITION') | default('EE',true) }}"
-cluster_type: "{{ lookup('env','CLUSTER_TYPE') | default('NONE',true) }}"
-
-container_db: "{{ lookup('env','ORA_DB_CONTAINER') | default(false,true) | bool }}"
-pdb_prefix: "{{ lookup('env','ORA_PDB_NAME_PREFIX') | default('PDB',true) }}"
-pdb_count: "{{ lookup('env','ORA_PDB_COUNT') | default('1',true) }}"
-
-db_type: "{{ lookup('env','ORA_DB_TYPE') | lower | default('multipurpose',true) }}"
-redologsize: "{{ lookup('env','ORA_REDO_LOG_SIZE') | regex_replace('^(.*)MB$', '\\1') | default('100',true) }}"
-
-charset: "{{ lookup('env','ORA_DB_CHARSET') | default('AL32UTF8',true) }}"
-ncharset: "{{ lookup('env','ORA_DB_NCHARSET') | default('AL16UTF16',true) }}"
-
-# ASM and storage related variables:
-ora_disk_management: "{{ lookup('env','ORA_DISK_MGMT') | lower | default('udev',true) }}"
-role_separation: "{{ lookup('env','ORA_ROLE_SEPARATION') | default('true', true) | lower | bool }}"
-data_destination: "{{ lookup('env','ORA_DATA_DESTINATION') | default('DATA',true) }}"
-reco_destination: "{{ lookup('env','ORA_RECO_DESTINATION') | default('RECO',true) }}"
-use_omf: true  # Used for file system storage (currently applicable only for Free Edition)
-
-# Listener related variables:
-listener_port: "{{ lookup('env','ORA_LISTENER_PORT') | default('1521',true) }}"
-listener_name: "{{ lookup('env','ORA_LISTENER_NAME') | default('LISTENER',true) }}"
-
-# DB backup related variables:
-scripts_dir: "/home/{{ oracle_user }}/scripts"
-logs_dir: "/home/{{ oracle_user }}/logs"
-backup_dest: "{{ lookup('env','BACKUP_DEST') }}"
-gcsfuse_backup_config: "{{ lookup('env','GCS_BACKUP_CONFIG') | lower | default('',true) }}"
-gcsfuse_backup_bucket: "{{ lookup('env','GCS_BACKUP_BUCKET') | default('',true) | regex_replace('^gs://([^/]+).*$', '\\1') }}"
-gcsfuse_backup_bucket_folder: "{{ lookup('env','GCS_BACKUP_BUCKET') | default('',true) | regex_replace('^gs://[^/]+/?|/$', '') }}"
-gcsfuse_backup_temp_path: "{{ lookup('env','GCS_BACKUP_TEMP_PATH') | default('',true) }}"
-gcsfuse_backup_path: "{{ lookup('env','GCS_BACKUP_PATH') | default('',true) }}"
-gcsfuse_backup_mount_path: "{{ lookup('env','BACKUP_DEST') | default('',true) }}"
-nfs_backup_config: "{{ lookup('env','NFS_BACKUP_CONFIG') | regex_replace('^nfsv','vers=') }}"
-nfs_backup_mount: "{{ lookup('env','NFS_BACKUP_MOUNT') }}"
-rman_db_bu_redundancy: "{{ lookup('env','BACKUP_REDUNDANCY') | default('2',true) }}"
-rman_arch_redundancy: "{{ lookup('env','ARCHIVE_REDUNDANCY') | default('2',true) }}"
-rman_archs_online_days: "{{ lookup('env','ARCHIVE_ONLINE_DAYS') | default('7',true) }}"
-full_bu_level0_day: "{{ lookup('env','BACKUP_LEVEL0_DAYS') | default('0',true) }}"
-full_bu_level1_days: "{{ lookup('env','BACKUP_LEVEL1_DAYS') | default('1-6',true) }}"
-full_bu_start_hour: "{{ lookup('env','BACKUP_START_HOUR') | default('01',true) }}"
-full_bu_start_min: "{{ lookup('env','BACKUP_START_MIN') | default('00',true) }}"
-arch_bu_start_min: "{{ lookup('env','ARCHIVE_BACKUP_MIN') | default('30',true) }}"
-
-# backup_mount_src: "192.168.185.82:/backups" #an nfs share of some sort
-# backup_mount_path: "/backups" #an nfs mount point
-
-# workload-agent related variables
-install_workload_agent: "{{ lookup('env','INSTALL_WORKLOAD_AGENT') | lower | default(false) }}"
-oracle_metrics_secret: "{{ lookup('env','ORACLE_METRICS_SECRET') | lower | default('', true)}}"
-
-# Data Guard modes
-real_time_apply: true
-data_guard_protection_mode: "{{ lookup('env','DATA_GUARD_PROTECTION_MODE') | lower | default('Maximum Availability', true)}}"
-log_transport_mode: "{{ 'ASYNC' if data_guard_protection_mode | upper == 'MAXIMUM PERFORMANCE' else 'SYNC' }}"
-
-# Server configuration options:
-disable_firewall: false
-
-## End of customizable Global Variables
-
+################################################################################
+#
+# This file defines the oracle-toolkit's internal variables and sets default values for configuration parameters. 
+# These defaults are applied when a user does not explicitly provide a value for a variable via the install-oracle.sh script.
+#
 ################################################################################
 
-## Variables for adjustment in future versions - not currently modifiable
 
-# DB configuration related variables:
-db_config_type: "{% if lookup('env','CLUSTER_TYPE') | default('NONE', true) in ('NONE', 'DG') %}SI{% elif lookup('env','CLUSTER_TYPE') == 'RAC' %}RAC{% endif %}"
-instance_num: 1
-memory_pct: 45
-ora_pga_target_mb: "{{ lookup('env','ORA_PGA_TARGET_MB') | int | default('150',true) }}"
-ora_sga_target_mb: "{{ lookup('env','ORA_SGA_TARGET_MB') | int | default((ansible_memory_mb.real.total*memory_pct)//100,true) }}"
-oracle_user: oracle
-oracle_group: oinstall
-grid_user: "{% if role_separation %}grid{% else %}{{ oracle_user }}{% endif %}"
-grid_group: asmadmin
+################################################################################
+# Software installation & environment
+################################################################################
+
+free_edition: "{{ oracle_edition == 'FREE' }}"
+free_edition_name: "{% if free_edition %}{% if oracle_ver[:5] == '23.26' %}26ai{% elif oracle_ver[:4] == '23.2' or oracle_ver[:4] == '23.3' %}23c{% else %}{{ oracle_ver[:2] }}ai{% endif %}{% endif %}"
+oracle_ver_dir: "{% if free_edition %}{{ free_edition_name }}{% else %}{{ oracle_ver[:6] }}{% endif %}"
+gi_install: "{{ not free_edition and not ora_disk_management == 'fs' }}"
+swlib_path_default: "{{ oracle_user_data_mounts | selectattr('purpose', 'match', '^software$') | map(attribute='mount_point') | list | first }}/swlib"
+swlib_path: "{{ (ora_swlib_path | default(swlib_path_default,true)) | lower }}"
+swlib_unzip_path: "{{ (ora_staging | default(swlib_path,true)) | lower }}"
+swlib_mount_type: "{{ (ora_swlib_type | default('gcs',true)) | lower }}"
+swlib_mount_src: "{{ ora_swlib_bucket | default('',true) | regex_replace ('^gs://') }}"
+swlib_gcs_service_account_file: "{{ ora_swlib_credentials | default('',true) }}"
+ntp_preferred: "{{ (ntp_pref | default('',true)) | lower }}"
+db_password_secret: "{{ (_db_password_secret | default('',true)) | lower }}"
 oracle_root: "/u01/app"
 home_name: "{% if free_edition %}dbhomeFree{% else %}dbhome_1{% endif %}"
-oracle_sid: "{% if db_config_type == 'SI' %}{{ db_name }}{% else %}{{ db_name }}{{ instance_num }}{% endif %}"
-asm_sid: "{% if db_config_type == 'SI' %}+ASM{% else %}+ASM{{ instance_num }}{% endif %}"
-run_initial_bu: true
-
-# Installation options:
 create_db: true
 create_listener: true
 install_rdbms: true
 
-## End of non-modifiable variables section
 
-## host provision variables
-instance_ssh_user: "{{ lookup('env','INSTANCE_SSH_USER') | lower | default('ansible',true) }}"
+################################################################################
+# User and group settings
+################################################################################
+
+oracle_user: oracle
+oracle_group: oinstall
+grid_user: "{% if role_separation %}grid{% else %}{{ oracle_user }}{% endif %}"
+grid_group: asmadmin
+
+
+################################################################################
+# SSH settings
+################################################################################
+
+ansible_ssh_user: "{{ instance_ssh_user }}"
+ansible_ssh_private_key_file: "{{ instance_ssh_key }}"
+ansible_ssh_extra_args: "{{ instance_ssh_extra_args | default('-o ServerAliveInterval=60 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o IdentityAgent=no', true) }}"
 firsttime_connect_user: "customeradmin"
 control_node_key_file: "~/.ssh/id_rsa_oracle_toolkit"
-proxy_setup: "{{ lookup('env','ORA_PROXY_SETUP') | lower | default('false',true) }}"
-u01_lun: "{{ lookup('env','ORA_U01_LUN') | lower | default('',true) }}"
 
-#  Environment and infrastructure values (requirements) used for readiness checks
-# NOTE: If you update minimum_ansible_version, please also update .tool-versions.
-# The .tool-versions file is the source of truth for SBOM generation.
+
+################################################################################
+# Oracle Database configuration
+################################################################################
+
+db_name: "{% if oracle_edition == 'FREE' %}FREE{% else %}{{ ora_db_name | default('ORCL',true) }}{% endif %}"
+db_domain: "{{ ora_db_domain | default('',true) }}"
+version_map:
+  '26': '23.26.0.0.0'
+  '23': '23.0.0.0.0'
+  '21': '21.3.0.0.0'
+  '19': '19.3.0.0.0'
+  '18': '18.0.0.0.0'
+  '12': '12.2.0.1.0'
+  '12.2': '12.2.0.1.0'
+  '12.1': '12.1.0.2.0'
+  '11': '11.2.0.4.0'
+
+oracle_ver: "{{ version_map[ora_version | string] | default(ora_version, true) if ora_version is defined else '19.3.0.0.0' }}"
+oracle_ver_base: "{{ oracle_ver | regex_replace('^(.*?\\..*?)\\..*$', '\\1') }}"
+oracle_rel: "{{ ora_release | default('latest',true) }}"
+oracle_edition: "{{ ora_edition | default('EE',true) }}"
+cluster_type: "{{ ora_cluster_type | default('NONE',true) }}"
+container_db: "{{ ora_db_container | default(false,true) | bool }}"
+pdb_prefix: "{{ ora_pdb_name_prefix | default('PDB',true) }}"
+pdb_count: "{{ ora_pdb_count | default('1',true) }}"
+db_type: "{{ (ora_db_type | default('multipurpose',true)) | lower }}"
+redologsize: "{{ (ora_redo_log_size | default('100MB',true)) | regex_replace('^(.*)MB$', '\\1') }}"
+charset: "{{ ora_db_charset | default('AL32UTF8',true) }}"
+ncharset: "{{ ora_db_ncharset | default('AL16UTF16',true) }}"
+db_config_type: "{% if cluster_type | default('NONE', true) in ('NONE', 'DG') %}SI{% elif cluster_type == 'RAC' %}RAC{% endif %}"
+instance_num: 1
+memory_pct: 45
+pga_target_mb: "{{ (ora_pga_target_mb | default('150', true)) | int }}"
+sga_target_mb: "{{ ora_sga_target_mb | default((ansible_memory_mb.real.total*memory_pct)//100, true) | int }}"
+oracle_sid: "{% if db_config_type == 'SI' %}{{ db_name }}{% else %}{{ db_name }}{{ instance_num }}{% endif %}"
+
+
+################################################################################
+# Storage configuration
+################################################################################
+
+ora_disk_management: "{{ 'fs' if free_edition else (ora_disk_mgmt | default('udev',true)) | lower }}"
+role_separation: "{{ false if ora_disk_management == 'fs' else (ora_role_separation | default(true, true)) | lower | bool }}"
+data_destination: "{{ ora_data_destination | default('DATA',true) }}"
+reco_destination: "{{ ora_reco_destination | default('RECO',true) }}"
+use_omf: true
+data_mounts_definition_file: "{{ ora_data_mounts | default('data_mounts_config.json',true) }}"
+data_mounts_input: "{{ ora_data_mounts_json if (ora_data_mounts_json is defined and ora_data_mounts_json != '') else lookup('file', data_mounts_definition_file, errors='ignore') }}"
+oracle_user_data_mounts: "{{ (data_mounts_input | from_json) if (data_mounts_input is string) else data_mounts_input }}"
+asm_definition_file: "{{ ora_asm_disks | default('asm_disk_config.json',true) }}"
+asm_disk_input: "{{ ora_asm_disks_json if (ora_asm_disks_json is defined and ora_asm_disks_json != '') else lookup('file', asm_definition_file, errors='ignore') }}"
+asm_disks: "{% if gi_install %}{{ (asm_disk_input | from_json) if (asm_disk_input is string) else asm_disk_input }}{% else %}[]{% endif %}"
+asm_sid: "{% if db_config_type == 'SI' %}+ASM{% else %}+ASM{{ instance_num }}{% endif %}"
+u01_lun: "{{ (ora_u01_lun | default('',true)) | lower }}"
+
+
+################################################################################
+# Oracle listener configuration
+################################################################################
+
+listener_port: "{{ ora_listener_port | default('1521',true) }}"
+listener_name: "{{ ora_listener_name | default('LISTENER',true) }}"
+
+
+################################################################################
+# Backup and recovery configuration
+################################################################################
+
+scripts_dir: "/home/{{ oracle_user }}/scripts"
+logs_dir: "/home/{{ oracle_user }}/logs"
+backup_dest: "{{ _backup_dest | default('', true) }}"
+gcsfuse_backup_config: "{{ (gcs_backup_config | default('',true)) | lower }}"
+gcsfuse_backup_bucket: "{{ gcs_backup_bucket | default('',true) | regex_replace('^gs://([^/]+).*$', '\\1') }}"
+gcsfuse_backup_bucket_folder: "{{ gcs_backup_bucket | default('',true) | regex_replace('^gs://[^/]+/?|/$', '') }}"
+gcsfuse_backup_temp_path: "{{ gcs_backup_temp_path | default('',true) }}"
+gcsfuse_backup_path: "{{ gcs_backup_path | default('',true) }}"
+gcsfuse_backup_mount_path: "{{ backup_dest | default('',true) }}"
+nfs_backup_config: "{{ _nfs_backup_config | default('',true) | regex_replace('^nfsv','vers=') }}"
+nfs_backup_mount: "{{ _nfs_backup_mount | default('',true) }}"
+rman_db_bu_redundancy: "{{ backup_redundancy | default('2',true) }}"
+rman_arch_redundancy: "{{ archive_redundancy | default('2',true) }}"
+rman_archs_online_days: "{{ archive_online_days | default('7',true) }}"
+full_bu_level0_day: "{{ backup_level0_days | default('0',true) }}"
+full_bu_level1_days: "{{ backup_level1_days | default('1-6',true) }}"
+full_bu_start_hour: "{{ backup_start_hour | default('01',true) }}"
+full_bu_start_min: "{{ backup_start_min | default('00',true) }}"
+arch_bu_start_min: "{{ archive_backup_min | default('30',true) }}"
+run_initial_bu: true
+
+
+################################################################################
+# Google Cloud Workload Agent settings
+################################################################################
+
+install_workload_agent: "{{ (_install_workload_agent | default(false)) | lower }}"
+oracle_metrics_secret: "{{ _oracle_metrics_secret | default('',true) }}"
+
+
+################################################################################
+# Oracle Data Guard configuration
+################################################################################
+
+real_time_apply: true
+data_guard_protection_mode: "{{ ora_data_guard_protection_mode | default('Maximum Availability', true) }}"
+log_transport_mode: "{{ 'ASYNC' if data_guard_protection_mode | upper == 'MAXIMUM PERFORMANCE' else 'SYNC' }}"
+
+
+################################################################################
+# Server configuration
+################################################################################
+
+disable_firewall: false
+proxy_setup: "{{ (ora_proxy_setup | default(false,true)) | lower }}"
+
+
+################################################################################
+# System requirements
+################################################################################
+
 minimum_ansible_version: 2.9
 os_supported_architecture: "x86_64"
 os_family_supported: "RedHat"

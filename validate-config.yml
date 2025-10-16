@@ -1,0 +1,388 @@
+---
+- name: Validate Configuration
+  # Validation tasks should only run on the host being configured (e.g., the standby node in a Data Guard setup),
+  # which is represented by the 'dbasm' group.
+  hosts: dbasm
+  connection: local
+  gather_facts: false
+  tags: validation
+  tasks:
+    
+    - name: Validate ora_version value
+      ansible.builtin.assert:
+        that:
+          - ora_version is match('^(23(\.0\.0\.0\.0)?|21(\.3\.0\.0\.0)?|19(\.3\.0\.0\.0)?|18(\.0\.0\.0\.0)?|12(\.[12])?(\.2\.0\.1\.0|\.1\.0\.2\.0)?|11(\.2\.0\.4\.0)?)$')
+        fail_msg: "Invalid ora-version '{{ ora_version }}'."
+
+    - name: Validate ora_release value
+      ansible.builtin.assert:
+        that:
+          - oracle_rel is match('^(base|latest|[0-9]{,2}\.[0-9]{,2}\.[0-9]{,2}\.[0-9]{,2}\.[0-9]{,6})$')
+        fail_msg: "Invalid ora-release '{{ oracle_rel }}'."
+
+    - name: Validate ora_edition value
+      ansible.builtin.assert:
+        that:
+          - ora_edition in ['EE', 'SE', 'SE2', 'FREE']
+        fail_msg: "Invalid ora-edition '{{ ora_edition }}'. Must be one of: EE, SE, SE2, FREE."
+      when: ora_edition is defined
+
+    - name: Validate cluster_type value
+      ansible.builtin.assert:
+        that:
+          - cluster_type in ['NONE', 'RAC', 'DG']
+        fail_msg: "Invalid cluster-type '{{ cluster_type }}'. Must be one of: NONE, RAC, DG."
+
+    - name: Validate ora_swlib_bucket value
+      ansible.builtin.assert:
+        that:
+          - ora_swlib_bucket is defined # no default value set in group_vars/all.yml
+          - ora_swlib_bucket is match('^(gs:\/\/|https?:\/\/)')
+        fail_msg: "Invalid ora-swlib-bucket '{{ ora_swlib_bucket }}'. Must be defined and start with gs:// or http(s)://."
+      when: oracle_edition != 'FREE'
+
+    - name: Validate ora_swlib_type value
+      ansible.builtin.assert:
+        that:
+          - swlib_mount_type in ['gcs', 'gcsfuse', 'nfs', 'gcsdirect', 'gcstransfer']
+        fail_msg: "Invalid ora-swlib-type '{{ swlib_mount_type }}'. Must be one of: gcs, gcsfuse, nfs, gcsdirect, gcstransfer."
+
+    - name: Check if ora_swlib_credentials file exists when ora_swlib_type is GCSFUSE
+      ansible.builtin.stat:
+        path: "{{ ora_swlib_credentials }}"
+      register: ora_swlib_credentials_file
+      when:
+        - swlib_mount_type == 'gcsfuse'
+        - ora_swlib_credentials is defined
+
+    - name: Assert ora_swlib_credentials file exists
+      ansible.builtin.assert:
+        that:
+          - ora_swlib_credentials_file.stat.exists
+        fail_msg: "The file specified for ora-swlib-credentials '{{ ora_swlib_credentials }}' does not exist, but swlib_mount_type is gcsfuse."
+      when:
+        - swlib_mount_type == 'gcsfuse'
+        - ora_swlib_credentials is defined
+        - not ora_swlib_credentials_file.stat.exists
+
+    - name: Validate ora_disk_mgmt value
+      ansible.builtin.assert:
+        that:
+          - ora_disk_management in ['asmlib', 'asmudev', 'udev', 'fs']
+        fail_msg: "Invalid ora-disk-management '{{ ora_disk_management }}'. Must be one of: asmlib, asmudev, udev, fs."
+
+    - name: Validate RAC is not used with FS
+      ansible.builtin.assert:
+        that:
+          - ora_disk_management != 'fs'
+        fail_msg: "RAC deployments require shared storage and cannot use the 'fs' disk management type."
+      when: cluster_type == 'RAC' and ora_disk_management is defined
+
+    - name: Validate Oracle Free Edition is Single-Instance
+      ansible.builtin.assert:
+        that:
+          - cluster_type == 'NONE'
+        fail_msg: "Oracle Free Edition ('FREE') only supports Single-Instance deployments. 'cluster-type' must be 'NONE'."
+      when: ora_edition is defined and ora_edition == 'FREE'
+
+    - name: Validate ora_db_type value
+      ansible.builtin.assert:
+        that:
+          - db_type in ['multipurpose', 'data_warehousing', 'oltp']
+        fail_msg: "Invalid ora-db-type '{{ db_type }}'. Must be one of: multipurpose, data_warehousing, oltp."
+
+    - name: Validate conditional requirements for Data Guard
+      when: cluster_type == "DG"
+      ansible.builtin.assert:
+        that:
+          - oracle_edition == 'EE'
+          - primary_ip_addr is defined
+          - primary_ip_addr | length > 0
+        fail_msg: "Data Guard deployments require Enterprise Edition and a defined primary-ip-addr."
+
+    - name: Validate ASM is not used with FS
+      when: ora_disk_management == 'fs'
+      ansible.builtin.assert:
+        that:
+          - not (data_destination is match('^\+'))
+          - not (reco_destination is match('^\+'))
+          - not (backup_dest is match('^\+'))
+        fail_msg: "Cannot specify an ASM diskgroup when ora-disk-mgmt is FS."
+
+    - name: Validate destination formats
+      ansible.builtin.assert:
+        that:
+          - item is match('^(\/|\+)?[a-zA-Z0-9/_-]+$')
+        fail_msg: "Invalid format for {{ item }}. Must be a valid path or ASM diskgroup."
+      loop:
+        - "{{ data_destination }}"
+        - "{{ reco_destination }}"
+
+    - name: Validate db_password_secret format
+      ansible.builtin.assert:
+        that:
+          - db_password_secret is match('^projects/[^/]+/secrets/[^/]+/versions/[^/]+$')
+        fail_msg: "Invalid db-password-secret format."
+      when: db_password_secret is defined and db_password_secret != ''
+
+    - name: Validate oracle_metrics_secret format
+      ansible.builtin.assert:
+        that:
+          - oracle_metrics_secret is match('^projects/[^/]+/secrets/[^/]+/versions/[^/]+$')
+        fail_msg: "Invalid oracle-metrics-secret format."
+      when: oracle_metrics_secret is defined and oracle_metrics_secret != ''
+
+    - name: Validate workload agent dependency
+      ansible.builtin.assert:
+        that:
+          - install_workload_agent
+        fail_msg: "install-workload-agent must be true when oracle-metrics-secret is defined."
+      when: oracle_metrics_secret is defined and oracle_metrics_secret != ''
+
+    - name: Validate Data Guard protection mode
+      ansible.builtin.assert:
+        that:
+          - ora_data_guard_protection_mode in ['Maximum Performance', 'Maximum Availability', 'Maximum Protection']
+        fail_msg: "Invalid data-guard-protection-mode. Must be one of: 'Maximum Performance', 'Maximum Availability', or 'Maximum Protection'."
+      when: ora_data_guard_protection_mode is defined and ora_data_guard_protection_mode != ''
+
+    - name: Validate Oracle object names
+      ansible.builtin.assert:
+        that:
+          - item is match('^[a-zA-Z0-9_$]+$')
+        fail_msg: "Invalid format for {{ item }}."
+      loop:
+        - "{{ db_name }}"
+        - "{{ listener_name }}"
+        - "{{ pdb_prefix }}"
+
+    - name: Validate listener port
+      ansible.builtin.assert:
+        that:
+          - listener_port | int > 1023
+          - listener_port | int < 65536
+        fail_msg: "Listener port must be between 1024 and 65535."
+
+    - name: Validate PDB count
+      ansible.builtin.assert:
+        that:
+          - pdb_count | int >= 0
+        fail_msg: "PDB count must be a non-negative number."
+
+    - name: Validate ora_redo_log_size format
+      ansible.builtin.assert:
+        that:
+          - ora_redo_log_size is match('^[0-9]+MB$')
+        fail_msg: "Redo log size '{{ ora_redo_log_size }}' must be in the format '100MB'."
+      when: ora_redo_log_size is defined
+
+    - name: Validate GCS backup bucket
+      ansible.builtin.assert:
+        that:
+          - not gcs_backup_bucket is match('.*\/$')
+        fail_msg: "gcs_backup_bucket must not end with a slash."
+      when:
+        - gcs_backup_bucket is defined
+        - gcs_backup_config is defined
+        - gcs_backup_config != 'manual'
+
+    - name: Validate GCS backup config
+      ansible.builtin.assert:
+        that:
+          - gcs_backup_config is match('^[a-zA-Z0-9]+$')
+        fail_msg: "Invalid gcs-backup-config format. Must match '^[a-zA-Z0-9]+$'."
+      when:
+        - gcs_backup_config is defined
+        - backup_dest is defined
+        - backup_dest != '/mnt'
+
+    - name: Validate NFS backup mount
+      ansible.builtin.assert:
+        that:
+          - _nfs_backup_mount is match('^[[:alnum:][:punct:]]*:[[:alnum:][:punct:]]*$')
+        fail_msg: "Invalid nfs-backup-mount format. Must match '^[[:alnum:][:punct:]]*:[[:alnum:][:punct:]]*$'."
+      when: _nfs_backup_mount is defined and _nfs_backup_mount != ''
+
+    - name: Validate db_domain
+      ansible.builtin.assert:
+        that:
+          - db_domain is match('^$|^[A-Za-z][A-Za-z0-9._-]{0,127}$')
+        fail_msg: "Invalid db_domain format."
+      when: db_domain is defined
+
+    - name: Validate backup redundancy
+      ansible.builtin.assert:
+        that:
+          - item | int >= 0
+        fail_msg: "Invalid backup redundancy value for {{ item }}. Must be a non-negative integer."
+      loop:
+        - "{{ rman_db_bu_redundancy }}"
+        - "{{ rman_arch_redundancy }}"
+        - "{{ rman_archs_online_days }}"
+
+    - name: Validate nfs_backup_config
+      ansible.builtin.assert:
+        that:
+          - _nfs_backup_config in ['nfsv3', 'nfsv4']
+        fail_msg: "Invalid nfs-backup-config. Must be nfsv3 or nfsv4."
+      when: _nfs_backup_config is defined and _nfs_backup_config != ""
+
+    - name: Validate compatible_rdbms
+      ansible.builtin.assert:
+        that:
+          - compatible_rdbms is match('^[0-9][0-9]\.[0-9].*')
+        fail_msg: "Invalid compatible-rdbms format."
+      when: compatible_rdbms is defined and compatible_rdbms != '0'
+
+    - name: Validate swap_blk_device
+      ansible.builtin.assert:
+        that:
+          - swap_blk_device is match('^/dev/.+')
+        fail_msg: "Invalid swap-blk-device format. Must be a device path."
+      when: swap_blk_device is defined and swap_blk_device != ""
+
+    - name: Validate db_charset
+      ansible.builtin.assert:
+        that:
+          - db_charset is match('^[A-Z0-9]+$')
+        fail_msg: "Invalid db-charset format."
+      when: db_charset is defined
+
+    - name: Validate db_ncharset
+      ansible.builtin.assert:
+        that:
+          - db_ncharset is match('^[A-Z0-9]+$')
+        fail_msg: "Invalid db-ncharset format."
+      when: ora_db_ncharset is defined
+
+    - name: Validate instance_hostname
+      ansible.builtin.assert:
+        that:
+          - instance_hostname is defined # no default value set in group_vars/all.yml
+          - instance_hostname is match('^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$')
+        fail_msg: "Invalid instance-hostname format."
+      when: cluster_type != 'RAC'
+
+    - name: Validate instance_ip_addr
+      ansible.builtin.assert:
+        that:
+          - instance_ip_addr is defined # no default value set in group_vars/all.yml
+          - instance_ip_addr | length > 0
+        fail_msg: "instance-ip-addr must not be empty."
+      when: cluster_type != 'RAC'
+
+    - name: Validate instance_ssh_user
+      ansible.builtin.assert:
+        that:
+          - instance_ssh_user is defined # no default value set in group_vars/all.yml
+          - instance_ssh_user is match('^[a-z_][a-z0-9_-]{0,31}$')
+        fail_msg: "Invalid instance-ssh-user format."
+
+    - name: Validate instance_ssh_key
+      ansible.builtin.assert:
+        that:
+          - instance_ssh_key is defined # no default value set in group_vars/all.yml
+        fail_msg: "instance-ssh-key must be defined."
+
+    - name: Validate ntp_pref
+      ansible.builtin.assert:
+        that:
+          - ntp_pref is match('^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$')
+        fail_msg: "Invalid ntp-pref format."
+      when: ntp_pref is defined
+
+    - name: Validate compatible_rdbms is not greater than ora_version
+      ansible.builtin.assert:
+        that:
+          - compatible_rdbms is version(ora_version, '<=')
+        fail_msg: "compatible-rdbms '{{ compatible_rdbms }}' cannot be a higher version than ora-version '{{ ora_version }}'."
+      when: compatible_rdbms is defined and compatible_rdbms != '0'
+
+    - name: Validate primary_ip_addr format
+      ansible.builtin.assert:
+        that:
+          - primary_ip_addr is defined
+          - primary_ip_addr | length > 0
+        fail_msg: "primary-ip-addr must not be empty"
+      when: primary_ip_addr is defined
+
+    - name: Validate instance_ip_addr and primary_ip_addr are not the same
+      ansible.builtin.assert:
+        that:
+          - instance_ip_addr != primary_ip_addr
+        fail_msg: "instance-ip-addr and primary-ip-addr cannot be the same."
+      when: primary_ip_addr is defined
+
+    - name: Validate ASM Disk Configuration
+      block:
+        - name: Assert that ora_asm_disks and ora_asm_disks_json are mutually exclusive
+          ansible.builtin.assert:
+            that:
+              - not (ora_asm_disks is defined and ora_asm_disks_json is defined)
+            fail_msg: "The variables 'ora-asm-disks' and 'ora-asm-disks-json' are mutually exclusive. Please specify only one."
+
+        - name: Assert that an ASM disk configuration is provided
+          ansible.builtin.assert:
+            that:
+              - ora_asm_disks is defined or ora_asm_disks_json is defined
+            fail_msg: "You must specify an ASM disk configuration using either 'ora-asm-disks' or 'ora-asm-disks-json'."
+
+        - name: Validate ora_asm_disks_json format
+          ansible.builtin.assert:
+            that:
+              - (ora_asm_disks_json | type_debug) == 'list'
+            fail_msg: "Invalid ora-asm-disks-json format. Must be a valid list."
+          when: ora_asm_disks_json is defined and ora_asm_disks_json != ''
+
+        - name: Check if asm_definition_file exists
+          ansible.builtin.stat:
+            path: "{{ asm_definition_file }}"
+          register: asm_definition_file_stat
+          when: ora_asm_disks_json is not defined or ora_asm_disks_json == ''
+
+        - name: Assert asm_definition_file exists
+          ansible.builtin.assert:
+            that:
+              - asm_definition_file_stat.stat.exists
+            fail_msg: "The file specified for ora-asm-disks '{{ asm_definition_file }}' does not exist."
+          when:
+            - ora_asm_disks_json is not defined or ora_asm_disks_json == ''
+            - asm_definition_file_stat.stat is defined
+      when: ora_disk_management in ['asmlib', 'asmudev']
+
+    - name: Validate Data Mounts Configuration
+      block:
+        - name: Assert that ora_data_mounts and ora_data_mounts_json are mutually exclusive
+          ansible.builtin.assert:
+            that:
+              - not (ora_data_mounts is defined and ora_data_mounts_json is defined)
+            fail_msg: "The variables 'ora-data-mounts' and 'ora-data-mounts-json' are mutually exclusive. Please specify only one."
+
+        - name: Assert that a data mounts configuration is provided
+          ansible.builtin.assert:
+            that:
+              - ora_data_mounts is defined or ora_data_mounts_json is defined
+            fail_msg: "You must specify a storage configuration using either 'ora-data-mounts' or 'ora-data-mounts-json'."
+
+        - name: Validate ora_data_mounts_json format
+          ansible.builtin.assert:
+            that:
+              - (ora_data_mounts_json | type_debug) == 'list'
+            fail_msg: "Invalid ora-data-mounts-json format. Must be a valid list."
+          when: ora_data_mounts_json is defined and ora_data_mounts_json != ''
+
+        - name: Check if ora_data_mounts file exists
+          ansible.builtin.stat:
+            path: "{{ ora_data_mounts }}"
+          register: ora_data_mounts_file
+          when: 
+            - ora_data_mounts is defined
+            - ora_data_mounts != ''
+            - ora_data_mounts_json is not defined
+
+        - name: Assert ora_data_mounts file exists
+          ansible.builtin.assert:
+            that:
+              - ora_data_mounts_file.stat.exists
+            fail_msg: "The file specified for ora-data-mounts '{{ ora_data_mounts }}' does not exist."
+          when: ora_data_mounts is defined and ora_data_mounts_json is not defined

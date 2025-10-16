@@ -1,0 +1,37 @@
+{
+    "_meta": {
+        "hostvars": {
+            "oracle-si-host": {
+                "ansible_ssh_host": "10.0.0.1",
+                "ora_cluster_type": "NONE",
+                "instance_ip_addr": "10.0.0.1",
+                "instance_hostname": "oracle-si-host",
+                "instance_ssh_user": "ansible",
+                "instance_ssh_key": "/home/ansible/.ssh/id_rsa",
+                "ora_swlib_bucket": "gs://my-swlib-bucket",
+                "db_password_secret": "projects/my-project/secrets/db-password/versions/1",
+                "ora_version": "19.3.0.0.0",
+                "db_name": "ORCL",
+                "inventory_hostname": "oracle-si-host",
+                "inventory_hostname_short": "oracle-si-host",
+                "group_names": [
+                    "dbasm"
+                ]
+            }
+        }
+    },
+    "all": {
+        "hosts": [],
+        "children": [
+            "ungrouped"
+        ]
+    },
+    "ungrouped": {
+        "hosts": []
+    },
+    "dbasm": {
+        "hosts": [
+            "oracle-si-host"
+        ]
+    }
+}

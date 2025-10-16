@@ -36,8 +36,8 @@
 
 - name: Adjust instance memory values
   set_fact:
-    sga_target: "{{ ora_sga_target_mb }}M"
-    pga_target: "{{ ora_pga_target_mb }}M"
+    sga_target: "{{ sga_target_mb }}M"
+    pga_target: "{{ pga_target_mb }}M"
   tags: db-create
 
 - name: Create DBCA response file script

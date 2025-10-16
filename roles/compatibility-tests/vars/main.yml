@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ---
-kernel_version_full: "{{ (lookup('env', 'PB_KERNEL_VERSION') | trim) or ansible_kernel }}"
+kernel_version_full: "{{ ansible_kernel }}"
 
 # -- Oracle Version Variables (Set in your playbook or other variable files) --
 # The following variable are required, and are set earlier in this playbook.

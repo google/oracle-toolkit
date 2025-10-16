@@ -1,0 +1,10 @@
+ora_cluster_type: DG
+instance_ip_addr: 10.0.0.2
+instance_hostname: standby-1
+primary_ip_addr: 10.0.0.1
+instance_ssh_user: ansible
+instance_ssh_key: /home/ansible/.ssh/id_rsa
+ora_swlib_bucket: gs://my-swlib-bucket
+db_password_secret: projects/my-project/secrets/db-password/versions/1
+ora_version: 19.3.0.0.0
+db_name: ORCL
