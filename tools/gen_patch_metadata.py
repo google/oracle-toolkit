@@ -174,111 +174,123 @@ def parse_patch(patch_file: str, patchnum: int) -> typing.Tuple[str, str, typing
 
 
 def main():
-  ap = argparse.ArgumentParser()
-  ap.add_argument('--patch', type=int, help='GI Combo OJVM patch number', required=True)
-  ap.add_argument('--mosuser', type=str, help='MOS username', required=True)
-  ap.add_argument('--debug', help='Debug logging', action=argparse.BooleanOptionalAction)
-  args = ap.parse_args()
-  logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--patch', type=int, help='GI Combo OJVM patch number', required=True)
+    ap.add_argument('--mosuser', type=str, help='MOS username', required=True)
+    ap.add_argument('--debug', help='Debug logging', action=argparse.BooleanOptionalAction)
+    args = ap.parse_args()
+    logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
 
-  patchnum = args.patch
-  mosuser = args.mosuser
-  mospwd = getpass.getpass(prompt='MOS Password: ')
+    patchnum = args.patch
+    mosuser = args.mosuser
+    mospwd = getpass.getpass(prompt='MOS Password: ')
 
-  s = requests.Session()
-  s.headers.update({'User-Agent': USER_AGENT})
-  s.auth = (mosuser, mospwd)
+    s = requests.Session()
+    s.headers.update({'User-Agent': USER_AGENT})
+    s.auth = (mosuser, mospwd)
 
-  url = get_patch_auth(s)
-  url = get_patch_url(s, patchnum)
-  # Yes we ignore multipart patche:ws here.
-  logging.debug('Found download URL: %s', url[0])
-  patch_file = urllib.parse.parse_qs(urllib.parse.urlparse(url[0]).query)['patch_file'][0]
-  logging.debug('url=%s patch_file=%s', url[0], patch_file)
-  if os.path.exists(patch_file) and os.path.getsize(patch_file) > 2*1024*1024*1024:
-    logging.info('Using local copy of patch file %s', patch_file)
-  else:
-    download_patch(s, url[0], patch_file)
+    url = get_patch_auth(s)
+    url = get_patch_url(s, patchnum)
+    # Yes we ignore multipart patche:ws here.
+    logging.debug('Found download URL: %s', url[0])
+    patch_file = urllib.parse.parse_qs(urllib.parse.urlparse(url[0]).query)['patch_file'][0]
+    logging.debug('url=%s patch_file=%s', url[0], patch_file)
+    if os.path.exists(patch_file) and os.path.getsize(patch_file) > 2*1024*1024*1024:
+        logging.info('Using local copy of patch file %s', patch_file)
+    else:
+        download_patch(s, url[0], patch_file)
 
-  size = os.path.getsize(patch_file)
-  assert size > 2*1024*1024*1024, f'Output file {patch_file} is only {size} bytes in size;  looks too small'
+    size = os.path.getsize(patch_file)
+    assert size > 2*1024*1024*1024, f'Output file {patch_file} is only {size} bytes in size;  looks too small'
 
-  md5 = hashlib.md5()
-  with open(patch_file, 'rb') as f:
-    while chunk := f.read(1024*1024):
-      md5.update(chunk)
+    md5 = hashlib.md5()
+    with open(patch_file, 'rb') as f:
+        while chunk := f.read(1024*1024):
+            md5.update(chunk)
 
-  md5_digest = base64.b64encode(md5.digest()).decode('ascii')
-  logging.debug('Calculated MD5 digest %s', md5_digest)
+    md5_digest = base64.b64encode(md5.digest()).decode('ascii')
+    logging.debug('Calculated MD5 digest %s', md5_digest)
 
-  # Updated parse_patch call
-  (release, patch_release, ojvm_subdir, other_subdir, abstract) = parse_patch(patch_file, patchnum)
+    # Updated parse_patch call
+    (release, patch_release, ojvm_subdir, other_subdir, abstract) = parse_patch(patch_file, patchnum)
 
-  base_release = '19.3.0.0.0' if release == '19.0.0.0.0' else release
-  # Updated logging with new variables
-  logging.info('Found release = %s base = %s Other subdir = %s OJVM subdir = %s', patch_release, base_release, other_subdir, ojvm_subdir)
+    base_release = '19.3.0.0.0' if release == '19.0.0.0.0' else release
+    # Updated logging with new variables
+    logging.info('Found release = %s base = %s Other subdir = %s OJVM subdir = %s', patch_release, base_release, other_subdir, ojvm_subdir)
 
-  # New OPatch download logic
-  opatch_patchnum = 6880880
-  logging.info(f'Downloading OPatch (Patch {opatch_patchnum})')
-  op_urls = get_patch_url(s, opatch_patchnum)
-  release_major = base_release.split('.')[0]
-  op_patch_url = None
-  platform_str = "Linux-x86-64"
-  patterns = [
-      re.compile(fr'p{opatch_patchnum}_{release_major}0000_{platform_str}\.zip', re.IGNORECASE),
-      re.compile(fr'release={release_major}.*{platform_str}', re.IGNORECASE),
-      re.compile(fr'{platform_str}.*release={release_major}', re.IGNORECASE) ]
-  specific_matches = [k for k in op_urls for pattern in patterns if pattern.search(k)]
-  if specific_matches: op_patch_url = specific_matches[0]
-  else:
-      logging.warning(f"Specific OPatch not found. Trying generic {platform_str}.")
-      generic_matches = [k for k in op_urls if platform_str.lower() in k.lower()]
-      if generic_matches: op_patch_url = generic_matches[0]
-  assert op_patch_url, f'Could not find any suitable OPatch URL ({platform_str}) in {op_urls}'
-  
-  op_patch_file_match = re.search(r'patch_file=([^&]+)', op_patch_url)
-  if not op_patch_file_match: raise ValueError(f"Could not extract OPatch filename from URL: {op_patch_url}")
-  op_patch_file = op_patch_file_match.group(1)
-  logging.info(f"Target OPatch file: {op_patch_file}")
-  
-  min_opatch_size_mb = 50 # Using 50MB as a reasonable minimum
-  if os.path.exists(op_patch_file) and os.path.getsize(op_patch_file) > min_opatch_size_mb * 1024 * 1024:
-        logging.info(f"Using local copy of OPatch file {op_patch_file}")
-  else: download_patch(s, op_patch_url, op_patch_file)
-  
-  opatch_size = os.path.getsize(op_patch_file)
-  assert opatch_size > min_opatch_size_mb * 1024 * 1024, f'OPatch file {op_patch_file} is only {opatch_size} bytes; looks too small'
+    # New OPatch download logic
+    opatch_patchnum = 6880880
+    logging.info(f'Downloading OPatch (Patch {opatch_patchnum})')
+    op_urls = get_patch_url(s, opatch_patchnum)
+    release_major = base_release.split('.')[0]
+    op_patch_url = None
+    platform_str = "Linux-x86-64"
+    patterns = [
+        re.compile(fr'p{opatch_patchnum}_{release_major}0000_{platform_str}\.zip', re.IGNORECASE),
+        re.compile(fr'release={release_major}.*{platform_str}', re.IGNORECASE),
+        re.compile(fr'{platform_str}.*release={release_major}', re.IGNORECASE) ]
+    specific_matches = [k for k in op_urls for pattern in patterns if pattern.search(k)]
+    if specific_matches: op_patch_url = specific_matches[0]
+    else:
+        logging.warning(f"Specific OPatch not found. Trying generic {platform_str}.")
+        generic_matches = [k for k in op_urls if platform_str.lower() in k.lower()]
+        if generic_matches: op_patch_url = generic_matches[0]
+    assert op_patch_url, f'Could not find any suitable OPatch URL ({platform_str}) in {op_urls}'
+    
+    op_patch_file_match = re.search(r'patch_file=([^&]+)', op_patch_url)
+    if not op_patch_file_match: raise ValueError(f"Could not extract OPatch filename from URL: {op_patch_url}")
+    op_patch_file = op_patch_file_match.group(1)
+    logging.info(f"Target OPatch file: {op_patch_file}")
+    
+    min_opatch_size_mb = 50 # Using 50MB as a reasonable minimum
+    if os.path.exists(op_patch_file) and os.path.getsize(op_patch_file) > min_opatch_size_mb * 1024 * 1024:
+            logging.info(f"Using local copy of OPatch file {op_patch_file}")
+    else: download_patch(s, op_patch_url, op_patch_file)
+    
+    opatch_size = os.path.getsize(op_patch_file)
+    assert opatch_size > min_opatch_size_mb * 1024 * 1024, f'OPatch file {op_patch_file} is only {opatch_size} bytes; looks too small'
 
-  if not (base_release.startswith('19') or base_release.startswith('18') or base_release.startswith('12.2')):
-    logging.warning('Base release %s has not been tested; the results may be incorrect.', base_release)
+    if not (base_release.startswith('19') or base_release.startswith('18') or base_release.startswith('12.2')):
+        logging.warning('Base release %s has not been tested; the results may be incorrect.', base_release)
 
-  # New output logic
-  yaml_output = []
-  yaml_output.append(f'\nPlease copy the following files to your GCS bucket: {patch_file} {op_patch_file}')
-  yaml_output.append(f'\nAdd the following to the appropriate sections of roles/common/defaults/main.yml:')
-  yaml_output.append(f'\n# IMPORTANT: Review the patch abstract and uncomment EITHER gi_patches OR db_patches below.')
-  yaml_output.append(f'# Abstract was: {abstract}')
+    # --- MODIFIED OUTPUT LOGIC ---
+    yaml_output = []
+    yaml_output.append(f'\nPlease copy the following files to your GCS bucket: {patch_file} {op_patch_file}')
+    yaml_output.append(f'\nAdd the following to the appropriate sections of roles/common/defaults/main.yml:')
+    yaml_output.append(f'\n# IMPORTANT: Review the patch abstract to make your selections.')
+    yaml_output.append(f'# Abstract was: {abstract}')
+    yaml_output.append(f'\n# --- SELECTION 1: Choose the NON-OJVM component (GI or DB) ---')
+    yaml_output.append(f'# --- This component is in subdir: /{other_subdir} ---')
 
-  # Add GI block (commented out)
-  yaml_output.append(f'''
-#  gi_patches:
-#    - {{ category: "RU", base: "{base_release}", release: "{patch_release}", patchnum: "{patchnum}", patchfile: "{patch_file}", patch_subdir: "/{other_subdir}", prereq_check: FALSE, method: "opatchauto apply", ocm: FALSE, upgrade: FALSE, md5sum: "{md5_digest}" }}''')
+    # Add GI block (commented out)
+    yaml_output.append(f'''
+# 1A: If this is a GI Patch (RU), uncomment this block for gi_patches:
+#   gi_patches:
+#     - {{ category: "RU", base: "{base_release}", release: "{patch_release}", patchnum: "{patchnum}", patchfile: "{patch_file}", patch_subdir: "/{other_subdir}", prereq_check: FALSE, method: "opatchauto apply", ocm: FALSE, upgrade: FALSE, md5sum: "{md5_digest}" }}''')
 
-  # Add DB block (commented out)
-  yaml_output.append(f'''
-#  db_patches:
-#    - {{ category: "DB_RU", base: "{base_release}", release: "{patch_release}", patchnum: "{patchnum}", patchfile: "{patch_file}", patch_subdir: "/{other_subdir}", prereq_check: TRUE, method: "opatch apply", ocm: FALSE, upgrade: TRUE, md5sum: "{md5_digest}" }}''')
+    # Add DB block (commented out)
+    yaml_output.append(f'''
+# 1B: If this is an RDBMS Patch (DB_RU), uncomment this block for db_patches:
+#   db_patches:
+#     - {{ category: "DB_RU", base: "{base_release}", release: "{patch_release}", patchnum: "{patchnum}", patchfile: "{patch_file}", patch_subdir: "/{other_subdir}", prereq_check: TRUE, method: "opatch apply", ocm: FALSE, upgrade: TRUE, md5sum: "{md5_digest}" }}''')
 
-  # Add OJVM/RDBMS block (always present)
-  yaml_output.append(f'''
-  rdbms_patches: # Contains the OJVM component
-    - {{ category: "RU_Combo_OJVM", base: "{base_release}", release: "{patch_release}", patchnum: "{patchnum}", patchfile: "{patch_file}", patch_subdir: "/{ojvm_subdir}", prereq_check: TRUE, method: "opatch apply", ocm: FALSE, upgrade: TRUE, md5sum: "{md5_digest}" }}
+    yaml_output.append(f'\n# --- SELECTION 2: Choose the OJVM component ---')
+    yaml_output.append(f'# --- This component is in subdir: /{ojvm_subdir} ---')
+
+    # Add OJVM/RDBMS block (RU_Combo)
+    yaml_output.append(f'''
+# 2A: If this is an OJVM package from a GI Combo (RU_Combo), uncomment this block for rdbms_patches:
+#   rdbms_patches:
+#     - {{ category: "RU_Combo", base: "{base_release}", release: "{patch_release}", patchnum: "{patchnum}", patchfile: "{patch_file}", patch_subdir: "/{ojvm_subdir}", prereq_check: TRUE, method: "opatch apply", ocm: FALSE, upgrade: TRUE, md5sum: "{md5_digest}" }}''')
+
+    # Add OJVM/RDBMS block (DB_OJVM_RU)
+    yaml_output.append(f'''
+# 2B: If this is an OJVM + DB RU Update patch (DB_OJVM_RU), uncomment this block for rdbms_patches:
+#   rdbms_patches:
+#     - {{ category: "DB_OJVM_RU", base: "{base_release}", release: "{patch_release}", patchnum: "{patchnum}", patchfile: "{patch_file}", patch_subdir: "/{ojvm_subdir}", prereq_check: TRUE, method: "opatch apply", ocm: FALSE, upgrade: TRUE, md5sum: "{md5_digest}" }}
 ''')
 
-  # Print combined YAML
-  print("\n".join(yaml_output))
-
-
+    # Print combined YAML
+    print("\n".join(yaml_output))
 if __name__ == '__main__':
   main()
