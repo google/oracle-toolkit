@@ -38,7 +38,7 @@ LOGIN_FORM = 'https://updates.oracle.com/Orion/SavedSearches/switch_to_simple'
 SEARCH_FORM = 'https://updates.oracle.com/Orion/SimpleSearch/process_form?search_type=patch&patch_number=%d&plat_lang=226P'
 
 # Regex to find the download link on the patch search results page.
-DOWNLOAD_URL_RE = r'https://updates.oracle.com/Orion/Download/process_form[^\"]*'
+DOWNLOAD_URL_RE = r'https://updates\.oracle\.com/Orion/Download/process_form[^\"]*'
 
 # Patch number for the generic OPatch utility.
 OPATCH_PATCHNUM = 6880880
@@ -473,13 +473,13 @@ def main():
     yaml_output.append(f'''
 # 1A: If this is a GI Patch (RU), add to 'gi_patches.yml':
 #   gi_patches:
-#     - {{ category: "RU", base: "{base_release}", release: "{patch_release}", patchnum: "{patchnum}", patchfile: "{patch_file}", patch_subdir: "{other_subdir}", prereq_check: FALSE, method: "opatchauto apply", ocm: FALSE, upgrade: FALSE, md5sum: "{md5_digest}" }}''')
+#     - {{ category: "RU", base: "{base_release}", release: "{patch_release}", patchnum: "{patchnum}", patchfile: "{patch_file}", patch_subdir: "{other_subdir}", prereq_check: false, method: "opatchauto apply", ocm: false, upgrade: false, md5sum: "{md5_digest}" }}''')
 
     # 1B: DB_RU Patch Option
     yaml_output.append(f'''
 # 1B: If this is an RDBMS Patch (DB_RU), add to 'rdbms_patches.yml':
 #   rdbms_patches:
-#     - {{ category: "DB_RU", base: "{base_release}", release: "{patch_release}", patchnum: "{patchnum}", patchfile: "{patch_file}", patch_subdir: "{other_subdir}", prereq_check: TRUE, method: "opatch apply", ocm: FALSE, upgrade: TRUE, md5sum: "{md5_digest}" }}''')
+#     - {{ category: "DB_RU", base: "{base_release}", release: "{patch_release}", patchnum: "{patchnum}", patchfile: "{patch_file}", patch_subdir: "{other_subdir}", prereq_check: true, method: "opatch apply", ocm: false, upgrade: true, md5sum: "{md5_digest}" }}''')
 
     yaml_output.append(f'\n# --- SELECTION 2: Choose the OJVM component ---')
     yaml_output.append(f'# --- This component is in subdir: {ojvm_subdir} ---')
@@ -488,13 +488,13 @@ def main():
     yaml_output.append(f'''
 # 2A: If OJVM is from a GI Combo (RU_Combo), add to 'rdbms_patches.yml':
 #   rdbms_patches:
-#     - {{ category: "RU_Combo", base: "{base_release}", release: "{patch_release}", patchnum: "{patchnum}", patchfile: "{patch_file}", patch_subdir: "{ojvm_subdir}", prereq_check: TRUE, method: "opatch apply", ocm: FALSE, upgrade: TRUE, md5sum: "{md5_digest}" }}''')
+#     - {{ category: "RU_Combo", base: "{base_release}", release: "{patch_release}", patchnum: "{patchnum}", patchfile: "{patch_file}", patch_subdir: "{ojvm_subdir}", prereq_check: true, method: "opatch apply", ocm: false, upgrade: true, md5sum: "{md5_digest}" }}''')
 
     # 2B: DB_OJVM_RU Patch Option
     yaml_output.append(f'''
 # 2B: If this is an OJVM + DB RU (DB_OJVM_RU), add to 'rdbms_patches.yml':
 #   rdbms_patches:
-#     - {{ category: "DB_OJVM_RU", base: "{base_release}", release: "{patch_release}", patchnum: "{patchnum}", patchfile: "{patch_file}", patch_subdir: "{ojvm_subdir}", prereq_check: TRUE, method: "opatch apply", ocm: FALSE, upgrade: TRUE, md5sum: "{md5_digest}" }}
+#     - {{ category: "DB_OJVM_RU", base: "{base_release}", release: "{patch_release}", patchnum: "{patchnum}", patchfile: "{patch_file}", patch_subdir: "{ojvm_subdir}", prereq_check: true, method: "opatch apply", ocm: false, upgrade: true, md5sum: "{md5_digest}" }}
 ''')
     
     yaml_output.append(f'# === END SCRIPT OUTPUT ===')
