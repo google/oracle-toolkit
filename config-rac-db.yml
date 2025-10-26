@@ -29,6 +29,21 @@
 
 - hosts: dbasm[0]
   tasks:
+    # Ensure common defaults are present when included via include_role (Ansible 2.9)
+    - name: Load common defaults (fallback)
+      include_vars:
+        dir: "roles/common/defaults"
+      when:
+        - oracle_base is not defined or oracle_home is not defined or grid_home is not defined
+      tags: rac-db
+
+    - name: Perform disk space checks for RAC database
+      include_role:
+        name: disk_space_check
+      vars:
+        disk_check_type: rac
+      tags: rac-db,disk_space_check
+    
     - include_role:
         name: db-create
         tasks_from: rac-db-create.yml
