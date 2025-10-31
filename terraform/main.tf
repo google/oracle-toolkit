@@ -325,6 +325,7 @@ resource "google_compute_instance" "control_node" {
 
   metadata = {
     enable-oslogin = "TRUE"
+    serial-port-logging-enable = "TRUE"
   }
 
   depends_on = [google_compute_instance_from_template.database_vm]
