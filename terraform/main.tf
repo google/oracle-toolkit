@@ -112,8 +112,8 @@ locals {
   # Metadata
   disk_metadata = {
     "ora-disk-mgmt"            = upper(var.ora_disk_mgmt) # "FS" or "ASMUDEV" or "ASMLIB"
-    "ora-data-dest"            = local.data_dest          # "/u02/oradata" or "+DATA"
-    "ora-reco-dest"            = local.reco_dest          # "/u03/fast_recovery_area" or "+RECO"
+    "ora-data-destination"     = local.data_dest          # "/u02/oradata" or "+DATA"
+    "ora-reco-destination"     = local.reco_dest          # "/u03/fast_recovery_area" or "+RECO"
     "ora-data-mounts-json"     = jsonencode(local.data_mounts_config)
     "ora-asm-disk-config-json" = local.is_fs ? "" : jsonencode(local.asm_disk_config)
   }
@@ -244,8 +244,8 @@ locals {
     length(local.asm_disk_config) > 0 ? "--ora-asm-disks-json '${jsonencode(local.asm_disk_config)}'" : "",
     length(local.data_mounts_config) > 0 ? "--ora-data-mounts-json '${jsonencode(local.data_mounts_config)}'" : "",
     # Keep DBCA destinations aligned with the computed mode
-    "--ora-data-dest ${local.data_dest}",
-    "--ora-reco-dest ${local.reco_dest}",
+    "--ora-data-destination ${local.data_dest}",
+    "--ora-reco-destination ${local.reco_dest}",
     "--swap-blk-device /dev/disk/by-id/google-swap",
     var.ora_swlib_bucket != "" ? "--ora-swlib-bucket ${var.ora_swlib_bucket}" : "",
     var.ora_version != "" ? "--ora-version ${var.ora_version}" : "",
