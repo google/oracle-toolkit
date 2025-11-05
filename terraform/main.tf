@@ -109,15 +109,6 @@ locals {
     }
   ]
 
-  # Metadata
-  disk_metadata = {
-    "ora-disk-mgmt"            = upper(var.ora_disk_mgmt) # "FS" or "ASMUDEV" or "ASMLIB"
-    "ora-data-destination"     = local.data_dest          # "/u02/oradata" or "+DATA"
-    "ora-reco-destination"     = local.reco_dest          # "/u03/fast_recovery_area" or "+RECO"
-    "ora-data-mounts-json"     = jsonencode(local.data_mounts_config)
-    "ora-asm-disk-config-json" = local.is_fs ? "" : jsonencode(local.asm_disk_config)
-  }
-
   # Concatenetes both lists to be passed down to the instance module
   additional_disks = concat(local.fs_disks, local.asm_disks)
 
