@@ -262,13 +262,15 @@
     path: "{{ item }}"
     state: absent
   with_items:
-    - "{{ scripts_dir }}"
+    - "{{ gcsfuse_backup_temp_path }}"
+    - "{{ grid_home }}"
     - "{{ logs_dir }}"
     - "{{ oracle_home }}"
-    - "{{ grid_home }}"
     - "{{ oracle_root }}"
+    - "{{ pwgen_path }}/{{ pwgen_file }}"
+    - "{{ scripts_dir }}"
     - "{{ swlib_unzip_path }}"
-    - "{{ gcsfuse_backup_temp_path }}"
+    - "{{ safe_unzip }}"
     - "/usr/tmp/.oracle"
     - "/var/tmp/.oracle"
     - "/tmp/.oracle"
