@@ -20,7 +20,7 @@
 
 - name: hugepages | Calculate number of hugepages required
   set_fact:
-    v_hugepages_required:  "{{ ((ora_sga_target_mb | int) * 1024 / (v_Hugepagesize.stdout | int) * (hugepages_ratio | float)) | round(0,'ceil') | int }}"
+    v_hugepages_required:  "{{ ((sga_target_mb | int) * 1024 / (v_Hugepagesize.stdout | int) * (hugepages_ratio | float)) | round(0,'ceil') | int }}"
 
 - name: hugepages | Update the vm.nr_hugepages sysctl value
   sysctl:
@@ -39,7 +39,7 @@
   assert:
     that:
       - v_actual_hugepages_allocated.stdout | int == v_hugepages_required | int
-    fail_msg: "Requested {{ v_hugepages_required }} hugepages to accommodate ora_sga_target_mb={{ ora_sga_target_mb }}, but only got {{ v_actual_hugepages_allocated.stdout }}.  Your requested SGA memory size is likely too large for the available memory."
+    fail_msg: "Requested {{ v_hugepages_required }} hugepages to accommodate sga_target_mb={{ sga_target_mb }}, but only got {{ v_actual_hugepages_allocated.stdout }}.  Your requested SGA memory size is likely too large for the available memory."
 
 - name: hugepages | Capture transparent hugepage status
   shell: ( cat /sys/kernel/mm/transparent_hugepage/enabled ) || true

@@ -1,10 +1,10 @@
 #!/bin/bash
 
 {% if oracle_ver == "11.2.0.4.0" or oracle_ver == "12.1.0.2.0" or oracle_ver == "12.2.0.1.0" %}
-[[ -r {{ swlib_unzip_path }}/database/response/db_install.rsp ]] || { echo "db_insetall.rsp.sh: cannot read {{ swlib_unzip_path }}/database/response/db_install.rsp"; exit 1; }
+[[ -r {{ swlib_unzip_path }}/database/response/db_install.rsp ]] || { echo "db_install.rsp.sh: cannot read {{ swlib_unzip_path }}/database/response/db_install.rsp"; exit 1; }
 cp {{ swlib_unzip_path }}/database/response/db_install.rsp {{ swlib_unzip_path }}/db_install.rsp
 {% else %}
-[[ -r {{ oracle_home }}/install/response/db_install.rsp ]] || { echo "db_insetall.rsp.sh: cannot read  {{ oracle_home }}/install/response/db_install.rsp"; exit 1; }
+[[ -r {{ oracle_home }}/install/response/db_install.rsp ]] || { echo "db_install.rsp.sh: cannot read  {{ oracle_home }}/install/response/db_install.rsp"; exit 1; }
 cp {{ oracle_home }}/install/response/db_install.rsp {{ swlib_unzip_path }}/db_install.rsp
 {% endif %}
  

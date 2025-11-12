@@ -24,19 +24,58 @@
   ansible.builtin.set_fact:
     oracle_major_ver: "{{ oracle_ver.split('.')[0] }}{% if oracle_ver.split('.')[0] | int == 12 %}.{{ oracle_ver.split('.')[1] }}{% endif %}"
 
-- name: Determine effitive oracle release
-    # pick latest release for this base when oracle_rel == 'latest'
-  ansible.builtin.set_fact:
-    effective_oracle_rel: >-
-      {% if oracle_rel == 'latest' %}
-        {{ oracle_ver.split('.')[0] ~ '.' ~  oracle_ver.split('.')[1]  ~ '.' ~  oracle_ver.split('.')[3]  ~ '.' ~  oracle_ver.split('.')[4] }}
-      {% else %}
-       {{ oracle_rel.split('.')[0] ~ '.' ~  oracle_rel.split('.')[1]  ~ '.' ~  oracle_rel.split('.')[3]  ~ '.' ~  oracle_rel.split('.')[4] }}
-      {% endif %}
+- name: Get base and latest releases
+  block:
+    - name: Create a list of releases for the target base version | not 11g
+      ansible.builtin.set_fact:
+        releases_for_base: "{{ rdbms_patches | selectattr('base', 'match', oracle_ver_base) | selectattr('category', 'eq', 'DB_RU') | map(attribute='release') | list }}"
+      when: oracle_ver_base is not match('^11.2.*')
 
-- name: Determine Oracle RU
+    - name: Create a list of releases for the target base version | 11g
+      ansible.builtin.set_fact:
+        releases_for_base: "{{ rdbms_patches | selectattr('base', 'match', oracle_ver_base) | selectattr('category', 'eq', 'PSU_Combo') | map(attribute='release') | list }}"
+      when: oracle_ver_base is match('^11.2.*')
+
+    - name: Set lowest and highest release from the list
+      ansible.builtin.set_fact:
+        lowest_release: "{{ releases_for_base | min }}"
+        highest_release: "{{ releases_for_base | max }}"
+      # This task should only run if the list is not empty
+      when: releases_for_base | length > 0
+
+    - name: Display the results
+      ansible.builtin.debug:
+        msg:
+          - "For base version {{ oracle_ver_base }}:"
+          - "  Lowest Release: {{ lowest_release }}"
+          - "  Highest Release: {{ highest_release }}"
+      # This task should also only run if we found releases
+      when: releases_for_base | length > 0
+
+- name: Determine Oracle RU | default
   ansible.builtin.set_fact:
-    oracle_ru_ver: "{{ effective_oracle_rel | trim }}"
+    oracle_ru_ver: "{{ oracle_rel.split('.')[0] ~ '.' ~  oracle_rel.split('.')[1]  ~ '.' ~  oracle_rel.split('.')[3]  ~ '.' ~  oracle_rel.split('.')[4] -}}"
+  when: oracle_rel not in  ['base', 'latest']
+
+- name: Determine Oracle RU | base
+  ansible.builtin.set_fact:
+    test_release: "{{ lowest_release }}"
+  when: oracle_rel == 'base' and not oracle_ver is match('^23.*')
+
+- name: Determine Oracle RU | latest
+  ansible.builtin.set_fact:
+    test_release:  "{{ highest_release }}"
+  when: oracle_rel == 'latest' and not oracle_ver is match('^23.*')
+
+- name: Determine Oracle RU | 23
+  ansible.builtin.set_fact:
+    test_release:  "{{ oracle_ver }}"
+  when: oracle_ver is match('^23.*')
+
+- name: Determine Oracle RU | (base, latest)
+  ansible.builtin.set_fact:
+    oracle_ru_ver: "{{ test_release.split('.')[0] ~ '.' ~  test_release.split('.')[1]  ~ '.' ~  test_release.split('.')[3]  ~ '.' ~  test_release.split('.')[4] -}}"
+  when: oracle_rel in  ['base', 'latest']
 
 - name: Get OS Major Version
   ansible.builtin.set_fact:
