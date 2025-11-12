@@ -26,8 +26,6 @@
 ################################################################################
 
 free_edition: "{{ oracle_edition == 'FREE' }}"
-free_edition_name: "{% if free_edition %}{% if oracle_ver[:5] == '23.26' %}26ai{% elif oracle_ver[:4] == '23.2' or oracle_ver[:4] == '23.3' %}23c{% else %}{{ oracle_ver[:2] }}ai{% endif %}{% endif %}"
-oracle_ver_dir: "{% if free_edition %}{{ free_edition_name }}{% else %}{{ oracle_ver[:6] }}{% endif %}"
 gi_install: "{{ not free_edition and not ora_disk_management == 'fs' }}"
 swlib_path_default: "{{ oracle_user_data_mounts | selectattr('purpose', 'match', '^software$') | map(attribute='mount_point') | list | first }}/swlib"
 swlib_path: "{{ (ora_swlib_path | default(swlib_path_default,true)) | lower }}"
