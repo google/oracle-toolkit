@@ -476,3 +476,11 @@
     - "{{ listdisks }}"
   when: ora_disk_management == "asmlib"
   tags: asm-disks
+
+- name: Copy the safe unzip script to the target
+  copy:
+    src: safe_unzip.sh
+    dest: "{{ safe_unzip }}"
+    owner: root
+    group: root
+    mode: "u=rwx,go=rx"

@@ -61,7 +61,7 @@
 - name: rac-db-install | Unzip OneOff patch
   # Using the "shell" module instead of "unarchive" for unzip performance
   shell: |
-    unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}" || exit $?
+    "{{ safe_unzip }}" -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}" || exit $?
     chown -R {{ oracle_user }}:{{ oracle_group }} "{{ swlib_unzip_path }}"
   with_items: "{{ rdbms_patches }}"
   when:
@@ -74,7 +74,8 @@
   become: true
   become_user: "{{ oracle_user }}"
   # Using the "shell" module instead of "unarchive" for unzip performance
-  shell: unzip -o -q "{{ swlib_path }}/{{ item }}" -d "{{ install_unzip_path }}"
+  shell: |
+    "{{ safe_unzip }}" -o -q "{{ swlib_path }}/{{ item }}" -d "{{ install_unzip_path }}"
   with_items: "{{ osw_files }}"
   tags: rac-db,sw-unzip
 

@@ -71,7 +71,7 @@
 - name: rdbms-install | Unzip patch files
   # Using the "shell" module instead of "unarchive" for unzip performance
   shell: |
-    unzip -o -q "{{ swlib_path }}/{{ item }}" -d "{{ swlib_unzip_path }}" || exit $?
+    "{{ safe_unzip }}" -o -q "{{ swlib_path }}/{{ item }}" -d "{{ swlib_unzip_path }}" || exit $?
     chown -R {{ oracle_user }}:{{ oracle_group }} "{{ swlib_unzip_path }}"
   with_items: "{{ rdbms_patch_files }}"
   when: rdbms_patch_files is defined and rdbms_patch_files | length > 0
@@ -82,7 +82,8 @@
   become: true
   become_user: "{{ oracle_user }}"
   # Using the "shell" module instead of "unarchive" for unzip performance
-  shell: unzip -o -q "{{ swlib_path }}/{{ item.name }}" -d "{{ install_unzip_path }}"
+  shell: |
+    "{{ safe_unzip }}" -o -q "{{ swlib_path }}/{{ item.name }}" -d "{{ install_unzip_path }}"
   with_items: "{{ osw }}"
   tags: rdbms-setup,sw-unzip
 

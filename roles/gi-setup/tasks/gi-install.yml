@@ -40,7 +40,7 @@
 - name: gi-install | Unzip GI patch
   # Using the "shell" module instead of "unarchive" for unzip performance
   shell: |
-    unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}" || exit $?
+    "{{ safe_unzip }}" -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}" || exit $?
     chown -R {{ grid_user }}:{{ oracle_group }} "{{ swlib_unzip_path }}"
   args:
     creates: .gi_patch_{{ oracle_rel }}
@@ -60,7 +60,8 @@
   become: true
   become_user: "{{ grid_user }}"
   # Using the "shell" module instead of "unarchive" for unzip performance
-  shell: unzip -o -q "{{ swlib_path }}/{{ item.name }}" -d "{{ install_unzip_path }}"
+  shell: |
+    "{{ safe_unzip }}" -o -q "{{ swlib_path }}/{{ item.name }}" -d "{{ install_unzip_path }}"
   with_items: "{{ osw.files }}"
   tags: gi-setup,sw-unzip
 
@@ -219,7 +220,8 @@
   become: true
   become_user: "{{ grid_user }}"
   # Using the "shell" module instead of "unarchive" for unzip performance
-  shell: unzip -o -q "{{ swlib_path }}/{{ item.files.0.name }}" -d "{{ swlib_unzip_path }}/{{ item.files.0.name | replace('.zip','') }}"
+  shell: |
+    "{{ safe_unzip }}" -o -q "{{ swlib_path }}/{{ item.files.0.name }}" -d "{{ swlib_unzip_path }}/{{ item.files.0.name | replace('.zip','') }}"
   with_items: "{{ gi_interim_patches }}"
   when: item.version == osw.version and item.category == "HAS_interim_patch"
   tags: gi-setup,patch

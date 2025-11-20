@@ -88,7 +88,8 @@
 
 - name: (GI) Unzip patch
   # Using the "shell" module instead of "unarchive" for unzip performance
-  shell: unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
+  shell: |
+    "{{ safe_unzip }}" -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
   with_items: "{{ gi_patches }}"
   when:
     - gi_install
@@ -180,7 +181,8 @@
 
 - name: (RDBMS) Unzip patch
   # Using the "shell" module instead of "unarchive" for unzip performance
-  shell: unzip -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
+  shell: |
+    "{{ safe_unzip }}" -o -q "{{ swlib_path }}/{{ item.patchfile }}" -d "{{ swlib_unzip_path }}"
   with_items: "{{ rdbms_patch_files }}"
   when: rdbms_patch_files is defined and rdbms_patch_files | length > 0
   become: true
