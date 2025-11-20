@@ -1,5 +1,5 @@
-connect target sys/"{{ sys_pass }}"@//{{ lookup('env', 'PRIMARY_IP_ADDR') }}:{{ listener_port | default(1521) }}/{{ db_name }}{% if db_domain | default('') | length > 0 %}.{{ db_domain }}{% endif %};
-connect auxiliary sys/"{{ sys_pass }}"@//{{ lookup('env', 'INSTANCE_IP_ADDR') }}:{{ listener_port | default(1521) }}/{{ standby_name }}{% if db_domain | default('') | length > 0 %}.{{ db_domain }}{% endif %};
+connect target "c##toolkit_rman_user/{{ rman_user_pass }}@//{{ lookup('env', 'PRIMARY_IP_ADDR') }}:{{ listener_port | default(1521) }}/{{ db_name }}{% if db_domain | default('') | length > 0 %}.{{ db_domain }}{% endif %} as sysdba";
+connect auxiliary "c##toolkit_rman_user/{{ rman_user_pass }}@//{{ lookup('env', 'INSTANCE_IP_ADDR') }}:{{ listener_port | default(1521) }}/{{ standby_name }}{% if db_domain | default('') | length > 0 %}.{{ db_domain }}{% endif %} as sysdba";
 DUPLICATE TARGET DATABASE
   FOR STANDBY
   FROM ACTIVE DATABASE

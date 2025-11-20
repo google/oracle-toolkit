@@ -221,20 +221,21 @@
         - password_file is search('^\\+')
         - db_password_secret | length == 0
 
-    - name: Active-copy | Generate random password
+    - name: Active-copy | Generate random password for the RMAN duplication user
       set_fact:
-        sys_pass: "{{ lookup('password', '/dev/null length=16 chars=ascii_letters,digits') }}0#_"
+        rman_user_pass: "{{ lookup('password', '/dev/null length=16 chars=ascii_letters,digits') }}0#_"
       no_log: true
       when: db_password_secret | length == 0
 
-    - name: Active-copy | Set sys password for primary database
-      command:
-        argv:
-          - "{{ oracle_home }}/bin/orapwd"
-          - "file={{ password_file_name }}"
-          - "force=y"
-          - "password={{ sys_pass }}"
-          - "format=12"
+    - name: Active-copy | Create a temporary user for the RMAN duplication steps
+      shell: |
+        set -o pipefail
+        {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+        whenever sqlerror exit failure
+        CREATE USER c##toolkit_rman_user IDENTIFIED BY "{{ rman_user_pass }}";
+        /* SYSDBA privilege is required for the post-active "ALTER DATABASE RECOVER..." command */
+        GRANT sysdba TO c##toolkit_rman_user CONTAINER=ALL;
+        EOF
       environment:
         ORACLE_HOME: "{{ oracle_home }}"
         ORACLE_SID: "{{ oracle_sid }}"
@@ -260,32 +261,48 @@
       no_log: true
       when: db_password_secret | length > 0
 
-    - name: Active-copy | Set sys password for auxiliary instance
-      command:
-        argv:
-          - "{{ oracle_home }}/bin/orapwd"
-          - "file={{ password_file_name }}"
-          - "force=y"
-          - "password={{ sys_pass }}"
-          - "format=12"
-      ignore_errors: true
-      register: orapwd_result
+    - name: Active-copy | Change the SYS password to the value from Secret Manager
+      shell: |
+        set -o pipefail
+        {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+        whenever sqlerror exit failure
+        ALTER USER SYS IDENTIFIED BY "{{ sys_pass }}";
+        EOF
       environment:
         ORACLE_HOME: "{{ oracle_home }}"
         ORACLE_SID: "{{ oracle_sid }}"
         PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+      delegate_to: primary1
       become: true
       become_user: "{{ oracle_user }}"
       no_log: true
+      when: db_password_secret | length > 0
 
-    - name: Active-copy | Report orapwd command failure
-      fail:
-        msg: >
-          The 'orapwd' command failed.
-          Return code: {{ orapwd_result.rc }}
-          Standard error: {{ orapwd_result.stderr }}
-          Standard output: {{ orapwd_result.stdout }}
-      when: orapwd_result.rc != 0
+    - name: Active-copy | Create a temporary file for transfer
+      tempfile:
+        state: file
+      register: temp_file
+
+    - name: Active-copy | Fetch password file from primary
+      fetch:
+        src: "{{ password_file_name }}"
+        dest: "{{ temp_file.path }}"
+        flat: true
+      delegate_to: primary1
+
+    - name: Active-copy | Copy password file to standby
+      copy:
+        src: "{{ temp_file.path }}"
+        dest: "{{ oracle_home }}/dbs/orapw{{ oracle_sid }}"
+        owner: "{{ oracle_user }}"
+        group: "{{ oracle_group }}"
+        mode: "u=wr,go="
+
+    - name: Active-copy | Remove temporary file
+      file:
+        path: "{{ temp_file.path }}"
+        state: absent
+      when: temp_file.path is defined
 
     - name: Active-copy | Generate duplicate script
       template:
@@ -363,13 +380,28 @@
       become_user: "{{ oracle_user }}"
 
   always:
-    - name: Delete duplicate.cmd file
+    - name: Active-copy | Delete duplicate.cmd file
       file:
         path: "{{ oracle_home }}/dbs/duplicate.cmd"
         state: absent
       become: true
       become_user: "{{ oracle_user }}"
       ignore_errors: true
+
+    - name: Active-copy | Drop the temporary user created for RMAN duplication
+      shell: |
+        set -o pipefail
+        {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+        whenever sqlerror exit failure
+        DROP USER c##toolkit_rman_user;
+        EOF
+      environment:
+        ORACLE_HOME: "{{ oracle_home }}"
+        ORACLE_SID: "{{ oracle_sid }}"
+        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+      delegate_to: primary1
+      become: true
+      become_user: "{{ oracle_user }}"
 
 - name: Active-copy | Capture standby database state
   shell: |
