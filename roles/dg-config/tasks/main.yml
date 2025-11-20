@@ -118,13 +118,23 @@
             dg_pass: "{{ lookup('password', '/dev/null length=16 chars=ascii_letters,digits') }}0#_"
           no_log: true
 
+        - name: Active-copy | Set the RMAN duplicate username and container string
+          set_fact:
+            dg_user: "c##toolkit_dg_setup_user"
+          when: container_db | bool
+
+        - name: Active-copy | Set the RMAN duplicate username and container string (non-CDB)
+          set_fact:
+            dg_user: "toolkit_dg_setup_user"
+          when: not (container_db | bool)
+
         - name: DG | Create a temporary user for the Data Guard configuration setup
           shell: |
             set -o pipefail
             {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
             whenever sqlerror exit failure
-            CREATE USER c##toolkit_dg_setup_user IDENTIFIED BY "{{ dg_pass }}";
-            GRANT sysdg TO c##toolkit_dg_setup_user;
+            CREATE USER {{ dg_user }} IDENTIFIED BY "{{ dg_pass }}";
+            GRANT sysdg TO {{ dg_user }};
             EOF
           environment:
             ORACLE_HOME: "{{ oracle_home }}"
@@ -151,7 +161,7 @@
         set -o pipefail
         {{ oracle_home }}/bin/dgmgrl <<EOF
         {% if oracle_ver_base | float > 19.3 %}
-        connect c##toolkit_dg_setup_user/"{{ dg_pass }}"
+        connect {{ dg_user }}/"{{ dg_pass }}"
         {% else %}
         connect /
         {% endif %}
@@ -167,22 +177,6 @@
       become_user: "{{ oracle_user }}"
       register: dg_create
       no_log: true
-
-    - name: DG | Drop the temporary user created for Data Guard setup
-      shell: |
-        set -o pipefail
-        {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
-        whenever sqlerror exit failure
-        DROP USER c##toolkit_dg_setup_user;
-        EOF
-      environment:
-        ORACLE_HOME: "{{ oracle_home }}"
-        ORACLE_SID: "{{ oracle_sid }}"
-        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
-      delegate_to: primary1
-      become: true
-      become_user: "{{ oracle_user }}"
-      when: oracle_ver_base | float > 19.3
 
     - name: DG | Set other parameters as required for pre-19c standby databases
       shell: |
@@ -204,12 +198,12 @@
 
     - name: DG | Gather minimal facts (hostname) for the standby
       setup:
-        gather_subset: 'min'
+        gather_subset: "min"
       register: standby_facts
 
     - name: DG | Gather minimal facts (hostname) for the primary
       setup:
-        gather_subset: 'min'
+        gather_subset: "min"
       delegate_to: primary1
       register: primary_facts
 
@@ -260,6 +254,23 @@
       become: true
       become_user: "{{ oracle_user }}"
       when: "'database instance restart required' in dg_create.stdout"
+
+  always:
+    - name: DG | Drop the temporary user created for Data Guard setup
+      shell: |
+        set -o pipefail
+        {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+        whenever sqlerror exit failure
+        DROP USER {{ dg_user }};
+        EOF
+      environment:
+        ORACLE_HOME: "{{ oracle_home }}"
+        ORACLE_SID: "{{ oracle_sid }}"
+        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+      delegate_to: primary1
+      become: true
+      become_user: "{{ oracle_user }}"
+      when: oracle_ver_base | float > 19.3
 
 - name: DG | Capture Data Guard configuration
   shell: |

@@ -227,14 +227,26 @@
       no_log: true
       when: db_password_secret | length == 0
 
+    - name: Active-copy | Set the RMAN duplicate username and container string
+      set_fact:
+        rman_user: "c##toolkit_rman_user"
+        rman_container_string: "CONTAINER=ALL"
+      when: container_db | bool
+
+    - name: Active-copy | Set the RMAN duplicate username and container string (non-CDB)
+      set_fact:
+        rman_user: "toolkit_rman_user"
+        rman_container_string: ""
+      when: not (container_db | bool)
+
     - name: Active-copy | Create a temporary user for the RMAN duplication steps
       shell: |
         set -o pipefail
         {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
         whenever sqlerror exit failure
-        CREATE USER c##toolkit_rman_user IDENTIFIED BY "{{ rman_user_pass }}";
+        CREATE USER {{ rman_user }} IDENTIFIED BY "{{ rman_user_pass }}";
         /* SYSDBA privilege is required for the post-active "ALTER DATABASE RECOVER..." command */
-        GRANT sysdba TO c##toolkit_rman_user CONTAINER=ALL;
+        GRANT sysdba TO {{ rman_user }} {{ rman_container_string}};
         EOF
       environment:
         ORACLE_HOME: "{{ oracle_home }}"
@@ -393,7 +405,7 @@
         set -o pipefail
         {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
         whenever sqlerror exit failure
-        DROP USER c##toolkit_rman_user;
+        DROP USER {{ rman_user }};
         EOF
       environment:
         ORACLE_HOME: "{{ oracle_home }}"
