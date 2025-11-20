@@ -127,6 +127,15 @@ echo "Heartbeat started with PID $heartbeat_pid"
 
 DEST_DIR="/oracle-toolkit"
 
+%{ if !assign_public_ip }
+# Use a package mirror accessible via Private Google Access
+cat > /etc/apt/sources.list.d/debian-mirror.list <<-EOF
+deb https://us-apt.pkg.dev/remote/artifact-registry-apt-cache/remote-debian-bookworm bookworm main contrib non-free non-free-firmware
+deb https://us-apt.pkg.dev/remote/artifact-registry-apt-cache/remote-debian-bookworm-updates bookworm-updates main contrib non-free non-free-firmware
+deb https://us-apt.pkg.dev/remote/artifact-registry-apt-cache/remote-debian-bookworm-security bookworm-security main contrib non-free non-free-firmware
+EOF
+%{endif}
+
 export DEBIAN_FRONTEND=noninteractive
 apt-get --quiet update || exit 1
 apt-get install --quiet --assume-yes ansible python3-jmespath unzip python3-google-auth || exit 1

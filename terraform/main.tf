@@ -312,6 +312,7 @@ resource "google_compute_instance" "control_node" {
     common_flags           = local.common_flags
     deployment_name        = var.deployment_name
     delete_control_node    = var.delete_control_node
+    assign_public_ip       = var.assign_public_ip
   })
 
   metadata = {
