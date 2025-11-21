@@ -13,6 +13,23 @@
 # limitations under the License.
 
 ---
+
+# Ensure common defaults are present when included via include_role (Ansible 2.9)
+- name: Load common defaults (fallback)
+  include_vars:
+    dir: "{{ role_path }}/../common/defaults"
+  when:
+    - oracle_base is not defined or oracle_home is not defined or grid_home is not defined
+  tags: db-create
+
+# Check disk space before creating database
+- name: db-create | Validate disk space for database creation
+  include_role:
+    name: disk_space_check
+  vars:
+    disk_check_type: db
+  tags: disk_space_check,db-create
+
 - name: Test whether pmon process by same name already exists
   shell: "set -o pipefail; ps -ef | ( grep pmon || true ) | ( grep -i {{ db_name }} || true ) | ( grep -v grep || true ) | wc -l"
   changed_when: false
