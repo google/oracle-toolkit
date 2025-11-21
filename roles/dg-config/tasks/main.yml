@@ -118,12 +118,12 @@
             dg_pass: "{{ lookup('password', '/dev/null length=16 chars=ascii_letters,digits') }}0#_"
           no_log: true
 
-        - name: Active-copy | Set the RMAN duplicate username and container string
+        - name: DG | Set the RMAN duplicate username and container string
           set_fact:
             dg_user: "c##toolkit_dg_setup_user"
           when: container_db | bool
 
-        - name: Active-copy | Set the RMAN duplicate username and container string (non-CDB)
+        - name: DG | Set the RMAN duplicate username and container string (non-CDB)
           set_fact:
             dg_user: "toolkit_dg_setup_user"
           when: not (container_db | bool)
@@ -144,6 +144,32 @@
           become: true
           become_user: "{{ oracle_user }}"
           no_log: true
+
+        - name: DG | Create a temporary file for transfer
+          tempfile:
+            state: file
+          register: temp_file
+
+        - name: DG | Fetch password file from primary
+          fetch:
+            src: "{{ oracle_base }}/dbs/orapw{{ oracle_sid }}"
+            dest: "{{ temp_file.path }}"
+            flat: true
+          delegate_to: primary1
+
+        - name: DG | Copy password file to standby
+          copy:
+            src: "{{ temp_file.path }}"
+            dest: "{{ oracle_base }}/dbs/orapw{{ oracle_sid }}"
+            owner: "{{ oracle_user }}"
+            group: "{{ oracle_group }}"
+            mode: "u=wr,go="
+
+        - name: DG | Remove temporary file
+          file:
+            path: "{{ temp_file.path }}"
+            state: absent
+          when: temp_file.path is defined
 
     - name: DG | Generate script for creating the Data Guard configuration
       template:
