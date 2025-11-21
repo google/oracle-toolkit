@@ -204,9 +204,8 @@
       when:
         - password_file is not search('^\\+')
         - (orapw_home_stat.stat.exists or orapw_base_stat.stat.exists)
-        - db_password_secret | length == 0
 
-    - name: Active-copy | Back up password file from ASM
+    - name: Active-copy | Backup password file from ASM
       shell: |
         set -o pipefail
         asmcmd cp {{ password_file }} {{ grid_home }}/dbs/orapw{{ db_name }}.{{ lookup('pipe', 'date +%Y-%m-%d-%H-%M') }}
@@ -219,13 +218,11 @@
       become_user: "{{ grid_user }}"
       when:
         - password_file is search('^\\+')
-        - db_password_secret | length == 0
 
     - name: Active-copy | Generate random password for the RMAN duplication user
       set_fact:
         rman_user_pass: "{{ lookup('password', '/dev/null length=16 chars=ascii_letters,digits') }}0#_"
       no_log: true
-      when: db_password_secret | length == 0
 
     - name: Active-copy | Set the RMAN duplicate username and container string
       set_fact:
@@ -256,39 +253,6 @@
       become: true
       become_user: "{{ oracle_user }}"
       no_log: true
-      when: db_password_secret | length == 0
-
-    - name: Active-copy | Retrieve DB password from Secret Manager
-      command: gcloud --quiet secrets versions access {{ db_password_secret }}
-      register: gcloud_result
-      changed_when: false
-      # the failure reason won't be shown because no_log is enabled
-      # DB password validation is already handled earlier in roles/ora-host/tasks/main.yml
-      no_log: true
-      when: db_password_secret | length > 0
-
-    - name: Active-copy | Set sys_pass fact from gcloud_result
-      set_fact:
-        sys_pass: "{{ gcloud_result.stdout }}"
-      no_log: true
-      when: db_password_secret | length > 0
-
-    - name: Active-copy | Change the SYS password to the value from Secret Manager
-      shell: |
-        set -o pipefail
-        {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
-        whenever sqlerror exit failure
-        ALTER USER SYS IDENTIFIED BY "{{ sys_pass }}";
-        EOF
-      environment:
-        ORACLE_HOME: "{{ oracle_home }}"
-        ORACLE_SID: "{{ oracle_sid }}"
-        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
-      delegate_to: primary1
-      become: true
-      become_user: "{{ oracle_user }}"
-      no_log: true
-      when: db_password_secret | length > 0
 
     - name: Active-copy | Create a temporary file for transfer
       tempfile:
