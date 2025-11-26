@@ -165,6 +165,7 @@
             group: "{{ oracle_group }}"
             mode: "u=wr,go="
 
+      always:
         - name: DG | Remove temporary file
           file:
             path: "{{ temp_file.path }}"
