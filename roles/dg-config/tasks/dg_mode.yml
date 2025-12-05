@@ -148,6 +148,7 @@
 
 - name: DG Mode | Capture the current Data Guard configuration
   shell: |
+    sleep 30  # Wait for previous changes to stabilize
     set -o pipefail
     {{ oracle_home }}/bin/dgmgrl / <<EOF
     show configuration verbose

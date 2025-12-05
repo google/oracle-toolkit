@@ -274,12 +274,6 @@
         group: "{{ oracle_group }}"
         mode: "u=wr,go="
 
-    - name: Active-copy | Remove temporary file
-      file:
-        path: "{{ temp_file.path }}"
-        state: absent
-      when: temp_file.path is defined
-
     - name: Active-copy | Generate duplicate script
       template:
         src: duplicate.cmd.j2
@@ -356,6 +350,12 @@
       become_user: "{{ oracle_user }}"
 
   always:
+    - name: Active-copy | Remove temporary file
+      file:
+        path: "{{ temp_file.path }}"
+        state: absent
+      when: temp_file.path is defined
+
     - name: Active-copy | Delete duplicate.cmd file
       file:
         path: "{{ oracle_home }}/dbs/duplicate.cmd"

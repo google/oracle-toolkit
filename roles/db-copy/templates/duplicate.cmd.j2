@@ -6,5 +6,16 @@ DUPLICATE TARGET DATABASE
   DORECOVER
   SPFILE
     SET db_unique_name="{{ standby_name }}"
+    RESET log_archive_config
+    RESET log_archive_dest_1
+    RESET log_archive_dest_2
+    RESET log_archive_dest_3
+    RESET log_archive_dest_4
+    RESET log_archive_dest_5
+    RESET log_archive_dest_6
+    RESET log_archive_dest_7
+    RESET log_archive_dest_8
+    RESET log_archive_dest_9
+    RESET log_archive_dest_10
   SECTION SIZE {{ section_size | default('32G', true) }}
   {% if oracle_ver_base != '11.2' %}USING {% if backupset_compression | default(false) | bool %}COMPRESSED{% endif %} BACKUPSET{% endif %};

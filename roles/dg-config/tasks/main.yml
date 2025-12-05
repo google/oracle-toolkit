@@ -30,6 +30,12 @@
 - name: DG | Run Data Guard setup tasks
   when: current_dg_status.stdout | upper != "SUCCESS"
   tags: dg-create
+  become: true
+  become_user: "{{ oracle_user }}"
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
   block:
     - name: DG | Define SQL commands to add standby redo logs
       set_fact:
@@ -71,13 +77,7 @@
         END;
         /
         EOF
-      environment:
-        ORACLE_HOME: "{{ oracle_home }}"
-        ORACLE_SID: "{{ oracle_sid }}"
-        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
       delegate_to: primary1
-      become: true
-      become_user: "{{ oracle_user }}"
       register: force_logging
       changed_when: "'Enabled database force logging' in force_logging.stdout"
 
@@ -88,13 +88,7 @@
         whenever sqlerror exit failure
         {{ sql_for_dg }}
         EOF
-      environment:
-        ORACLE_HOME: "{{ oracle_home }}"
-        ORACLE_SID: "{{ oracle_sid }}"
-        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
       delegate_to: primary1
-      become: true
-      become_user: "{{ oracle_user }}"
 
     - name: DG | Set DG parameters and create standby redo logs on the standby
       shell: |
@@ -103,12 +97,6 @@
         whenever sqlerror exit failure
         {{ sql_for_dg }}
         EOF
-      environment:
-        ORACLE_HOME: "{{ oracle_home }}"
-        ORACLE_SID: "{{ oracle_sid }}"
-        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
-      become: true
-      become_user: "{{ oracle_user }}"
 
     - name: DG | Create the DG setup user on both servers (21c and higher only)
       when: oracle_ver_base | float > 19.3
@@ -118,12 +106,12 @@
             dg_pass: "{{ lookup('password', '/dev/null length=16 chars=ascii_letters,digits') }}0#_"
           no_log: true
 
-        - name: Active-copy | Set the RMAN duplicate username and container string
+        - name: DG | Set the RMAN duplicate username and container string
           set_fact:
             dg_user: "c##toolkit_dg_setup_user"
           when: container_db | bool
 
-        - name: Active-copy | Set the RMAN duplicate username and container string (non-CDB)
+        - name: DG | Set the RMAN duplicate username and container string (non-CDB)
           set_fact:
             dg_user: "toolkit_dg_setup_user"
           when: not (container_db | bool)
@@ -136,16 +124,46 @@
             CREATE USER {{ dg_user }} IDENTIFIED BY "{{ dg_pass }}";
             GRANT sysdg TO {{ dg_user }};
             EOF
-          environment:
-            ORACLE_HOME: "{{ oracle_home }}"
-            ORACLE_SID: "{{ oracle_sid }}"
-            PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
           delegate_to: primary1
-          become: true
-          become_user: "{{ oracle_user }}"
           no_log: true
 
-    - name: DG | Generate script for creating the Data Guard configuration
+        - name: DG | Create a temporary file for transfer
+          tempfile:
+            state: file
+          register: temp_file
+
+        - name: DG | Fetch password file from primary
+          fetch:
+            src: "{{ oracle_base }}/dbs/orapw{{ oracle_sid }}"
+            dest: "{{ temp_file.path }}"
+            flat: true
+          delegate_to: primary1
+
+        - name: DG | Copy password file to standby
+          copy:
+            src: "{{ temp_file.path }}"
+            dest: "{{ oracle_base }}/dbs/orapw{{ oracle_sid }}"
+            owner: "{{ oracle_user }}"
+            group: "{{ oracle_group }}"
+            mode: "u=wr,go="
+
+      always:
+        - name: DG | Remove temporary file
+          file:
+            path: "{{ temp_file.path }}"
+            state: absent
+          when: temp_file.path is defined
+
+    - name: DG | Check if the Data Guard configuration already exists on the primary
+      shell: |
+        set -o pipefail
+        ({{ oracle_home }}/bin/dgmgrl -silent / "show configuration" || true) | awk '/^Configuration -/ {print $3}'
+      delegate_to: primary1
+      changed_when: false
+      register: primary_dg_config
+      tags: dg-create
+
+    - name: DG | Generate script for creating or updating the Data Guard configuration
       template:
         src: dg-create.j2
         dest: "{{ oracle_home }}/dbs/create_dg_{{ db_name }}.cmd"
@@ -153,10 +171,8 @@
         group: "{{ oracle_group }}"
         mode: "u=wr,go="
       delegate_to: primary1
-      become: true
-      become_user: "{{ oracle_user }}"
 
-    - name: DG | Run script to create the Data Guard configuration
+    - name: DG | Run script to create or update the Data Guard configuration
       shell: |
         set -o pipefail
         {{ oracle_home }}/bin/dgmgrl <<EOF
@@ -168,13 +184,7 @@
         spool "{{ oracle_home }}/dbs/create_dg_{{ db_name }}.log"
         @"{{ oracle_home }}/dbs/create_dg_{{ db_name }}.cmd"
         EOF
-      environment:
-        ORACLE_HOME: "{{ oracle_home }}"
-        ORACLE_SID: "{{ oracle_sid }}"
-        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
       delegate_to: primary1
-      become: true
-      become_user: "{{ oracle_user }}"
       register: dg_create
       no_log: true
 
@@ -188,12 +198,6 @@
         alter system set log_archive_min_succeed_dest=1 sid='*' scope=both;
         alter system set data_guard_sync_latency=0 sid='*' scope=both;
         EOF
-      environment:
-        ORACLE_HOME: "{{ oracle_home }}"
-        ORACLE_SID: "{{ oracle_sid }}"
-        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
-      become: true
-      become_user: "{{ oracle_user }}"
       when: oracle_ver_base | float <= 18.0
 
     - name: DG | Gather minimal facts (hostname) for the standby
@@ -216,12 +220,6 @@
         edit database {{ db_name | lower }}      set property staticConnectidentifier='${STATIC_ID_P}';
         edit database {{ standby_name | lower }} set property staticConnectidentifier='${STATIC_ID_S}';
         EOF
-      environment:
-        ORACLE_HOME: "{{ oracle_home }}"
-        ORACLE_SID: "{{ oracle_sid }}"
-        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
-      become: true
-      become_user: "{{ oracle_user }}"
 
     - name: DG | Restart standby if required
       shell: |
@@ -231,12 +229,6 @@
         shutdown immediate
         startup mount
         EOF
-      environment:
-        ORACLE_HOME: "{{ oracle_home }}"
-        ORACLE_SID: "{{ oracle_sid }}"
-        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
-      become: true
-      become_user: "{{ oracle_user }}"
       when: "'database instance restart required' in dg_create.stdout"
 
     - name: DG | Enable standby database after restart to clear warnings
@@ -247,12 +239,6 @@
         host sleep 60;
         show database verbose {{ standby_name }};
         EOF
-      environment:
-        ORACLE_HOME: "{{ oracle_home }}"
-        ORACLE_SID: "{{ oracle_sid }}"
-        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
-      become: true
-      become_user: "{{ oracle_user }}"
       when: "'database instance restart required' in dg_create.stdout"
 
   always:
@@ -263,13 +249,7 @@
         whenever sqlerror exit failure
         DROP USER {{ dg_user }};
         EOF
-      environment:
-        ORACLE_HOME: "{{ oracle_home }}"
-        ORACLE_SID: "{{ oracle_sid }}"
-        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
       delegate_to: primary1
-      become: true
-      become_user: "{{ oracle_user }}"
       when: oracle_ver_base | float > 19.3
 
 - name: DG | Capture Data Guard configuration

@@ -179,6 +179,9 @@ ORA_PGA_TARGET_MB_PARAM="[0-9]+"
 ORA_SGA_TARGET_MB="${ORA_SGA_TARGET_MB:-0}"
 ORA_SGA_TARGET_MB_PARAM="[0-9]+"
 
+ORA_DB_DG_NAME="${ORA_DB_DG_NAME}"
+ORA_DB_DG_NAME_PARAM="^[a-zA-Z0-9_$]+$"
+
 CLUSTER_CONFIG="${CLUSTER_CONFIG:-cluster_config.json}"
 CLUSTER_CONFIG_PARAM="^.*$"
 
@@ -281,7 +284,7 @@ GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-staging:,ora-db-name:,ora-db-domain:,ora-d
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-data-destination:,ora-data-diskgroup:,ora-reco-destination:,ora-reco-diskgroup:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-asm-disks:,ora-asm-disks-json:,ora-data-mounts:,ora-data-mounts-json:,ora-listener-port:,ora-listener-name:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-db-ncharset:,ora-db-container:,ora-db-type:,ora-pdb-name-prefix:,ora-pdb-count:,ora-redo-log-size:"
-GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-pga-target-mb:,ora-sga-target-mb:"
+GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-pga-target-mb:,ora-sga-target-mb:,ora-db-dg-name:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,backup-redundancy:,archive-redundancy:,archive-online-days:,backup-level0-days:,backup-level1-days:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,backup-start-hour:,backup-start-min:,archive-backup-min:,backup-script-location:,backup-log-location:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-swlib-type:,ora-swlib-path:,ora-swlib-credentials:,instance-ip-addr:,primary-ip-addr:,instance-ssh-user:"
@@ -430,6 +433,10 @@ while true; do
     ;;
   --ora-db-type)
     ORA_DB_TYPE="$2"
+    shift
+    ;;
+  --ora-db-dg-name)
+    ORA_DB_DG_NAME="$2"
     shift
     ;;
   --ora-pdb-name-prefix)
@@ -769,6 +776,10 @@ ORA_STAGING="${ORA_STAGING:-$ORA_SWLIB_PATH}"
   echo "Incorrect parameter provided for ora-sga-target-mb: $ORA_SGA_TARGET_MB"
   exit 52
 }
+[[ -n "$ORA_DB_DG_NAME" && ! "$ORA_DB_DG_NAME" =~ $ORA_DB_DG_NAME_PARAM ]] && {
+  echo "Incorrect parameter provided for ora-db-dg-name: $ORA_DB_DG_NAME"
+  exit 52
+}
 [[ ! "$BACKUP_DEST" =~ $BACKUP_DEST_PARAM ]] && [[ "$PB_LIST" =~ "config-db.yml" ]] && {
   echo "Incorrect parameter provided for backup-dest: $BACKUP_DEST"
   exit 52
@@ -1094,6 +1105,7 @@ export ORA_DB_DOMAIN
 export ORA_DB_NAME
 export ORA_DB_NCHARSET
 export ORA_DB_TYPE
+export ORA_DB_DG_NAME
 export ORA_DISK_MGMT
 export ORA_EDITION
 export ORA_LISTENER_NAME

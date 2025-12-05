@@ -5,9 +5,11 @@ This Oracle Toolkit for Google Cloud document will support Disaster Recovery (DR
 Implementation involves two similar steps:
 
 1. Deployment of a Data Guard **primary** database instance via the normal toolkit deployment steps (for details on this see the [main toolkit user guide](user-guide.md) or the [Compute Engine deployment user guide](compute-vm-user-guide.md)).
-2. Deployment of a Data Guard physical **standby** instance via a similar toolkit command, with two additional parameters: `--cluster-type DG` and `--primary_ip_addr [IP ADDRESS]`.
+2. Deployment of a Data Guard physical **standby** instance via a similar toolkit command, with additional parameters: `--cluster-type DG`, `--primary_ip_addr [IP ADDRESS]`, and `--ora-db-dg-name [UNIQUE NAME]`.
 
-Once provisioned, more advanced Oracle Data Guard High Availability (HA) and Disaster Recovery (DR) configurations can then be manually added. This includes multiple standby databases (in any location), optionally in [cascading](https://docs.oracle.com/en/database/oracle/oracle-database/19/sbydb/oracle-data-guard-redo-transport-services.html#SBYDB-GUID-34BCB162-D996-4678-97F1-497805764950) or [far sync](https://docs.oracle.com/en/database/oracle/oracle-database/19/sbydb/creating-oracle-data-guard-far-sync-instance.html) topologies. Also, [Fast-Start Failover](https://docs.oracle.com/en/database/oracle/oracle-database/19/dgbkr/using-data-guard-broker-to-manage-switchovers-failovers.html#DGBKR-GUID-995CED84-BEA1-4675-9C68-B37CB996924F) can be enabled in the broker to support automatic failover.
+You can provision multiple Data Guard instances in a star topology by repeating step #2.
+Once provisioned, more advanced Oracle Data Guard High Availability (HA) and Disaster Recovery (DR) configurations can then be manually added. 
+This includes [cascading](https://docs.oracle.com/en/database/oracle/oracle-database/19/sbydb/oracle-data-guard-redo-transport-services.html#SBYDB-GUID-34BCB162-D996-4678-97F1-497805764950) or [far sync](https://docs.oracle.com/en/database/oracle/oracle-database/19/sbydb/creating-oracle-data-guard-far-sync-instance.html) topologies. Also, [Fast-Start Failover](https://docs.oracle.com/en/database/oracle/oracle-database/19/dgbkr/using-data-guard-broker-to-manage-switchovers-failovers.html#DGBKR-GUID-995CED84-BEA1-4675-9C68-B37CB996924F) can be enabled in the broker to support automatic failover.
 
 ## Example Toolkit Invocations
 
