@@ -221,8 +221,6 @@ for node in $(echo '${database_vm_nodes_json}' | jq -c '.[] | select(.role == "p
 
     echo "Configuring PRIMARY node: $node_name, IP: $node_ip, Zone: $node_zone"
     temp_log=$(mktemp)
-    cmd="bash install-oracle.sh --cluster-type NONE  --instance-ip-addr $node_ip  --instance-ssh-user $ssh_user --instance-ssh-key /root/.ssh/google_compute_engine ${common_flags} 2>&1"
-    echo "Executing command: $cmd"
     bash install-oracle.sh \
     --cluster-type NONE \
     --instance-ip-addr "$node_ip" \
@@ -265,8 +263,6 @@ if [[ "$num_nodes" -gt 1 ]]; then
 
     echo "Configuring STANDBY node: $node_name, IP: $node_ip, Zone: $node_zone"
     temp_log=$(mktemp)
-    cmd="bash install-oracle.sh --cluster-type DG  --primary-ip-addr $primary_ip  --instance-ip-addr $node_ip  --instance-ssh-use $ssh_user --instance-ssh-key /root/.ssh/google_compute_engine ${common_flags} 2>&1"
-    echo "Executing command: $cmd"
     bash install-oracle.sh \
     --cluster-type DG \
     --primary-ip-addr "$primary_ip" \
