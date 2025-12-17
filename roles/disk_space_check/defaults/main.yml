@@ -1,0 +1,32 @@
+---
+# Simplified defaults for disk space checking
+
+# Core behavior controls
+disk_space_fail_on_insufficient: true
+disk_space_warning_threshold_percent: 80
+disk_space_critical_threshold_percent: 90
+disk_space_show_warnings: true
+
+# Default space requirements (MB) - organized by component
+disk_space_defaults:
+  oracle:
+    home: 10240 # 10GB
+    base: 5120 # 5GB
+    swlib: 19883 # 20GB
+    unzip: 10240 # 10GB
+  gi:
+    home: 15360 # 15GB
+    base: 5120 # 5GB
+    unzip: 10240 # 10GB
+  rac:
+    grid: 20480 # 20GB
+    oracle: 15360 # 15GB
+    unzip: 15360 # 15GB
+  patch:
+    home: 5120 # 5GB
+    extract: 10240 # 10GB
+    temp: 2048 # 2GB
+  db:
+    data: 20480 # 20GB
+    recovery: 10240 # 10GB
+    config: 512 # 512MB

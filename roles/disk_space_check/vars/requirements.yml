@@ -1,0 +1,70 @@
+---
+# Consolidated disk space requirements for all Oracle components
+# Uses safe concatenation and defaults to avoid undefined variable errors
+disk_space_requirements:
+  # Oracle RDBMS installation
+  oracle_home:
+    - path: "{{ oracle_home }}"
+      mb: "{{ disk_space_oracle_home_mb | default(disk_space_defaults.oracle.home) }}"
+      desc: "Oracle Home"
+    - path: "{{ oracle_base }}"
+      mb: "{{ disk_space_oracle_base_mb | default(disk_space_defaults.oracle.base) }}"
+      desc: "Oracle Base"
+  
+  # Software library staging
+  swlib:
+    - path: "{{ swlib_path }}"
+      mb: "{{ disk_space_swlib_mb | default(disk_space_defaults.oracle.swlib) }}"
+      desc: "Software library"
+    - path: "{{ swlib_unzip_path }}"
+      mb: "{{ disk_space_unzip_mb | default(disk_space_defaults.oracle.unzip) }}"
+      desc: "Software extraction"
+  
+  # Patching operations
+  patch:
+    - path: "{{ grid_home if gi_install else oracle_home }}"
+      mb: "{{ disk_space_patch_home_mb | default(disk_space_defaults.patch.home) }}"
+      desc: "Patch target"
+    - path: "{{ swlib_unzip_path }}"
+      mb: "{{ disk_space_patch_extract_mb | default(disk_space_defaults.patch.extract) }}"
+      desc: "Patch extraction"
+    - path: "/tmp"
+      mb: "{{ disk_space_patch_temp_mb | default(disk_space_defaults.patch.temp) }}"
+      desc: "Patch temporary space"
+  
+  # Grid Infrastructure
+  gi:
+    - path: "{{ grid_home }}"
+      mb: "{{ disk_space_gi_home_mb | default(disk_space_defaults.gi.home) }}"
+      desc: "Grid Infrastructure Home"
+    - path: "{{ oracle_base }}"
+      mb: "{{ disk_space_gi_base_mb | default(disk_space_defaults.gi.base) }}"
+      desc: "GI Oracle Base"
+    - path: "{{ swlib_unzip_path }}"
+      mb: "{{ disk_space_gi_unzip_mb | default(disk_space_defaults.gi.unzip) }}"
+      desc: "GI extraction"
+  
+  # RAC installation
+  rac:
+    - path: "{{ grid_home }}"
+      mb: "{{ disk_space_rac_grid_mb | default(disk_space_defaults.rac.grid) }}"
+      desc: "RAC Grid Home"
+    - path: "{{ oracle_home }}"
+      mb: "{{ disk_space_rac_oracle_mb | default(disk_space_defaults.rac.oracle) }}"
+      desc: "RAC Database Home"
+    - path: "{{ swlib_unzip_path }}"
+      mb: "{{ disk_space_rac_unzip_mb | default(disk_space_defaults.rac.unzip) }}"
+      desc: "RAC extraction"
+  
+  # Database creation
+  db:
+    - path: "{{ data_destination }}"
+      mb: "{{ disk_space_db_data_mb | default(disk_space_defaults.db.data) }}"
+      desc: "Database datafiles"
+    - path: "{{ reco_destination }}"
+      mb: "{{ disk_space_db_recovery_mb | default(disk_space_defaults.db.recovery) }}"
+      desc: "Fast Recovery Area"
+    - path: "{{ oracle_home }}/dbs"
+      mb: "{{ disk_space_db_config_mb | default(disk_space_defaults.db.config) }}"
+      desc: "Database config files"
+      # Always a filesystem path under ORACLE_HOME

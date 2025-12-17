@@ -29,5 +29,8 @@ secrets.yml
 secrets/
 terraform/*sh-key*
 vars/
+!roles/*/vars/
 vault_password_file
 terraform/terraform.tfvars
+roles/disk_space_check/molecule/*
+roles/disk_space_check/molecule/

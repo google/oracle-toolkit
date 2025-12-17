@@ -13,6 +13,22 @@
 # limitations under the License.
 
 ---
+# Ensure common defaults are present when included via include_role (Ansible 2.9)
+- name: Load common defaults (fallback)
+  include_vars:
+    dir: "{{ role_path }}/../common/defaults"
+  when:
+    - oracle_base is not defined or oracle_home is not defined or grid_home is not defined
+  tags: swlib
+
+# Check disk space before creating software library
+- name: swlib | Check disk space requirements
+  include_role:
+    name: disk_space_check
+  vars:
+    disk_check_type: swlib
+  tags: disk_space_check
+
 - name: swlib | setup
   become: true
   become_user: root

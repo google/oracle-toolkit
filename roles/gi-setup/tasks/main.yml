@@ -13,8 +13,23 @@
 # limitations under the License.
 
 ---
+
+- name: Load common defaults (fallback)
+  include_vars:
+    dir: "{{ role_path }}/../common/defaults"
+  when:
+    - oracle_base is not defined or oracle_home is not defined or grid_home is not defined
+  tags: gi-setup
+
+- name: Perform disk space checks for Grid Infrastructure
+  include_role:
+    name: disk_space_check
+  vars:
+    disk_check_type: gi
+  tags: gi-setup,disk_space_check
+
 - name: Check if software is already installed
-  shell: cat "{{ oracle_inventory }}/ContentsXML/inventory.xml" 2>&1 | ( grep -w {{ grid_home }} || true ) | wc -l
+  shell: 'set -o pipefail; cat "{{ oracle_inventory }}/ContentsXML/inventory.xml" 2>&1 | ( grep -w {{ grid_home }} || true ) | wc -l'
   register: existing_dbhome
   become: true
   become_user: root

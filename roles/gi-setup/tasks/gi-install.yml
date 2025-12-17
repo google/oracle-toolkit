@@ -13,6 +13,14 @@
 # limitations under the License.
 
 ---
+# Ensure common defaults are present when included via include_role (Ansible 2.9)
+- name: Load common defaults (fallback)
+  include_vars:
+    dir: "{{ role_path }}/../common/defaults"
+  when:
+    - oracle_base is not defined or oracle_home is not defined or grid_home is not defined
+  tags: gi-setup
+
 - name: gi-install | Set facts
   set_fact:
     install_unzip_path: "{{ grid_home }}"
@@ -37,6 +45,16 @@
     verbosity: 0
   tags: gi-setup
 
+- name: gi-install | Check disk space before patch extraction
+  include_role:
+    name: disk_space_check
+  vars:
+    disk_check_path: "{{ swlib_unzip_path }}"
+    disk_check_required_mb: "{{ disk_space_defaults.gi.unzip }}"
+    disk_check_description: "Space for GI patch extraction"
+  when: gi_patches is defined and gi_patches | length > 0
+  tags: gi-setup,disk_space_check
+
 - name: gi-install | Unzip GI patch
   # Using the "shell" module instead of "unarchive" for unzip performance
   shell: |
@@ -55,6 +73,15 @@
   with_items: "{{ gi_patches }}"
   when: item.release == oracle_rel and item.category == 'RU'
   tags: gi-setup,rel-patch
+
+- name: gi-install | Check disk space before GI software extraction
+  include_role:
+    name: disk_space_check
+  vars:
+    disk_check_path: "{{ install_unzip_path }}"
+    disk_check_required_mb: "{{ disk_space_defaults.gi.home }}"
+    disk_check_description: "Space for GI software extraction"
+  tags: gi-setup,disk_space_check
 
 - name: gi-install | Unzipping GI software
   become: true

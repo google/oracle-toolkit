@@ -13,6 +13,21 @@
 # limitations under the License.
 
 ---
+
+- name: rac-gi-install | Load common defaults (fallback)
+  include_vars:
+    dir: "{{ role_path }}/../common/defaults"
+  when:
+    - oracle_base is not defined or oracle_home is not defined or grid_home is not defined
+  tags: rac-gi
+
+- name: rac-gi-install | Perform disk space checks for RAC Grid Infrastructure
+  include_role:
+    name: disk_space_check
+  vars:
+    disk_check_type: rac
+  tags: rac-gi,disk_space_check
+
 - name: rac-gi-install | Set facts
   set_fact:
     install_unzip_path: "{{ grid_home }}"
@@ -27,6 +42,16 @@
       - "Using cluvfy cmd     : {{ cluvfy_command }}"
     verbosity: 0
   tags: rac-gi
+
+- name: rac-gi-install | Check disk space before patch extraction
+  include_role:
+    name: disk_space_check
+  vars:
+    disk_check_path: "{{ swlib_unzip_path }}"
+    disk_check_required_mb: "{{ disk_space_defaults.rac.unzip }}"
+    disk_check_description: "Space for RAC GI patch extraction"
+  when: gi_patches is defined and gi_patches | length > 0
+  tags: rac-gi,disk_space_check
 
 - name: rac-gi-install | Unzip GI patch
   # Using the "shell" module instead of "unarchive" for unzip performance

@@ -13,6 +13,23 @@
 # limitations under the License.
 
 ---
+
+# Ensure common defaults are present when included via include_role (Ansible 2.9)
+- name: Load common defaults (fallback)
+  include_vars:
+    dir: "{{ role_path }}/../common/defaults"
+  when:
+    - oracle_base is not defined or oracle_home is not defined or grid_home is not defined
+  tags: rdbms-setup
+
+# Check disk space before Oracle RDBMS installation
+- name: rdbms-setup | Validate disk space requirements
+  include_role:
+    name: disk_space_check
+  vars:
+    disk_check_type: oracle_home
+  tags: disk_space_check,rdbms-setup
+
 - name: Check if software is already installed
   shell: cat "{{ oracle_inventory }}/ContentsXML/inventory.xml" 2>&1 | ( grep -w {{ oracle_home }} || true ) | wc -l
   register: existing_dbhome

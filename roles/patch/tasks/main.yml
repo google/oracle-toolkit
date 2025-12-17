@@ -13,6 +13,22 @@
 # limitations under the License.
 
 ---
+
+# Ensure common defaults are present when included via include_role (Ansible 2.9)
+- name: Load common defaults (fallback)
+  include_vars:
+    dir: "{{ role_path }}/../common/defaults"
+  when:
+    - oracle_base is not defined or oracle_home is not defined or grid_home is not defined
+
+# Check disk space before applying patches
+- name: patch | Validate disk space for patching operations
+  include_role:
+    name: disk_space_check
+  vars:
+    disk_check_type: patch
+  tags: disk_space_check,patch
+
 - name: Create OCM response file
   script: expect_rsp.sh {{ oracle_base }} {{ oracle_home }} {{ swlib_unzip_path }}
   args:

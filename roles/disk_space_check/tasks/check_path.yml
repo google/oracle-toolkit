@@ -1,0 +1,104 @@
+---
+# Disk space validation for a specific path with proper delegation support
+- name: Gather filesystem facts on target host
+  setup:
+    gather_subset:
+      - "!all"
+      - "!min"
+      - "mounts"
+  delegate_to: "{{ disk_check_host | default(inventory_hostname) }}"
+  delegate_facts: true
+  tags: disk_space_check
+
+- name: Get mounts from target host
+  set_fact:
+    target_host: "{{ disk_check_host | default(inventory_hostname) }}"
+    host_mounts: "{{ hostvars[disk_check_host | default(inventory_hostname)].ansible_mounts | default([]) }}"
+  tags: disk_space_check
+
+- name: Initialize mount tracking
+  set_fact:
+    target_mount: null
+    target_mount_len: 0
+  tags: disk_space_check
+
+- name: Find best matching mount point (longest prefix match)
+  set_fact:
+    target_mount: "{{ item }}"
+    target_mount_len: "{{ item.mount | length }}"
+  loop: "{{ host_mounts }}"
+  when:
+    - (check_path | string).startswith(item.mount | string)
+    - (item.mount | length) > (target_mount_len | int)
+  tags: disk_space_check
+
+- name: Fail if no mount found
+  fail:
+    msg: "No mounted filesystem found for path {{ check_path }} on {{ target_host }}"
+  when: target_mount is none or target_mount is not defined
+  tags: disk_space_check
+
+- name: Calculate available space
+  set_fact:
+    available_mb: "{{ ((target_mount.size_available | default(0) | int) / 1048576) | int }}"
+    required_mb: "{{ required_mb | default(0) | int }}"
+    mount_point: "{{ target_mount.mount }}"
+    used_percent: "{{ (100 - ((target_mount.size_available | default(0) | float) / (target_mount.size_total | default(1) | float) * 100)) | int }}"
+    # Pre-calculate shortfall as integer to avoid type issues
+    shortfall_mb: "{{ ( (required_mb | default(0) | int) - ( ((target_mount.size_available | default(0) | int) / 1048576) | int ) ) }}"
+  changed_when: false
+  tags: disk_space_check
+
+- name: Display disk space check details (diagnostic)
+  debug:
+    msg:
+      - "Checking: {{ check_description }}"
+      - "Path: {{ check_path }}"
+      - "Mount: {{ mount_point }}"
+      - "Required: {{ required_mb }} MB"
+      - "Available: {{ available_mb }} MB"
+      - "Used: {{ used_percent }}%"
+      - "Status: {{ 'PASS' if (available_mb | int) >= (required_mb | int) else 'FAIL' }}"
+    verbosity: 1
+  when: 
+    - disk_space_show_warnings | default(true) | bool
+    - (available_mb | int) >= (required_mb | int)  # Only show diagnostic info on success
+  tags: disk_space_check
+
+- name: Display disk space failure warning
+  debug:
+    msg:
+      - "WARNING: Insufficient disk space for {{ check_description }}"
+      - "Path: {{ check_path }} (Mount: {{ mount_point }})"
+      - "Required: {{ required_mb }} MB, Available: {{ available_mb }} MB"
+      - "Shortfall: {{ [((required_mb | int) - (available_mb | int)), 0] | max }} MB"
+    verbosity: 0
+  when: 
+    - disk_space_show_warnings | default(true) | bool
+    - (available_mb | int) < (required_mb | int)
+    - not (disk_space_fail_on_insufficient | default(true) | bool)  # Only warn if not failing
+  tags: disk_space_check
+
+- name: Assert sufficient disk space
+  assert:
+    that:
+      - (available_mb | int) >= (required_mb | int)
+    fail_msg: |
+      Insufficient disk space for {{ check_description }}
+      Path: {{ check_path }}
+      Mount: {{ mount_point }}
+      Required: {{ required_mb }} MB
+      Available: {{ available_mb }} MB
+      Shortfall: {{ [shortfall_mb | int, 0] | max }} MB
+    success_msg: "Sufficient disk space for {{ check_description }} ({{ available_mb }} MB available)"
+  when: disk_space_fail_on_insufficient | default(true) | bool
+  tags: disk_space_check
+
+- name: Warn on high usage
+  debug:
+    msg: "WARNING: Mount {{ mount_point }} is {{ used_percent }}% full (threshold: {{ disk_space_warning_threshold_percent | default(80) }}%)"
+    verbosity: 0
+  when:
+    - (used_percent | int) >= (disk_space_warning_threshold_percent | default(80) | int)
+    - disk_space_show_warnings | default(true) | bool
+  tags: disk_space_check
