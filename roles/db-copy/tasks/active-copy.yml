@@ -19,7 +19,7 @@
     if srvctl config db -d {{ standby_name }} >/dev/null 2>&1; then
       srvctl status database -d {{ standby_name }} || true
     else
-      ps -ef | grep [o]ra_pmon_{{ oracle_sid }} > /dev/null && echo "{{ oracle_sid }} is running" || true
+      ps -ef | grep -Ei '(ora|db)_[p]mon_{{ oracle_sid }}' > /dev/null && echo "{{ oracle_sid }} is running" || true
     fi
   environment:
     ORACLE_HOME: "{{ oracle_home }}"
@@ -31,94 +31,26 @@
   register: standby_status
   tags: active-duplicate
 
-- name: Active-copy | Run RMAN duplicate tasks
+- name: Active-copy | Add oratab entry
+  lineinfile:
+    path: /etc/oratab
+    regexp: '^{{ oracle_sid }}\:'
+    line: "{{ oracle_sid }}:{{ oracle_home }}:N"
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
   when: "'is running' not in standby_status.stdout"
   tags: active-duplicate
+
+- name: Active-copy | Run database duplication setup tasks as the oracle_user
+  when: "'is running' not in standby_status.stdout"
+  become: true
+  become_user: "{{ oracle_user }}"
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  tags: active-duplicate
   block:
-    - name: Active-copy | Add oratab entry
-      lineinfile:
-        path: /etc/oratab
-        regexp: '^{{ oracle_sid }}\:'
-        line: "{{ oracle_sid }}:{{ oracle_home }}:N"
-        owner: "{{ oracle_user }}"
-        group: "{{ oracle_group }}"
-
-    - name: Active-copy | Add static listener entry to primary
-      lineinfile:
-        path: "{{ grid_home }}/network/admin/listener.ora"
-        regexp: "^SID_LIST_{{ listener_name }}"
-        line: "SID_LIST_{{ listener_name }}=(SID_LIST=(SID_DESC=(GLOBAL_DBNAME={{ db_name }}{% if db_domain | default('', true) | length > 0 %}.{{ db_domain }}{% endif %})(ORACLE_HOME={{ oracle_home }})(SID_NAME={{ oracle_sid }})))"
-        owner: "{{ grid_user }}"
-        group: "{{ oracle_group }}"
-      delegate_to: primary1
-      register: primary_listener_update
-      become: true
-      become_user: "{{ grid_user }}"
-
-    - name: Active-copy | Reload primary listener
-      shell: |
-        {{ grid_home }}/bin/lsnrctl reload {{ listener_name }}
-      environment:
-        ORACLE_HOME: "{{ grid_home }}"
-        PATH: "{{ grid_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
-      delegate_to: primary1
-      become: true
-      become_user: "{{ grid_user }}"
-      when: primary_listener_update is defined and primary_listener_update.changed
-
-    - name: Active-copy | Manually add tnsnames.ora entry for automatic service registration (with GI)
-      lineinfile:
-        path: "{{ oracle_home }}/network/admin/tnsnames.ora"
-        regexp: "^LISTENER_{{ oracle_sid | upper }}"
-        line: "LISTENER_{{ oracle_sid | upper }} = (ADDRESS = (PROTOCOL = IPC)(HOST = {{ ansible_hostname }})(KEY = LISTENER))"
-        create: true
-        owner: "{{ oracle_user }}"
-        group: "{{ oracle_group }}"
-        mode: u=rw,g=r,o=
-      when: gi_install
-      become: true
-      become_user: "{{ oracle_user }}"
-
-    - name: Active-copy | Manually add tnsnames.ora entry for automatic service registration (no GI)
-      lineinfile:
-        path: "{{ oracle_home }}/network/admin/tnsnames.ora"
-        regexp: "^LISTENER_{{ oracle_sid | upper }}"
-        line: "LISTENER_{{ oracle_sid | upper }} = (ADDRESS = (PROTOCOL = TCP)(HOST = {{ ansible_hostname }})(PORT = {{ listener_port }}))"
-        create: true
-        owner: "{{ oracle_user }}"
-        group: "{{ oracle_group }}"
-        mode: u=rw,g=r,o=
-      when: not gi_install
-      become: true
-      become_user: "{{ oracle_user }}"
-
-    - name: Active-copy | Add static listener entry to standby
-      lineinfile:
-        path: "{{ grid_home }}/network/admin/listener.ora"
-        regexp: "^SID_LIST_{{ listener_name }}"
-        line: "SID_LIST_{{ listener_name }}=(SID_LIST=(SID_DESC=(GLOBAL_DBNAME={{ standby_name }}{% if db_domain | default('', true) | length > 0 %}.{{ db_domain }}{% endif %})(ORACLE_HOME={{ oracle_home }})(SID_NAME={{ oracle_sid }})))"
-        owner: "{{ grid_user }}"
-        group: "{{ oracle_group }}"
-      register: standby_listener_update
-      become: true
-      become_user: "{{ grid_user }}"
-
-    - name: Active-copy | Reload standby listener
-      shell: |
-        {{ grid_home }}/bin/lsnrctl reload {{ listener_name }}
-      environment:
-        ORACLE_HOME: "{{ grid_home }}"
-        PATH: "{{ grid_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
-      become: true
-      become_user: "{{ grid_user }}"
-      when: standby_listener_update.changed
-
-    - name: Active-copy | Pause for one minute to ensure that the listener has fully restarted and the LsnrAgt process has registered
-      wait_for:
-        timeout: 60
-      delegate_to: localhost
-      when: standby_listener_update.changed
-
     - name: Active-copy | Create audit dump directory
       file:
         path: "{{ oracle_base }}/admin/{{ oracle_sid }}/adump"
@@ -127,97 +59,11 @@
         group: "{{ oracle_group }}"
         mode: "u=wrx,go="
 
-    - name: Active-copy | Create auxiliary init file
-      template:
-        src: initaux.ora.j2
-        dest: "{{ oracle_home }}/dbs/init{{ oracle_sid }}.ora"
-        owner: "{{ oracle_user }}"
-        group: "{{ oracle_group }}"
-        mode: "u=wr,go="
+    - name: Active-copy | Run tasks to setup Oracle Net for Data Guard
+      import_tasks: oracle-net-setup.yml
 
-    - name: Active-copy | Start auxiliary instance
-      shell: |
-        set -o pipefail
-        {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
-        whenever sqlerror exit failure
-        startup nomount pfile={{ oracle_home }}/dbs/init{{ oracle_sid }}.ora force
-        alter system register;
-        EOF
-      environment:
-        ORACLE_HOME: "{{ oracle_home }}"
-        ORACLE_SID: "{{ oracle_sid }}"
-        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
-      become: true
-      become_user: "{{ oracle_user }}"
-
-    - name: Active-copy | Get the primary database password file information
-      shell: |
-        set -o pipefail
-        (srvctl config db -d {{ db_name }} || true) | grep "^Password file" || true
-      environment:
-        ORACLE_HOME: "{{ oracle_home }}"
-        ORACLE_SID: "{{ oracle_sid }}"
-        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
-      delegate_to: primary1
-      become: true
-      become_user: "{{ oracle_user }}"
-      changed_when: false
-      register: srvctl_output
-
-    - name: Active-copy | Extract password file name
-      set_fact:
-        password_file: "{{ srvctl_output.stdout | regex_replace('^Password file:') | regex_replace('\\s') }}"
-
-    - name: Active-copy | Search for password file in ORACLE_HOME
-      stat:
-        path: "{{ oracle_home }}/dbs/orapw{{ db_name }}"
-      delegate_to: primary1
-      become: true
-      become_user: "{{ oracle_user }}"
-      register: orapw_home_stat
-      when: password_file | length == 0
-
-    - name: Active-copy | Search for password file in ORACLE_BASE
-      stat:
-        path: "{{ oracle_base }}/dbs/orapw{{ db_name }}"
-      delegate_to: primary1
-      become: true
-      become_user: "{{ oracle_user }}"
-      register: orapw_base_stat
-      when: password_file | length == 0 and not orapw_home_stat.stat.exists
-
-    - name: Active-copy | Set password file name variable
-      set_fact:
-        password_file_name: "{{ password_file if password_file | length > 0 else (oracle_home + '/dbs/orapw' + db_name) if orapw_home_stat.stat.exists else (oracle_base + '/dbs/orapw' + db_name) }}"
-
-    - name: Active-copy | Back up password file from file system
-      copy:
-        src: "{{ password_file_name }}"
-        dest: "{{ oracle_home }}/dbs/orapw{{ db_name }}.{{ lookup('pipe', 'date +%Y-%m-%d-%H-%M') }}"
-        owner: "{{ oracle_user }}"
-        group: "{{ oracle_group }}"
-        mode: "u=wr,go="
-        remote_src: true
-      delegate_to: primary1
-      become: true
-      become_user: "{{ oracle_user }}"
-      when:
-        - password_file is not search('^\\+')
-        - (orapw_home_stat.stat.exists or orapw_base_stat.stat.exists)
-
-    - name: Active-copy | Backup password file from ASM
-      shell: |
-        set -o pipefail
-        asmcmd cp {{ password_file }} {{ grid_home }}/dbs/orapw{{ db_name }}.{{ lookup('pipe', 'date +%Y-%m-%d-%H-%M') }}
-      environment:
-        ORACLE_HOME: "{{ grid_home }}"
-        ORACLE_SID: "{{ asm_sid }}"
-        PATH: "{{ grid_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
-      delegate_to: primary1
-      become: true
-      become_user: "{{ grid_user }}"
-      when:
-        - password_file is search('^\\+')
+    - name: Active-copy | Run tasks to backup the password file on the primary
+      import_tasks: password-file-backup.yml
 
     - name: Active-copy | Generate random password for the RMAN duplication user
       set_fact:
@@ -245,57 +91,43 @@
         /* SYSDBA privilege is required for the post-active "ALTER DATABASE RECOVER..." command */
         GRANT sysdba TO {{ rman_user }} {{ rman_container_string}};
         EOF
-      environment:
-        ORACLE_HOME: "{{ oracle_home }}"
-        ORACLE_SID: "{{ oracle_sid }}"
-        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
       delegate_to: primary1
-      become: true
-      become_user: "{{ oracle_user }}"
       no_log: true
 
-    - name: Active-copy | Create a temporary file for transfer
-      tempfile:
-        state: file
-      register: temp_file
+    - name: Active-copy | Copy the password file from primary
+      import_tasks: password-file-copy.yml
 
-    - name: Active-copy | Fetch password file from primary
-      fetch:
-        src: "{{ password_file_name }}"
-        dest: "{{ temp_file.path }}"
-        flat: true
-      delegate_to: primary1
-
-    - name: Active-copy | Copy password file to standby
-      copy:
-        src: "{{ temp_file.path }}"
-        dest: "{{ oracle_home }}/dbs/orapw{{ oracle_sid }}"
+    - name: Active-copy | Create auxiliary init file
+      template:
+        src: initaux.ora.j2
+        dest: "{{ oracle_home }}/dbs/init{{ oracle_sid }}.ora"
         owner: "{{ oracle_user }}"
         group: "{{ oracle_group }}"
         mode: "u=wr,go="
 
-    - name: Active-copy | Generate duplicate script
+    - name: Active-copy | Start auxiliary instance
+      shell: |
+        set -o pipefail
+        {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+        whenever sqlerror exit failure
+        startup nomount pfile={{ oracle_home }}/dbs/init{{ oracle_sid }}.ora force
+        alter system register;
+        EOF
+
+    - name: Active-copy | Generate an RMAN duplicate script
       template:
         src: duplicate.cmd.j2
         dest: "{{ oracle_home }}/dbs/duplicate.cmd"
         owner: "{{ oracle_user }}"
         group: "{{ oracle_group }}"
         mode: "u=wr,go="
-      become: true
-      become_user: "{{ oracle_user }}"
 
-    - name: Active-copy | Duplicate primary database
+    - name: Active-copy | Duplicate primary database using RMAN
       command:
         argv:
           - "{{ oracle_home }}/bin/rman"
           - "cmdfile={{ oracle_home }}/dbs/duplicate.cmd"
           - "log={{ oracle_home }}/dbs/duplicate.log"
-      environment:
-        ORACLE_HOME: "{{ oracle_home }}"
-        ORACLE_SID: "{{ oracle_sid }}"
-        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
-      become: true
-      become_user: "{{ oracle_user }}"
 
     - name: Active-copy | Add Oracle Restart configuration
       shell: |
@@ -316,13 +148,7 @@
           -startoption MOUNT \
           -stopoption IMMEDIATE
         srvctl start db -d {{ standby_name }}
-      environment:
-        ORACLE_HOME: "{{ oracle_home }}"
-        ORACLE_SID: "{{ oracle_sid }}"
-        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
       when: gi_install
-      become: true
-      become_user: "{{ oracle_user }}"
 
     - name: Active-copy | Run tasks from the database adjustments role
       include_role:
@@ -341,13 +167,7 @@
         srvctl modify db -d {{ standby_name }} -spfile '+{{ data_destination }}/{{ standby_name }}/PARAMETERFILE/spfile.ora'
         srvctl stop db -d {{ standby_name }} -stopoption immediate
         srvctl start db -d {{ standby_name }}
-      environment:
-        ORACLE_HOME: "{{ oracle_home }}"
-        ORACLE_SID: "{{ oracle_sid }}"
-        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
       when: gi_install
-      become: true
-      become_user: "{{ oracle_user }}"
 
   always:
     - name: Active-copy | Remove temporary file
@@ -360,8 +180,6 @@
       file:
         path: "{{ oracle_home }}/dbs/duplicate.cmd"
         state: absent
-      become: true
-      become_user: "{{ oracle_user }}"
       ignore_errors: true
 
     - name: Active-copy | Drop the temporary user created for RMAN duplication
@@ -371,15 +189,9 @@
         whenever sqlerror exit failure
         DROP USER {{ rman_user }};
         EOF
-      environment:
-        ORACLE_HOME: "{{ oracle_home }}"
-        ORACLE_SID: "{{ oracle_sid }}"
-        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
       delegate_to: primary1
-      become: true
-      become_user: "{{ oracle_user }}"
 
-- name: Active-copy | Capture standby database state
+- name: Active-copy | Capture standby database state from srvctl
   shell: |
     set -o pipefail
     srvctl config db -d {{ standby_name }}
@@ -392,10 +204,16 @@
   become: true
   become_user: "{{ oracle_user }}"
   changed_when: false
-  register: standby_state
+  register: standby_srvctl_state
   tags: active-duplicate
 
-- name: Active-copy | Capture standby database state
+- name: Active-copy | Show standby database state from srvctl
+  debug:
+    var: standby_srvctl_state.stdout_lines
+  when: gi_install
+  tags: active-duplicate
+
+- name: Active-copy | Capture standby database state from v$database
   shell: |
     set -o pipefail
     {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
@@ -407,15 +225,14 @@
     ORACLE_HOME: "{{ oracle_home }}"
     ORACLE_SID: "{{ oracle_sid }}"
     PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
-  when: not gi_install
   become: true
   become_user: "{{ oracle_user }}"
   changed_when: false
-  register: standby_state
+  register: standby_db_state
   tags: active-duplicate
 
-- name: Active-copy | Show standby database state
+- name: Active-copy | Show standby database state from v$database
   debug:
-    var: standby_state.stdout_lines
+    var: standby_db_state.stdout_lines
     verbosity: 0
   tags: active-duplicate

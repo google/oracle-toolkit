@@ -200,12 +200,12 @@ fi
     exit 1
 }
 [[ -n "$GCS_BACKUP_PATH" && ! "$GCS_BACKUP_PATH" =~ $GCS_BACKUP_PATH_PARAM ]] && {
-  echo "Incorrect parameter provided for gcs-backup-path: $GCS_BACKUP_PATH"
-  exit 1
+    echo "Incorrect parameter provided for gcs-backup-path: $GCS_BACKUP_PATH"
+    exit 1
 }
 [[ ! "$GCS_BACKUP_TEMP_PATH" =~ $GCS_BACKUP_TEMP_PATH_PARAM ]] && {
-  echo "Incorrect parameter provided for gcs-backup-temp-path: $GCS_BACKUP_TEMP_PATH"
-  exit 1
+    echo "Incorrect parameter provided for gcs-backup-temp-path: $GCS_BACKUP_TEMP_PATH"
+    exit 1
 }
 [[ ! "$ORA_STAGING" =~ $ORA_STAGING_PARAM ]] && {
     echo "Incorrect parameter provided for ora-staging: $ORA_STAGING"
@@ -278,11 +278,11 @@ CMD_ARRAY+=("$@")
 
 # not using backslash-escaped double quotes in the JSON strings
 if [[ -n "${ORA_ASM_DISKS_JSON}" ]]; then
-  CMD_ARRAY+=( -e "$(printf '%s' {'"'asm_disk_input'"':${ORA_ASM_DISKS_JSON}})" )
+  CMD_ARRAY+=(-e "$(printf '%s' {'"'asm_disk_input'"':${ORA_ASM_DISKS_JSON}})")
 fi
 
 if [[ -n "${ORA_DATA_MOUNTS_JSON}" ]]; then
-  CMD_ARRAY+=( -e "$(printf '%s' {'"'data_mounts_input'"':${ORA_DATA_MOUNTS_JSON}})" )
+  CMD_ARRAY+=(-e "$(printf '%s' {'"'data_mounts_input'"':${ORA_DATA_MOUNTS_JSON}})")
 fi
 
 if [ $VALIDATE -eq 1 ]; then

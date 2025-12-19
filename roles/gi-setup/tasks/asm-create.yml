@@ -38,16 +38,18 @@
     set -o pipefail
     ${ORACLE_HOME}/bin/srvctl add asm -d '{{ asm_diskstring }}'
     ${ORACLE_HOME}/bin/srvctl start asm
-    sqlplus -s / as sysasm <<EOF
-    whenever sqlerror exit failure
-    create spfile from pfile;
+    if ! ${ORACLE_HOME}/bin/srvctl config asm 2>/dev/null | grep -qE 'Spfile: [^[:space:]]+'; then
+      sqlplus -s / as sysasm <<EOF
+      whenever sqlerror exit failure
+      create spfile from pfile;
     EOF
-    ${ORACLE_HOME}/bin/srvctl stop asm
-    ${ORACLE_HOME}/bin/srvctl start asm
+      ${ORACLE_HOME}/bin/srvctl stop asm
+      ${ORACLE_HOME}/bin/srvctl start asm
+    fi
   environment:
     ORACLE_HOME: "{{ grid_home }}"
-    PATH: "{{ grid_home }}/bin:${PATH}"
     ORACLE_SID: "{{ asm_sid }}"
+    PATH: "{{ grid_home }}/bin:/usr/bin:/usr/local/sbin:/usr/sbin:${PATH}"
     LD_LIBRARY_PATH: "{{ grid_home }}/lib:${LD_LIBRARY_PATH}"
   register: start_asm
   become: true
@@ -56,8 +58,9 @@
 
 - name: asm-create | Start ASM output
   debug:
-    msg: "{{ start_asm }}"
+    var: start_asm.stdout_lines
     verbosity: 1
+  when: start_asm.stdout is defined
   tags: gi-setup,start-asm
 
 - name: asm-create | (asmlib) Create disk groups
@@ -74,11 +77,13 @@
     EOF
   environment:
     ORACLE_HOME: "{{ grid_home }}"
-    PATH: "{{ grid_home }}/bin:${PATH}"
     ORACLE_VERSION: "{{ oracle_ver }}"
     ORACLE_SID: "{{ asm_sid }}"
+    PATH: "{{ grid_home }}/bin:/usr/bin:/usr/local/sbin:/usr/sbin:${PATH}"
     LD_LIBRARY_PATH: "{{ grid_home }}/lib:${LD_LIBRARY_PATH}"
-  when: ora_disk_management == "asmlib"
+  when:
+    - ora_disk_management == "asmlib"
+    - not disk_snapshot_clone
   with_items: "{{ asm_disks }}"
   register: create_dg
   failed_when: "'ERROR' in create_dg.stdout"
@@ -100,11 +105,13 @@
     EOF
   environment:
     ORACLE_HOME: "{{ grid_home }}"
-    PATH: "{{ grid_home }}/bin:${PATH}"
     ORACLE_VERSION: "{{ oracle_ver }}"
     ORACLE_SID: "{{ asm_sid }}"
+    PATH: "{{ grid_home }}/bin:/usr/bin:/usr/local/sbin:/usr/sbin:${PATH}"
     LD_LIBRARY_PATH: "{{ grid_home }}/lib:${LD_LIBRARY_PATH}"
-  when: ora_disk_management in ["udev", "asmudev"]
+  when:
+    - ora_disk_management in ["udev", "asmudev"]
+    - not disk_snapshot_clone
   with_items: "{{ asm_disks }}"
   register: create_dg
   failed_when: "'ERROR' in create_dg.stdout"

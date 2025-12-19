@@ -1,0 +1,80 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- name: oracle-net-setup | Listener tasks run by the grid_user
+  become: true
+  become_user: "{{ grid_user }}"
+  environment:
+    ORACLE_HOME: "{{ grid_home }}"
+    PATH: "{{ grid_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  block:
+    - name: oracle-net-setup | Add static listener entry to primary
+      lineinfile:
+        path: "{{ grid_home }}/network/admin/listener.ora"
+        regexp: "^SID_LIST_{{ listener_name }}"
+        line: "SID_LIST_{{ listener_name }}=(SID_LIST=(SID_DESC=(GLOBAL_DBNAME={{ db_name }}{% if db_domain | default('', true) | length > 0 %}.{{ db_domain }}{% endif %})(ORACLE_HOME={{ oracle_home }})(SID_NAME={{ oracle_sid }})))"
+        owner: "{{ grid_user }}"
+        group: "{{ oracle_group }}"
+      delegate_to: primary1
+      register: primary_listener_update
+
+    - name: oracle-net-setup | Reload primary listener
+      shell: |
+        {{ grid_home }}/bin/lsnrctl reload {{ listener_name }}
+      delegate_to: primary1
+      when:
+        - primary_listener_update is defined
+        - primary_listener_update.changed
+
+    - name: oracle-net-setup | Add static listener entry to standby
+      lineinfile:
+        path: "{{ grid_home }}/network/admin/listener.ora"
+        regexp: "^SID_LIST_{{ listener_name }}"
+        line: "SID_LIST_{{ listener_name }}=(SID_LIST=(SID_DESC=(GLOBAL_DBNAME={{ standby_name }}{% if db_domain | default('', true) | length > 0 %}.{{ db_domain }}{% endif %})(ORACLE_HOME={{ oracle_home }})(SID_NAME={{ oracle_sid }})))"
+        owner: "{{ grid_user }}"
+        group: "{{ oracle_group }}"
+      register: standby_listener_update
+
+    - name: oracle-net-setup | Reload standby listener
+      shell: |
+        {{ grid_home }}/bin/lsnrctl reload {{ listener_name }}
+      when: standby_listener_update.changed
+
+    - name: oracle-net-setup | Pause for one minute to ensure that the listener has fully restarted and the LsnrAgt process has registered
+      pause:
+        seconds: 60
+      when: standby_listener_update.changed
+
+- name: oracle-net-setup | Manually add tnsnames.ora entry for automatic service registration (with GI)
+  lineinfile:
+    path: "{{ oracle_home }}/network/admin/tnsnames.ora"
+    regexp: "^LISTENER_{{ oracle_sid | upper }}"
+    line: "LISTENER_{{ oracle_sid | upper }} = (ADDRESS = (PROTOCOL = IPC)(HOST = {{ ansible_hostname }})(KEY = LISTENER))"
+    create: true
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
+    mode: u=rw,g=r,o=
+  when: gi_install
+
+- name: oracle-net-setup | Manually add tnsnames.ora entry for automatic service registration (no GI)
+  lineinfile:
+    path: "{{ oracle_home }}/network/admin/tnsnames.ora"
+    regexp: "^LISTENER_{{ oracle_sid | upper }}"
+    line: "LISTENER_{{ oracle_sid | upper }} = (ADDRESS = (PROTOCOL = TCP)(HOST = {{ ansible_hostname }})(PORT = {{ listener_port }}))"
+    create: true
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
+    mode: u=rw,g=r,o=
+  when: not gi_install

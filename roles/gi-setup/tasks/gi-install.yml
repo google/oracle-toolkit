@@ -183,7 +183,7 @@
     verbosity: 0
   tags: gi-setup
 
-- name: gi-install | Create OCM response file (if neccessary)
+- name: gi-install | Create OCM response file (if necessary)
   become: true
   become_user: "{{ grid_user }}"
   script: expect_rsp.sh {{ oracle_base }} {{ grid_home }} {{ swlib_unzip_path }}

@@ -50,6 +50,7 @@
         - create_db | bool
         - cluster_type != "RAC"
         - lookup('env', 'PRIMARY_IP_ADDR') is not defined or lookup('env', 'PRIMARY_IP_ADDR') | length == 0
+        - not disk_snapshot_clone
       tags: primary-db
 
     - name: Skip installation of Google Cloud Agent for Compute Workloads if non-RHEL OS detected
@@ -74,7 +75,19 @@
         - ansible_os_family == "RedHat"
       tags: workload-agent
 
-    - include_role:
+    - name: Include DB setup role for physical disk snapshot clone restores
+      include_role:
+        name: db-copy
+        tasks_from: clone-restore
+      when:
+        - create_db | bool
+        - cluster_type != "RAC"
+        - lookup('env', 'PRIMARY_IP_ADDR') is not defined or lookup('env', 'PRIMARY_IP_ADDR') | length == 0
+        - disk_snapshot_clone
+      tags: active-duplicate
+
+    - name: Include DB copy role for active RMAN duplicate
+      include_role:
         name: db-copy
         tasks_from: active-copy
       when:
@@ -82,6 +95,7 @@
         - cluster_type != "RAC"
         - lookup('env', 'PRIMARY_IP_ADDR') is defined
         - lookup('env', 'PRIMARY_IP_ADDR') | length > 0
+        - not disk_snapshot_clone
       tags: active-duplicate
 
     - include_role:

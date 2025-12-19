@@ -13,6 +13,11 @@
 # limitations under the License.
 
 ---
+- name: Re-configure a cloned system's Oracle Grid Infrastructure (GI) installation
+  include_tasks: has-reconfigure.yml
+  when: disk_snapshot_clone
+  tags: gi-setup,has-config
+
 - name: Check if software is already installed
   shell: cat "{{ oracle_inventory }}/ContentsXML/inventory.xml" 2>&1 | ( grep -w {{ grid_home }} || true ) | wc -l
   register: existing_dbhome
@@ -34,7 +39,9 @@
   with_items: "{{ gi_software }}"
   loop_control:
     loop_var: osw
-  when: existing_dbhome.stdout == "0" and osw.version == oracle_ver
+  when:
+    - existing_dbhome.stdout == "0"
+    - osw.version == oracle_ver
   tags: gi-setup
 
 - name: Configure HAS

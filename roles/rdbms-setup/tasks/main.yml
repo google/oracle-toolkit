@@ -45,13 +45,16 @@
   include_role:
     name: swlib
     tasks_from: build_file_list.yml
-  when: rdbms_base_files is not defined or rdbms_base_files | length == 0
+  when:
+    - (rdbms_base_files is not defined or rdbms_base_files | length == 0)
+    - not disk_snapshot_clone
 
 - name: Perform normal installation of RDBMS software
   include_tasks: rdbms-install.yml
   when:
     - existing_dbhome.stdout == "0"
     - not free_edition
+    - not disk_snapshot_clone
   vars:
     osw: "{{ rdbms_base_files }}"
   tags: rdbms-setup
@@ -61,6 +64,15 @@
   when:
     - existing_dbhome.stdout == "0"
     - free_edition
+  vars:
+    osw: "{{ rdbms_base_files }}"
+  tags: rdbms-setup
+
+- name: Perform clone installation of RDBMS software
+  include_tasks: configure-clone.yml
+  when:
+    - disk_snapshot_clone
+    - not free_edition
   vars:
     osw: "{{ rdbms_base_files }}"
   tags: rdbms-setup

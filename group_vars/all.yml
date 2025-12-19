@@ -24,6 +24,7 @@ swlib_mount_type: "{{ lookup('env','ORA_SWLIB_TYPE') | lower | default('gcs',tru
 swlib_mount_src: "{{ lookup('env','ORA_SWLIB_BUCKET') | default('',true) | regex_replace ('^gs://') }}"
 swlib_gcs_service_account_file: "{{ lookup('env','ORA_SWLIB_CREDENTIALS') | default('',true) }}"
 swlib_path_default: "{{ oracle_user_data_mounts | selectattr('purpose', 'match', '^software$') | map(attribute='mount_point') | list | first }}/swlib"
+disk_snapshot_clone: "{{ lookup('env','DISK_SNAPSHOT_CLONE') | lower | default('false', true) | bool }}"
 
 # Installation related variables from dbasm
 oracle_user_data_mounts_default:
@@ -153,6 +154,11 @@ run_initial_bu: true
 create_db: true
 create_listener: true
 install_rdbms: true
+
+# Database state variables:
+db_state: "{{ lookup('env','ORA_DB_STATE') | lower | default('',true) }}"
+db_backup_mode: "{{ lookup('env','ORA_BACKUP_MODE') | lower | default('',true) }}"
+db_start_option: "{{ lookup('env','ORA_START_OPTION') | lower | default('',true) }}"
 
 ## End of non-modifiable variables section
 

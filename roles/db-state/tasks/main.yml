@@ -1,0 +1,152 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- name: Database status block
+  when: db_state in ['started', 'shutdown']
+  become: true
+  become_user: "{{ oracle_user }}"
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  block:
+    - name: Check if the database is running
+      shell: |
+        set -o pipefail
+        if srvctl config db -d {{ db_name }} >/dev/null 2>&1; then
+          srvctl status db -d {{ db_name }} || true
+        else
+          ps -ef | grep -Ei '(ora|db)_[p]mon_{{ oracle_sid }}' > /dev/null && echo "{{ oracle_sid }} is running" || true
+        fi
+      register: db_status
+      changed_when: false
+
+    - name: Current database status
+      debug:
+        msg: "{{ db_status.stdout | default('') }}"
+        verbosity: 1
+
+    - name: Shutdown target database if running
+      shell: |
+        set -o pipefail
+        if srvctl config db -d {{ db_name }} >/dev/null 2>&1; then
+          srvctl stop db -d {{ db_name }} -o immediate
+          srvctl status db -d {{ db_name }}
+        else
+          {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+          -- Commented out following line to prevent premature task end due to the expected/normal ORA-01109 warning
+          -- whenever sqlerror exit failure
+          shutdown immediate
+        EOF
+        fi
+      when:
+        - db_state == 'shutdown'
+        - "'is running' in (db_status.stdout | default(''))"
+
+    - name: Startup target database if down
+      shell: |
+        set -o pipefail
+        if srvctl config db -d {{ db_name }} >/dev/null 2>&1; then
+          srvctl start db -d {{ db_name }}
+        else
+          {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+          whenever sqlerror exit failure
+          startup
+        EOF
+        fi
+      when:
+        - db_state == 'started'
+        - "'is running' not in (db_status.stdout | default('is running'))"
+
+- name: Database backup mode block
+  when: db_backup_mode in ['enabled', 'disabled']
+  become: true
+  become_user: "{{ oracle_user }}"
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  block:
+    - name: Check datafile backup mode
+      shell: |
+        set -o pipefail
+        {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+        whenever sqlerror exit failure
+        SET heading OFF feedback OFF verify OFF pages 0 lines 200 trimspool on
+        SELECT CASE
+                  WHEN COUNT(*) > 0 THEN 'true'
+                  ELSE 'false'
+              END AS in_backup_mode
+          FROM v\$backup
+        WHERE status = 'ACTIVE';
+        EOF
+      register: backup_mode_status
+      changed_when: false
+
+    - name: Current database backup mode
+      debug:
+        msg: "{{ backup_mode_status.stdout | default('') }}"
+        verbosity: 1
+
+    - name: Enable backup mode
+      shell: |
+        set -o pipefail
+        {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+        whenever sqlerror exit failure
+        ALTER DATABASE BEGIN BACKUP;
+        ALTER SYSTEM ARCHIVE LOG CURRENT;
+        EOF
+      when:
+        - db_backup_mode == 'enabled'
+        - not (backup_mode_status.stdout | default(true) | bool)
+
+    - name: Disable backup mode
+      shell: |
+        set -o pipefail
+        {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+        whenever sqlerror exit failure
+        ALTER DATABASE END BACKUP;
+        EOF
+      when:
+        - db_backup_mode == 'disabled'
+        - (backup_mode_status.stdout | default(false) | bool)
+
+- name: Database autostart configuration block
+  when: db_start_option in ['automatic', 'manual']
+  become: true
+  become_user: "{{ oracle_user }}"
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  block:
+    - name: Adjust database control using srvctl
+      shell: |
+        set -o pipefail
+        if srvctl config db -d {{ db_name }} >/dev/null 2>&1; then
+          if [[ $(srvctl config database -db {{ db_name }} | awk -F': *' '/Management policy/ {print $2}' | tr '[:upper:]' '[:lower:]') != "{{ db_start_option }}" ]]; then
+            srvctl modify database -db {{ db_name }} -policy "{{ db_start_option }}"
+            echo "Changed database policy using srvctl"
+          fi
+        fi
+      register: srvctl_start_mode
+      changed_when: "'Changed database policy using srvctl' in srvctl_start_mode.stdout"
+
+    - name: Adjust oratab entry for database autostart
+      lineinfile:
+        path: /etc/oratab
+        regexp: '^{{ oracle_sid }}\:'
+        line: "{{ oracle_sid }}:{{ oracle_home }}:{{ 'Y' if db_start_option == 'automatic' else 'N' }}"
+        unsafe_writes: true

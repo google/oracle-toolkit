@@ -1,4 +1,4 @@
-# Copyright 2020 Google LLC
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,27 +24,16 @@
       vars:
         control_node_checks: true
         managed_host_checks: true
-        become_user_check: root
-        parameter_checks: true
       tags: readiness_checks
-    - name: Determine specific release
-      include_role:
-        name: common
-        tasks_from: populate-vars.yml
 
-- hosts: dbasm
-  become: true
-  become_user: root
   roles:
-    - { role: base-provision, tags: base-provision }
-    - { role: host-storage, tags: host-storage }
-    - { role: ora-host, tags: ora-host }
+    - common
 
-- hosts: dbasm[0]
-  become: false
+- name: Run the DB state role
+  hosts: dbasm
   tasks:
-    - name: Run swlib role
-      include_role:
-        name: swlib
-      tags: swlib
-      when: not disk_snapshot_clone
+    - include_role:
+        name: db-state
+        tasks_from: main.yml
+  become: true
+  become_user: "{{ oracle_user }}"

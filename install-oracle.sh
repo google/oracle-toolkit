@@ -275,6 +275,8 @@ DATA_GUARD_PROTECTION_MODE_PARAM="^(Maximum\ Performance|Maximum\ Availability|M
 
 SKIP_PLATFORM_COMPATIBILITY="${SKIP_PLATFORM_COMPATIBILITY:-0}"
 
+DISK_SNAPSHOT_CLONE="${DISK_SNAPSHOT_CLONE:-false}"
+
 export ANSIBLE_DISPLAY_SKIPPED_HOSTS=false
 ###
 GETOPT_MANDATORY="ora-swlib-bucket:"
@@ -291,6 +293,7 @@ GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-swlib-type:,ora-swlib-path:,ora-swlib-cred
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,instance-ssh-key:,instance-hostname:,ntp-pref:,inventory-file:,compatible-rdbms:,instance-ssh-extra-args:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,help,validate,check-instance,prep-host,install-sw,config-db,debug,allow-install-on-vm,skip-database-config,swap-blk-device:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,install-workload-agent,oracle-metrics-secret:,db-password-secret:,data-guard-protection-mode:,skip-platform-compatibility"
+GETOPT_OPTIONAL="$GETOPT_OPTIONAL,disk-snapshot-clone"
 GETOPT_LONG="$GETOPT_MANDATORY,$GETOPT_OPTIONAL"
 GETOPT_SHORT="h"
 
@@ -401,7 +404,7 @@ while true; do
     ;;
   --ora-asm-disks-json)
     ORA_ASM_DISKS_JSON="$2"
-    shift;
+    shift
     ;;
   --ora-data-mounts)
     ORA_DATA_MOUNTS="$2"
@@ -409,7 +412,7 @@ while true; do
     ;;
   --ora-data-mounts-json)
     ORA_DATA_MOUNTS_JSON="$2"
-    shift;
+    shift
     ;;
   --cluster-config)
     CLUSTER_CONFIG="$2"
@@ -598,6 +601,9 @@ while true; do
   --skip-platform-compatibility)
     SKIP_PLATFORM_COMPATIBILITY=1
     ;;
+  --disk-snapshot-clone)
+    DISK_SNAPSHOT_CLONE=true
+    ;;
   --help | -h)
     echo -e "\tUsage: $(basename $0)" >&2
     echo "${GETOPT_MANDATORY}" | sed 's/,/\n/g' | sed 's/:/ <value>/' | sed 's/\(.\+\)/\t --\1/'
@@ -712,7 +718,7 @@ ORA_STAGING="${ORA_STAGING:-$ORA_SWLIB_PATH}"
   echo "Incorrect parameter provided for ora-reco-destination: $ORA_RECO_DESTINATION"
   exit 52
 }
-[[ "$ORA_DISK_MGMT" == "FS" && ( "${ORA_DATA_DESTINATION:0:1}" == "+" || "${ORA_RECO_DESTINATION:0:1}" == "+"  || "${BACKUP_DEST:0:1}" == "+" ) ]] && {
+[[ "$ORA_DISK_MGMT" == "FS" && ("${ORA_DATA_DESTINATION:0:1}" == "+" || "${ORA_RECO_DESTINATION:0:1}" == "+" || "${BACKUP_DEST:0:1}" == "+") ]] && {
   echo "Cannot specify an ASM diskgroup for ora-data-destination, ora-reco-destination, or backup-dest when not using ASM"
   exit 52
 }
@@ -915,7 +921,7 @@ if [ "${ORA_EDITION}" = "FREE" ]; then
   fi
   [[ ! "${ORA_DATA_DESTINATION}" =~ ^(/([^/]+))*/?$ ]] && ORA_DATA_DESTINATION="/u02/oradata" || true
   [[ ! "${ORA_RECO_DESTINATION}" =~ ^(/([^/]+))*/?$ ]] && ORA_RECO_DESTINATION="/opt/oracle/fast_recovery_area" || true
-  if (( ORA_PDB_COUNT > 16 )); then
+  if ((ORA_PDB_COUNT > 16)); then
     echo "WARNING: Maximum number of PDBs for this edition is 16: Reducing from ${ORA_PDB_COUNT} to 16"
     ORA_PDB_COUNT=16
   fi
@@ -954,7 +960,7 @@ if [[ -f "$ORA_DATA_MOUNTS" && -n "$ORA_DATA_MOUNTS_JSON" ]]; then
   echo "WARNING: ignoring --ora-data-mounts because --ora-data-mounts-json is specified"
 fi
 
-if [[ "$ORA_DISK_MGMT" != "FS" && ( ! -f "$ORA_ASM_DISKS" && -z "$ORA_ASM_DISKS_JSON" ) ]]; then
+if [[ "$ORA_DISK_MGMT" != "FS" && (! -f "$ORA_ASM_DISKS" && -z "$ORA_ASM_DISKS_JSON") ]]; then
   echo "Please specify --ora-asm-disks or --ora-asm-disks-json"
   exit 52
 fi
@@ -1136,6 +1142,7 @@ export INSTALL_WORKLOAD_AGENT
 export ORACLE_METRICS_SECRET
 export DATA_GUARD_PROTECTION_MODE
 export SKIP_PLATFORM_COMPATIBILITY
+export DISK_SNAPSHOT_CLONE
 
 echo -e "Running with parameters from command line or environment variables:\n"
 set | grep -E '^(ORA_|BACKUP_|GCS_|ARCHIVE_|INSTANCE_|PB_|ANSIBLE_|CLUSTER|PRIMARY)' | grep -v '_PARAM='
@@ -1164,11 +1171,11 @@ CMD_ARRAY+=("$@")
 
 # not using backslash-escaped double quotes in the JSON strings
 if [[ -n "${ORA_ASM_DISKS_JSON}" ]]; then
-  CMD_ARRAY+=( -e "$(printf '%s' {'"'asm_disk_input'"':${ORA_ASM_DISKS_JSON}})" )
+  CMD_ARRAY+=(-e "$(printf '%s' {'"'asm_disk_input'"':${ORA_ASM_DISKS_JSON}})")
 fi
 
 if [[ -n "${ORA_DATA_MOUNTS_JSON}" ]]; then
-  CMD_ARRAY+=( -e "$(printf '%s' {'"'data_mounts_input'"':${ORA_DATA_MOUNTS_JSON}})" )
+  CMD_ARRAY+=(-e "$(printf '%s' {'"'data_mounts_input'"':${ORA_DATA_MOUNTS_JSON}})")
 fi
 
 if [ $VALIDATE -eq 1 ]; then

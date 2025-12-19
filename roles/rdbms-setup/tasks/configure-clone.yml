@@ -1,0 +1,86 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- name: configure-clone | Set facts
+  set_fact:
+    runinstaller_loc: "{% if oracle_ver_base in ('21.3', '19.3', '18.0') %}{{ oracle_home }}/oui/bin{% else %}{{ swlib_unzip_path }}/database{% endif %}"
+  tags: rdbms-setup
+
+- name: configure-clone | Installer confirmations
+  debug:
+    msg:
+      - "installer dir(runinstaller_loc)          : {{ runinstaller_loc }}"
+      - "Src (swlib_path)                         : {{ swlib_path }}"
+    verbosity: 0
+  tags: rdbms-setup
+
+- name: configure-clone | Check if Oracle Home is already registered in inventory
+  shell: "grep LOC= {{ oracle_inventory }}/ContentsXML/inventory.xml | grep {{ oracle_home }}"
+  register: home_registered_check
+  changed_when: false
+  failed_when: false
+
+- name: configure-clone | Register ORACLE_HOME block
+  when: home_registered_check.rc != 0
+  tags: rdbms-setup
+  block:
+  - name: configure-clone | Set DB installer command
+    set_fact:
+      db_installer_cmd: "{{ runinstaller_loc }}/runInstaller -silent -noconfig -attachHome ORACLE_HOME=\"{{ oracle_home }}\" ORACLE_HOME_NAME=\"OraHome{{ oracle_ver_base.split('.')[0] }}c_Cloned\""
+    tags: rdbms-setup
+
+  - name: configure-clone | Information
+    debug:
+      msg: "Using installer cmd: {{ db_installer_cmd }}"
+      verbosity: 0
+
+  - name: configure-clone | Set CV_ASSUME_DISTID to OEL7 when installing on RHEL8  # MOS Note 2878100.1
+    set_fact:
+      cv_distid: "{{ 'OEL7' if ansible_os_family == 'RedHat'
+                            and (ansible_distribution_major_version | int) >= 8
+                            and (oracle_ver_base | float) <= 19.3
+                            else '' }}"
+
+  - name: configure-clone | Run DB installer
+    become: true
+    become_user: "{{ oracle_user }}"
+    command: "{{ db_installer_cmd }}"
+    environment:
+      CV_ASSUME_DISTID: "{{ cv_distid }}"
+      ORACLE_BASE: "{{ oracle_base }}"
+    register: db_install_result
+    failed_when: >
+        ('\'AttachHome\' was successful' not in db_install_result.stdout) or
+        (db_install_result.rc not in [0, 6, 250])
+
+  - name: configure-clone | runInstaller output
+    debug:
+      msg:
+        - "{{ db_install_result.cmd }}"
+        - "{{ db_install_result.stdout_lines }}"
+      verbosity: 0
+
+- name: configure-clone | Run script orainstRoot.sh
+  become: true
+  become_user: root
+  command: "{{ oracle_base }}/../oraInventory/orainstRoot.sh"
+  ignore_errors: true
+  tags: rdbms-setup
+
+- name: configure-clone | Run script root.sh
+  become: true
+  become_user: root
+  command: "{{ oracle_home }}/root.sh"
+  tags: rdbms-setup

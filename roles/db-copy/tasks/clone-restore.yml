@@ -1,0 +1,238 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- name: clone-restore | Check if the database is already running
+  shell: |
+    set -o pipefail
+    if srvctl config db -d {{ db_name }} >/dev/null 2>&1; then
+      srvctl status database -d {{ db_name }} || true
+    else
+      ps -ef | grep -Ei '(ora|db)_[p]mon_{{ oracle_sid }}' > /dev/null && echo "{{ oracle_sid }} is running" || true
+    fi
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  become: true
+  become_user: "{{ oracle_user }}"
+  changed_when: false
+  register: db_status_check
+
+- name: clone-restore | Add oratab entry
+  lineinfile:
+    path: /etc/oratab
+    regexp: '^{{ oracle_sid }}\:'
+    line: "{{ oracle_sid }}:{{ oracle_home }}:N"
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
+  when: "'is running' not in db_status_check.stdout"
+
+- name: clone-restore | Run database setup tasks as the oracle_user
+  when: "'is running' not in db_status_check.stdout"
+  become: true
+  become_user: "{{ oracle_user }}"
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  block:
+    - name: clone-restore | Update hostname in Oracle Net files
+      shell: |
+        set -o pipefail
+        if grep -E '(HOST)[[:space:]]*=[[:space:]]*[^[:space:].)]*' {{ oracle_home }}/network/admin/{{ item }}.ora | grep -v 'HOST = {{ ansible_hostname }}'; then
+          sed -i -E 's/(HOST)[[:space:]]*=[[:space:]]*[^[:space:].)]*/HOST = {{ ansible_hostname }}/g' {{ oracle_home }}/network/admin/{{ item }}.ora
+          echo "Updated HOST entry in {{ item }}.ora"
+        fi
+      with_items:
+        - "listener"
+        - "tnsnames"
+      register: update_network_files
+      changed_when: "'Updated HOST entry in' in update_network_files.stdout"
+
+    - name: clone-restore | Create audit dump directory
+      file:
+        path: "{{ oracle_base }}/admin/{{ oracle_sid }}/adump"
+        state: directory
+        owner: "{{ oracle_user }}"
+        group: "{{ oracle_group }}"
+        mode: "u=wrx,go="
+
+    - name: clone-restore | Ensure snapshot cloned ASM disk groups are mounted
+      shell: |
+        set -o pipefail
+        sqlplus -s / as sysasm <<EOF
+        whenever sqlerror exit failure
+        ALTER DISKGROUP {{ item.diskgroup }} MOUNT;
+        EOF
+      register: asm_mount_result
+      environment:
+        ORACLE_HOME: "{{ grid_home }}"
+        ORACLE_SID: "{{ asm_sid }}"
+        PATH: "{{ grid_home }}/bin:/usr/bin:/usr/local/sbin:/usr/sbin:${PATH}"
+      when: gi_install
+      with_items: "{{ asm_disks }}"
+      become: true
+      become_user: "{{ grid_user }}"
+      failed_when: >
+        asm_mount_result.rc != 0
+        and
+        not (asm_mount_result.stdout is search('ORA-15013') or asm_mount_result.stdout is search('ORA-15017'))
+      changed_when: "'Diskgroup altered.' in asm_mount_result.stdout"
+
+    - name: clone-restore | Remove existing Restart configuration (for re-registration) if exists after storage level clone
+      shell: |
+        set -o pipefail
+        if srvctl config db -d {{ db_name }} >/dev/null 2>&1; then
+          echo "Removing existing Restart configuration"
+          srvctl stop db -d {{ db_name }} -o immediate
+          srvctl remove db -d {{ db_name }} -force
+          srvctl config db -d {{ db_name }}
+          srvctl config db
+        fi
+      register: remove_restart_config
+      changed_when: "'Removing existing Restart configuration' in remove_restart_config.stdout"
+      when: gi_install
+
+    - name: clone-restore | Search for password file in ORACLE_HOME
+      stat:
+        path: "{{ oracle_home }}/dbs/orapw{{ db_name }}"
+      when: gi_install
+      register: orapw_home_stat
+
+    - name: clone-restore | Search for password file in ORACLE_BASE
+      stat:
+        path: "{{ oracle_base }}/dbs/orapw{{ db_name }}"
+      when:
+        - gi_install
+        - not orapw_home_stat.stat.exists
+      register: orapw_base_stat
+
+    - name: clone-restore | Set password file name variable
+      set_fact:
+        password_file_name: "{{ (oracle_home + '/dbs/orapw' + db_name) if orapw_home_stat.stat.exists else (oracle_base + '/dbs/orapw' + db_name) }}"
+      when: gi_install
+
+    - name: clone-restore | Get spfile location from ASM
+      shell: |
+        set -o pipefail
+        asmcmd find --type PARAMETERFILE {{ data_destination }} spfile*
+      environment:
+        ORACLE_HOME: "{{ grid_home }}"
+        ORACLE_SID: "{{ asm_sid }}"
+        PATH: "{{ grid_home }}/bin:/usr/bin:/usr/local/sbin:/usr/sbin:${PATH}"
+      register: asmcmd_search_spfile
+      when: gi_install
+      become: true
+      become_user: "{{ grid_user }}"
+      changed_when: false
+
+    - name: clone-restore | Set spfile location for clone
+      set_fact:
+        spfile_location: "{{ asmcmd_search_spfile.stdout }}"
+      when: gi_install
+
+    - name: clone-restore | Add Oracle Restart configuration and start
+      shell: |
+        set -o pipefail
+        {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+        -- Commented out following line to prevent premature task end due to the expected/normal ORA-01109 warning
+        -- whenever sqlerror exit failure
+        shutdown immediate
+        EOF
+        srvctl add db \
+          -d {{ db_name }} \
+          -dbname {{ db_name }} \
+          -instance {{ oracle_sid }} \
+          -oraclehome {{ oracle_home }} {% if db_domain | default('', true) | length > 0 %}-domain {{ db_domain }}{% endif %} \
+          -spfile {{ spfile_location }} \
+          -pwfile {{ password_file_name }} \
+          -role PRIMARY \
+          -startoption MOUNT \
+          -stopoption IMMEDIATE
+        srvctl start db -d {{ db_name }}
+      when: gi_install
+
+    - name: clone-restore | Start database if not using Oracle Restart
+      shell: |
+        set -o pipefail
+        {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+        whenever sqlerror exit failure
+        STARTUP MOUNT;
+        EOF
+      when: not gi_install
+
+    - name: clone-restore | Set desired backup mode state
+      set_fact:
+        db_backup_mode: disabled
+
+    - name: clone-restore | Take database out of backup mode (if needed)
+      include_role:
+        name: db-state
+        tasks_from: main.yml
+
+    - name: clone-restore | Modify database configuration start option to OPEN
+      shell: |
+        set -o pipefail
+        srvctl modify database -d {{ db_name }} -startoption OPEN
+      when: gi_install
+
+    - name: clone-restore | Open database
+      shell: |
+        set -o pipefail
+        {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+        ALTER DATABASE OPEN;
+        EOF
+
+- name: clone-restore | Capture database state from srvctl
+  shell: |
+    set -o pipefail
+    srvctl config db -d {{ db_name }}
+    srvctl status db -d {{ db_name }}
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  when: gi_install
+  become: true
+  become_user: "{{ oracle_user }}"
+  changed_when: false
+  register: standby_srvctl_state
+
+- name: clone-restore | Show database state from srvctl
+  debug:
+    var: standby_srvctl_state.stdout_lines
+  when: gi_install
+
+- name: clone-restore | Capture database state from v$database
+  shell: |
+    set -o pipefail
+    {{ oracle_home }}/bin/sqlplus -s -L / as sysdba <<EOF
+    whenever sqlerror exit failure
+    SET lines 120 tab OFF trims ON
+    SELECT db_unique_name, database_role, open_mode, switchover_status FROM v\$database;
+    EOF
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  become: true
+  become_user: "{{ oracle_user }}"
+  changed_when: false
+  register: standby_db_state
+
+- name: clone-restore | Show database state from v$database
+  debug:
+    var: standby_db_state.stdout_lines
+    verbosity: 0
