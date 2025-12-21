@@ -1,0 +1,106 @@
+# Oracle Software and Patch Manifest
+
+# This file serves as a centralized manifest for Oracle software and patch information.
+# It defines the necessary files, versions, and checksums required for automated
+# deployment and patching of Oracle Grid Infrastructure (GI) and RDBMS.
+
+gi_software:
+#   Defines the base installation media for Oracle Grid Infrastructure.
+#   - name: A unique identifier for the software version.
+#   - version: The official version number.
+#   - files: A list of software archive files with their checksums.
+# Example entries are commented out for reference.
+  # - name: 21c_gi
+  #   version: 21.3.0.0.0
+  #   files:
+  #     - { name: "V1011504-01.zip", sha256sum: "070D4471BC067B1290BDCEE6B1C1FFF2F21329D2839301E334BCB2A3D12353A3", md5sum: "s/vbdiGtgsvU9AlD7/3Rvg==",
+  #         alt_name: "LINUX.X64_213000_grid_home.zip", alt_sha256sum: "070D4471BC067B1290BDCEE6B1C1FFF2F21329D2839301E334BCB2A3D12353A3", alt_md5sum: "s/vbdiGtgsvU9AlD7/3Rvg==" }
+
+rdbms_software:
+#   Defines the base installation media for Oracle RDBMS.
+#   - name: A unique identifier for the software version.
+#   - version: The official version number.
+#   - edition: The database edition (e.g., FREE, EE).
+#   - files: A list of software files (e.g., RPMs) with their checksums.
+## Example entries are commented out for reference.
+  # - name: 23ai_free_23_8
+  #   version: 23.8.0.25.04
+  #   edition: FREE
+  #   files:
+  #     - { name: "oracle-database-preinstall-23ai-1.0-2.el8.x86_64.rpm", sha256sum: "4578e6d1cf566e04541e0216b07a0372725726a7c339423ee560255cb918138b", md5sum: "TmjqUT878Owv7NbXGECpTA=="}
+  #     - { name: "oracle-database-free-23ai-23.8-1.el8.x86_64.rpm", sha256sum: "cd0d16939150e6ec5e70999a762a13687bfa99b05c4f310593e7ca3892e1d0ce", md5sum: "hkL/hxeYbB7z5lz+3r3kww=="}
+
+opatch_patches:
+#   Lists the required versions of the OPatch utility. Different Oracle
+#   releases may require specific OPatch versions for applying patches.
+#   - release: The Oracle Home version this OPatch is intended for.
+#   - patchnum: The patch number for the OPatch utility itself.
+## Example entries are commented out for reference.
+  # - { category: "OPatch", release: "19.3.0.0.0", patchnum: "6880880", patchfile: "p6880880_190000_Linux-x86-64.zip", md5sum: "" }
+  # - { category: "OPatch", release: "21.3.0.0.0", patchnum: "6880880", patchfile: "p6880880_210000_Linux-x86-64.zip", md5sum: "" }
+
+gi_interim_patches:
+#   Lists any one-off interim patches for Grid Infrastructure that need to be
+#   applied separately from the main Release Update (RU).
+## Example entries are commented out for reference.
+  # - category: "HAS_interim_patch"
+  #   version: 12.2.0.1.0
+  #   patchnum: "25078431"
+  #   patchutil: "gridsetup"
+  #   files:
+  #     - { name: "p25078431_122010_Linux-x86-64.zip", sha256sum: "FA056EBD0FE0AD134F2B5C53F0DDF6F6A5DC73C7AE40DAEF18D0629850149525", md5sum: "hK1WOGC1g/3QUryg3MM5OQ==" }
+
+gi_patches:
+#   Defines the cumulative patches, such as Release Updates (RU), for
+#   Grid Infrastructure.
+#   - base: The base version the patch applies to.
+#   - release: The target version after the patch is applied.
+#   - method: The command used to apply the patch (e.g., "opatchauto apply").
+## Example entries are commented out for reference.
+  # - { category: "RU", base: "21.3.0.0.0", release: "21.17.0.0.0", patchnum: "37349593", patchfile: "p37349593_210000_Linux-x86-64.zip", patch_subdir: "/", prereq_check: false, method: "opatchauto apply", ocm: false, upgrade: false, md5sum: "Mt0Bw+IPKqoKh31YkneCrg==" }
+  # - { category: "RU", base: "21.3.0.0.0", release: "21.18.0.0.0", patchnum: "37642955", patchfile: "p37642955_210000_Linux-x86-64.zip", patch_subdir: "/", prereq_check: false, method: "opatchauto apply", ocm: false, upgrade: false, md5sum: "b8YrXNXis6agqIHny746Xw==" }
+
+rdbms_patches:
+#   Defines the cumulative patches, such as Release Updates (RU), for RDBMS.
+#   - method: The command used to apply the patch (e.g., "opatch apply").
+## Example entries are commented out for reference.
+  # - { category: "RU", base: "21.3.0.0.0", release: "21.17.0.0.0", patchnum: "37350281", patchfile: "p37350281_210000_Linux-x86-64.zip", patch_subdir: "/", prereq_check: false, method: "opatch apply", ocm: false, upgrade: false, md5sum: "dQjBqlXWOumEZU3QAJzD9Q==" }
+  # - { category: "RU", base: "19.0.0.0.0", release: "19.18.0.0.0", patchnum: "37960098", patchfile: "p37960098_190000_Linux-x86-64.zip", patch_subdir: "/", prereq_check: false, method: "opatch apply", ocm: false, upgrade: false, md5sum: "4GhJvWSOeDMYUIupR0jFZA==" }
+
+documentation_overrides:
+#   An optional section to control automated documentation generation.
+#   - skip_docs_update: Set to true to prevent any documentation updates.
+#   - Other keys can be populated to override specific documentation entries
+#     for a given software or patch file. If left blank, default values are used.
+#
+  skip_docs_update: false
+
+  gi_software:
+    # category: ""
+    # software_piece: ""
+    # file_name: ""
+
+  rdbms_software:
+    # category: ""
+    # software_piece: ""
+    # file_name: ""
+
+  opatch_patches:
+    # category: ""
+    # software_piece: ""
+    # file_name: "" 
+
+  gi_interim_patches:
+    # category: ""
+    # software_piece: ""
+    # file_name: ""
+
+  gi_patches:
+    # category: ""
+    # software_piece: ""
+    # file_name: "" 
+
+  rdbms_patches:
+    # category: ""
+    # software_piece: ""
+    # file_name: ""

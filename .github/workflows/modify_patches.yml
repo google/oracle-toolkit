@@ -1,0 +1,43 @@
+name: Modify Patches
+run-name: Modify Patches
+
+on:
+  # Triggers the workflow on push or pull request events but only for the "master" branch
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout PR Branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.head_ref }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13.5'
+        cache: 'pip' # Cache dependencies for faster runs
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyyaml
+
+    - name: Change documentation files
+      run: python .github/workflows/modify_documentation.py
+
+    - name: Change patch files
+      run: python .github/workflows/modify_patches.py
+
+    - name: Commit and push changes
+      uses: stefanzweifel/git-auto-commit-action@v6
+      with:
+        commit_message: "automation: Update patch files"
+        commit_user_name: "GitHub Actions"
+        commit_user_email: "actions@github.com"
+        commit_author: Author <actions@github.com>
+        branch: ${{ github.head_ref }}
