@@ -162,7 +162,7 @@ prereq_option: "{% if oracle_ver_base in ('11.2', '12.1') %}-ignorePrereq{% else
 # For the standby database, this is represented by the Ansible "standby_name"
 # variable. This variable can be customized as desired. For example, using the
 # suffix "_s" or something location specific (i.e. "_sydney").
-standby_name: "{{ lookup('env','ORA_DB_DG_NAME') | default(db_name~'_s',true) }}"
+standby_name: "{{ ora_db_dg_name | default(db_name~'_s',true) }}"
 
 # section size to use during RMAN duplicate
 section_size: 32G

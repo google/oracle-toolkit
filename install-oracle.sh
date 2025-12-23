@@ -116,6 +116,7 @@ while true; do
     --cluster-config-json) YAML_VARS["cluster_config_json"]="$2"; shift 2 ;;
     --swap-blk-device) YAML_VARS["swap_blk_device"]="$2"; shift 2 ;;
     --ora-db-name) YAML_VARS["ora_db_name"]="$2"; shift 2 ;;
+    --ora-db-dg-name) YAML_VARS["ora_db_dg_name"]="$2"; shift 2 ;;
     --ora-db-domain) YAML_VARS["ora_db_domain"]="$2"; shift 2 ;;
     --ora-db-charset) YAML_VARS["ora_db_charset"]="$2"; shift 2 ;;
     --ora-db-ncharset) YAML_VARS["ora_db_ncharset"]="$2"; shift 2 ;;
@@ -243,6 +244,7 @@ if [ "$HELP_ONLY" = true ]; then
   echo "  --cluster-config-json <json> JSON string with cluster configuration."
   echo "  --swap-blk-device <device>   Swap block device path."
   echo "  --ora-db-name <name>         Oracle database name."
+  echo "  --ora-db-dg-name <name>      Oracle database Data Guard name."
   echo "  --ora-db-domain <domain>     Oracle database domain."
   echo "  --ora-db-charset <charset>   Oracle database character set."
   echo "  --ora-db-ncharset <ncharset> Oracle database national character set."
