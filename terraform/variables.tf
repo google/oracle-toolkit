@@ -384,3 +384,9 @@ variable "ora_disk_mgmt" {
     error_message = "Enter FS (XFS) or ASMUDEV or ASMLIB."
   }
 }
+
+variable "enable_os_package_mirror" {
+  description = "Controls whether to create Google Cloud Artifact Registry remote repositories to mirror OS packages."
+  type        = bool
+  default     = false
+}

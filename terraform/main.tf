@@ -137,6 +137,22 @@ locals {
       role       = "primary"
     }
   }
+
+  # Derive region from zone1 (e.g., us-central1-b -> us-central1)
+  region = join("-", slice(split("-", var.zone1), 0, 2))
+
+  mirror_repo_types = ["baseos", "appstream"]
+
+  os_upstreams = {
+    "oracle-linux-8" = {
+      "baseos"    = "https://yum.oracle.com/repo/OracleLinux/OL8/baseos/latest/x86_64"
+      "appstream" = "https://yum.oracle.com/repo/OracleLinux/OL8/appstream/x86_64"
+    }
+    "oracle-linux-9" = {
+      "baseos"    = "https://yum.oracle.com/repo/OracleLinux/OL9/baseos/latest/x86_64"
+      "appstream" = "https://yum.oracle.com/repo/OracleLinux/OL9/appstream/x86_64"
+    }
+  }
 }
 
 data "google_compute_image" "os_image" {
@@ -156,10 +172,10 @@ resource "google_compute_instance_template" "default" {
   machine_type = var.machine_type
 
   network_interface {
-  
-  subnetwork = local.subnetwork1_opt
-  network    = local.subnetwork1_opt == null ? "projects/${var.project_id}/global/networks/default" : null
-}
+    subnetwork = local.subnetwork1_opt
+    network    = local.subnetwork1_opt == null ? "projects/${var.project_id}/global/networks/default" : null
+  }
+
   disk {
     boot         = true
     auto_delete  = true
@@ -320,6 +336,24 @@ resource "google_compute_instance" "control_node" {
   }
 
   depends_on = [google_compute_instance_from_template.database_vm]
+}
+
+resource "google_artifact_registry_repository" "os_package_mirrors" {
+  # Only create repositories if the guard is true and the image family is supported
+  for_each = (var.enable_os_package_mirror && contains(keys(local.os_upstreams), var.source_image_family)) ? toset(local.mirror_repo_types) : []
+
+  project       = var.project_id
+  location      = local.region
+  repository_id = "${var.source_image_family}-${each.key}-mirror"
+  description   = "Remote mirror for ${var.source_image_family} ${each.key} packages"
+  format        = "YUM"
+  mode          = "REMOTE_REPOSITORY"
+
+  remote_repository_config {
+    common_repository {
+      uri = local.os_upstreams[var.source_image_family][each.key]
+    }
+  }
 }
 
 output "control_node_log_url" {
