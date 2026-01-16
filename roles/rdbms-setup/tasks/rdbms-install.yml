@@ -33,19 +33,15 @@
 - name: rdbms-install | Set variable for release patch
   set_fact:
     rel_patch: "-apply{% if oracle_ver_base == '12.2' %}PSU{% else %}RU{% endif %} {{ swlib_unzip_path }}/{{ item.patchnum }}{{ item.patch_subdir }}"
-  with_items: "{{ gi_patches }}"
-  when:
-    - gi_install
-    - item.release == oracle_rel and item.category == 'RU'
+  with_items: "{{ gi_patches | selectattr('release', 'equalto', oracle_rel) | selectattr('category', 'equalto', 'RU') | list }}"
+  when: gi_install
   tags: rdbms-setup,rel-patch
 
 - name: rdbms-install | Set variable for release patch (RDBMS Only)
   set_fact:
     rel_patch: "-apply{% if oracle_ver_base == '12.2' %}PSU{% else %}RU{% endif %} {{ swlib_unzip_path }}/{{ item.patchnum }}{{ item.patch_subdir }}"
-  with_items: "{{ rdbms_patches }}"
-  when:
-    - not gi_install
-    - item.release == oracle_rel and item.category == 'DB_RU'
+  with_items: "{{ rdbms_patches | selectattr('release', 'equalto', oracle_rel) | selectattr('category', 'equalto', 'DB_RU') | list }}"
+  when: not gi_install
   tags: rdbms-setup,rel-patch
 
 - name: rdbms-install | Build list of unique RDBMS patches for GI installations
@@ -114,10 +110,8 @@
     src: "{{ swlib_path }}/{{ item.patchfile }}"
     dest: "{{ oracle_home }}"
     remote_src: true
-  with_items: "{{ opatch_patches }}"
+  with_items: "{{ opatch_patches | selectattr('release', 'equalto', oracle_ver) | selectattr('category', 'equalto', 'OPatch') | list }}"
   when:
-    - item.release == oracle_ver
-    - item.category == "OPatch"
     - oracle_rel != "base"
   become: true
   become_user: "{{ oracle_user }}"
@@ -167,10 +161,8 @@
     src: "{{ swlib_path }}/{{ item.patchfile }}"
     dest: "{{ oracle_home }}"
     remote_src: true
-  with_items: "{{ opatch_patches }}"
+  with_items: "{{ opatch_patches | selectattr('release', 'equalto', oracle_ver) | selectattr('category', 'equalto', 'OPatch') | list }}"
   when:
-    - item.release == oracle_ver
-    - item.category == "OPatch"
     - oracle_rel != "base"
   become: true
   become_user: "{{ oracle_user }}"
@@ -183,10 +175,7 @@
   environment:
     PATH: "{{ oracle_home }}/perl/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
     PERL5LIB: "{{ oracle_home }}/perl/lib"
-  with_items: "{{ rdbms_patches }}"
-  when:
-    - item.release == oracle_rel
-    - (gi_install and item.category == 'RU_Combo') or (not gi_install and item.category == 'DB_OJVM_RU')
+  with_items: "{{ rdbms_patches | selectattr('release', 'equalto', oracle_rel) | selectattr('category', 'equalto', ('RU_Combo' if gi_install else 'DB_OJVM_RU')) | list }}"
   register: apply_oneoff
   failed_when: "('OPatch succeeded' not in apply_oneoff.stdout and 'OPatch completed with warnings' not in apply_oneoff.stdout)
                 or (apply_oneoff.rc | int not in [0, 6, 250])"
