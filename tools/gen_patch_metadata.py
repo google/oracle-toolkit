@@ -18,8 +18,8 @@ import requests
 
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
 SEARCH_FORM = 'https://updates.oracle.com/Orion/SimpleSearch/process_form?search_type=patch&patch_number=%d&plat_lang=226P'
-DOWNLOAD_URL = r'https://updates.oracle.com/Orion/Download/process_form[^\"]*'
-LOGIN_FORM = 'https://updates.oracle.com/Orion/SavedSearches/switch_to_simple'
+DOWNLOAD_URL = r'https://updates[.]oracle[.]com/Orion/Download/process_form[^\"]*'
+LOGIN_FORM = r'https://updates[.]oracle[.]com/Orion/SavedSearches/switch_to_simple'
 
 def get_patch_auth(s: requests.Session) -> typing.List[str]:
     """Obtains auth for login in order to download patches."""
