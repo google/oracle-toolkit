@@ -324,6 +324,7 @@ resource "google_compute_instance" "control_node" {
     deployment_name        = local.deployment_id
     delete_control_node    = var.delete_control_node
     assign_public_ip       = var.assign_public_ip
+    create_firewall        = var.create_firewall
   })
 
   metadata = {
