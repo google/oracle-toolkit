@@ -104,6 +104,10 @@ PLAYBOOK="host-provision.yml"
 declare -a CMD_ARRAY=()
 CMD_ARRAY+=(${ANSIBLE_PLAYBOOK})
 CMD_ARRAY+=(-i "$INVENTORY_FILE")
+CMD_ARRAY+=(-e "instance_ssh_user=${INSTANCE_SSH_USER}")
+CMD_ARRAY+=(-e "instance_ip_addr=${ORA_CS_HOSTS}")
+CMD_ARRAY+=(-e "ora_proxy_setup=${ORA_PROXY_SETUP}")
+CMD_ARRAY+=(-e "ora_u01_lun=${ORA_U01_LUN}")
 
 if [[ -n "$ANSIBLE_PARAMS" ]]; then
   echo "Processing ANSIBLE_PARAMS string: [$ANSIBLE_PARAMS]"
