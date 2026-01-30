@@ -214,14 +214,6 @@ ORA_STAGING=${ORA_STAGING%/}
 ORA_SWLIB_BUCKET=${ORA_SWLIB_BUCKET%/}
 ORA_SWLIB_PATH=${ORA_SWLIB_PATH%/}
 
-export ORA_DB_NAME
-export ORA_STAGING
-export ORA_SWLIB_BUCKET
-export ORA_SWLIB_TYPE
-export ORA_SWLIB_PATH
-export ORA_VERSION
-export ORA_RELEASE
-
 echo -e "Running with parameters from command line or environment variables:\n"
 set | grep -E '^(ORA_|BACKUP_|ARCHIVE_)' | grep -v '_PARAM='
 echo
