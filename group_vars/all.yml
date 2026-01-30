@@ -15,7 +15,7 @@
 ---
 ################################################################################
 #
-# This file defines the oracle-toolkit's internal variables and sets default values for configuration parameters. 
+# This file defines the oracle-toolkit's internal variables and sets default values for configuration parameters.
 # These defaults are applied when a user does not explicitly provide a value for a variable via the install-oracle.sh script.
 #
 ################################################################################
@@ -115,8 +115,8 @@ data_mounts_definition_file: "{{ ora_data_mounts | default('data_mounts_config.j
 data_mounts_input: "{{ ora_data_mounts_json if (ora_data_mounts_json is defined and ora_data_mounts_json != '') else lookup('file', data_mounts_definition_file, errors='ignore') }}"
 oracle_user_data_mounts: "{{ (data_mounts_input | from_json) if (data_mounts_input is string) else data_mounts_input }}"
 asm_definition_file: "{{ ora_asm_disks | default('asm_disk_config.json',true) }}"
-asm_disk_input: "{{ ora_asm_disks_json if (ora_asm_disks_json is defined and ora_asm_disks_json != '') else lookup('file', asm_definition_file, errors='ignore') }}"
-asm_disks: "{% if gi_install %}{{ (asm_disk_input | from_json) if (asm_disk_input is string) else asm_disk_input }}{% else %}[]{% endif %}"
+asm_disk_input: "{{ ora_asm_disks_json if (ora_asm_disks_json is defined and ora_asm_disks_json != '') else lookup('file', asm_definition_file, errors='ignore') | default('', true) }}"
+asm_disks: "{% if gi_install and (asm_disk_input | default('') | length > 0) %}{{ (asm_disk_input | from_json) if (asm_disk_input is string) else asm_disk_input }}{% else %}[]{% endif %}"
 asm_sid: "{% if db_config_type == 'SI' %}+ASM{% else %}+ASM{{ instance_num }}{% endif %}"
 u01_lun: "{{ (ora_u01_lun | default('',true)) | lower }}"
 
