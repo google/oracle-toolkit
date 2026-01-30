@@ -100,7 +100,7 @@ set -e
 
 echo "ANSIBLE_PLAYBOOK: $ANSIBLE_PLAYBOOK"
 
-PLAYBOOK="host-provision.yml"
+PLAYBOOK="bms-host-provision.yml"
 declare -a CMD_ARRAY=()
 CMD_ARRAY+=(${ANSIBLE_PLAYBOOK})
 CMD_ARRAY+=(-i "$INVENTORY_FILE")
