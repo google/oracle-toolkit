@@ -1249,7 +1249,7 @@ partitions), the mount point names, the file system types, and the mount options
 in valid JSON format.
 
 When you run the toolkit, specify the path to the configuration file by using
-either the `--ora-data-mounts` command line option. The file path can be relative or
+the `--ora-data-mounts` command line option. The file path can be relative or
 fully qualified. The file name defaults to `data_mounts_config.json`.
 Alternatively, pass the file content directly as JSON using `--ora-data-mounts-json` parameter.
 If both are present, `--ora-data-mounts-json` takes precedence.
@@ -1291,7 +1291,7 @@ names, and the associated block devices (the actual devices, not partitions) in 
 valid JSON format.
 
 When you run the toolkit, specify the path to the configuration file by using
-either the `--ora-asm-disks` command line option. The file path can be relative or fully qualified. The file
+the `--ora-asm-disks` command line option. The file path can be relative or fully qualified. The file
 name defaults to `ask_disk_config.json`. Alternatively, pass the file content directly
 as a JSON using `--ora-asm-disks-json` parameter. If both are present,
 `--ora-asm-disks-json` takes precedence.
@@ -1500,7 +1500,7 @@ To use a Cloud Storage bucket for your backups, you need to follow the steps bel
 The following sections document the parameters, organized by installation task
 and then by the attribute that you use the parameter to specify.
 
-Most attributes can be specified by using a command-line command. 
+Most attributes can be specified by using command-line flags.
 Command-line commands are presented in lower case letters and are preceded by
 two dashes.
 
