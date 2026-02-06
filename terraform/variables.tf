@@ -391,8 +391,8 @@ variable "create_firewall" {
   default     = false
 }
 
-variable "enable_os_package_mirror" {
-  description = "Controls whether to create Google Cloud Artifact Registry remote repositories to mirror OS packages."
+variable "enable_ar_repo" {
+  description = "Controls whether to create Google Cloud Artifact Registry remote repositories to fetch OS packages."
   type        = bool
   default     = false
 }

@@ -47,6 +47,8 @@ The Terraform module deploys the following elements:
 - **Ansible Playbooks** to automate post-deployment configurations
 - **Firewall Rules** to allow Ansible SSH execution and Data Guard communication
   (if `create_firewall` is set to `true`)
+- **Artifact Registry Remote Mirror** to allow OS package updates without
+  Internet access (if `enable_ar_repo` is set to `true`)
 
 This infrastructure is modular and customizable, allowing you to tailor it to specific application needs or organizational requirements.
 

@@ -55,4 +55,7 @@ ora_db_name = "orcl"
 ora_db_domain = "test2.example_domain01.com"
 ora_db_container = false
 ora_disk_mgmt = "FS"
+assign_public_ip = false
+create_firewall = true
+enable_ar_repo = true
 

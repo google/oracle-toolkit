@@ -62,9 +62,10 @@
 
 - name: Set up Artifact Registry mirrors if enabled
   include_tasks:
-    file: ar_mirror_setup.yml
+    file: ar_repo_setup.yml
   when:
     - install_os_packages
+    - ar_repo_url is defined and ar_repo_url | length > 0
   tags: os-packages
 
 - name: Install required base OS packages

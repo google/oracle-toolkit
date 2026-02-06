@@ -1783,6 +1783,22 @@ SWAP_BLK_DEVICE
 <br>
 Optional: set if you would like a swap partition and swap file created.</td>
 </tr>
+<tr>
+<td>Artifact Registry repository</td>
+<td><p><pre>
+--ar-repo-url
+</pre></p></td>
+<td>Empty: don't configure Artifact Registry</td>
+<td>Base URL of the registry location.  When provided, the installer configures
+the system to use these repositories for `BaseOS` and `AppStream` instead of
+public mirrors.<br>
+To avoid hangs with default OS configurations, this parameter will also mark
+existing YUM repositories as `disabled`.<br>
+This parameter has no effect with Red Hat Enterprise Linux, where Google Cloud
+already provides a local mirror, and that a remote registry is unnecessary.
+Not supported with Free Edition, where all software is fetched directly from
+vendor repositories.</td>
+</tr>
 </tbody>
 </table>
 

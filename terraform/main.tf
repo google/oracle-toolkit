@@ -154,7 +154,7 @@ locals {
   # Derive region from zone1 (e.g., us-central1-b -> us-central1)
   region = join("-", slice(split("-", var.zone1), 0, 2))
 
-  mirror_repo_types = ["baseos", "appstream"]
+  os_repo_types = ["baseos", "appstream"]
 
   os_upstreams = {
     "oracle-linux-8" = {
@@ -256,6 +256,8 @@ locals {
     }
   ]
 
+  ar_repo_base_url = var.enable_ar_repo ? "https://${local.region}-yum.pkg.dev/remote/${var.project_id}" : ""
+
   common_flags = join(" ", compact([
     local.ora_disk_mgmt_flag != "" ? "--ora-disk-mgmt ${local.ora_disk_mgmt_flag}" : "",
     length(local.asm_disk_config) > 0 ? "--ora-asm-disks-json '${jsonencode(local.asm_disk_config)}'" : "",
@@ -281,7 +283,8 @@ locals {
     var.skip_database_config ? "--skip-database-config" : "",
     var.ora_pga_target_mb != "" ? "--ora-pga-target-mb ${var.ora_pga_target_mb}" : "",
     var.ora_sga_target_mb != "" ? "--ora-sga-target-mb ${var.ora_pga_target_mb}" : "",
-    var.data_guard_protection_mode != "" ? "--data-guard-protection-mode '${var.data_guard_protection_mode}'" : ""
+    var.data_guard_protection_mode != "" ? "--data-guard-protection-mode '${var.data_guard_protection_mode}'" : "",
+    local.ar_repo_base_url != "" ? "--ar-repo-url '${local.ar_repo_base_url}'" : ""
   ]))
 }
 
@@ -351,7 +354,6 @@ resource "google_compute_instance" "control_node" {
   depends_on = [google_compute_instance_from_template.database_vm]
 }
 
-<<<<<<< HEAD
 # This rule is deleted by the startup script upon deployment completion.
 resource "google_compute_firewall" "control_ssh" {
   count       = var.create_firewall ? 1 : 0
@@ -391,14 +393,14 @@ resource "google_compute_firewall" "db_sync" {
   target_tags = [local.db_tag]
 }
 
-resource "google_artifact_registry_repository" "os_package_mirrors" {
+resource "google_artifact_registry_repository" "os_package_repos" {
   # Only create repositories if the guard is true and the image family is supported
-  for_each = (var.enable_os_package_mirror && contains(keys(local.os_upstreams), var.source_image_family)) ? toset(local.mirror_repo_types) : []
+  for_each = (var.enable_ar_repo && contains(keys(local.os_upstreams), var.source_image_family)) ? toset(local.os_repo_types) : []
 
   project       = var.project_id
   location      = local.region
-  repository_id = "${var.source_image_family}-${each.key}-mirror"
-  description   = "Remote mirror for ${var.source_image_family} ${each.key} packages"
+  repository_id = "${var.source_image_family}-${each.key}-repo"
+  description   = "Remote repo for ${var.source_image_family} ${each.key} packages"
   format        = "YUM"
   mode          = "REMOTE_REPOSITORY"
 
