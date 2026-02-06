@@ -1,0 +1,49 @@
+- name: ar_mirror_setup | Setup Artifact Registry mirrors
+  become: true
+  block:
+    - name: ar_mirror_setup | Disable all repositories to prevent timeouts
+      command: "dnf config-manager --set-disabled *"
+      tags: os_packages
+
+    - name: ar_mirror_setup | Re-enable Google Compute Engine repo (via PGA)
+      # This preserves the Guest Agent and other critical GCP services
+      command: "dnf config-manager --set-enabled google-compute-engine"
+      register: enable_gce_repo
+      failed_when: false
+      tags: os_packages
+
+    - name: ar_mirror_setup | Add official google-cloud-sdk repo (via PGA)
+      yum_repository:
+        name: google-cloud-sdk
+        file: google-cloud
+        description: Google Cloud SDK
+        baseurl: "https://packages.cloud.google.com/yum/repos/cloud-sdk-el{{ ansible_distribution_major_version }}-x86_64"
+        enabled: yes
+        gpgcheck: yes
+        repo_gpgcheck: no
+        gpgkey:
+          - https://packages.cloud.google.com/yum/doc/yum-key.gpg
+          - https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+
+    - name: ar_mirror_setup | Install Artifact Registry DNF plugin
+      package:
+        name: dnf-plugin-artifact-registry
+        state: present
+
+    - name: ar_mirror_setup | Configure project-specific mirrors
+      yum_repository:
+        name: "ar-{{ item }}"
+        description: "Internal Artifact Registry repository for {{ item }}"
+        baseurl: "{{ ar_repo_url }}/oracle-linux-{{ ansible_distribution_major_version }}-{{ item }}-repo"
+        enabled: yes
+        gpgcheck: yes
+        repo_gpgcheck: no
+        gpgkey: "file:///etc/pki/rpm-gpg/RPM-GPG-KEY-oracle"
+        priority: "1"
+      loop:
+        - baseos
+        - appstream
+
+  when:
+    - ansible_distribution == 'OracleLinux'
+  tags: os_packages

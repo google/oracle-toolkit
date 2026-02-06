@@ -47,6 +47,8 @@ The Terraform module deploys the following elements:
 - **Ansible Playbooks** to automate post-deployment configurations
 - **Firewall Rules** to allow Ansible SSH execution and Data Guard communication
   (if `create_firewall` is set to `true`)
+- **Artifact Registry Remote Mirror** to allow OS package updates without
+  Internet access (if `enable_ar_repo` is set to `true`)
 
 This infrastructure is modular and customizable, allowing you to tailor it to specific application needs or organizational requirements.
 
@@ -92,12 +94,17 @@ Grant the service account attached to the control node VM the following IAM role
   Guard HA, as well as cleanup of firewall rules when the control node is deleted.  (Only if `create_firewall` is set to `true`)
 - `roles/logging.logWriter`
   Required to write to Google Cloud Logging.
+- `roles/artifactregistry.admin`
+  Allows creation of an Artifact Registry remote repository, if `enable_ar_repo`
+  is set to `true`.
 
 ### 2. Service Account for the database VM
 
 - `roles/secretmanager.secretAccessor` - Grants access to retrieve passwords from Secret Manager. Must be granted in the project containing the secrets either at the project or individual secret level.
 - `roles/monitoring.metricWriter` - Required only if the --install-workload-agent and --oracle-metrics-secret flags are set. This allows the Google Cloud Agent for Compute Workloads to write metrics to Cloud Monitoring.
 - `roles/compute.viewer` - Required only if the --install-workload-agent and --oracle-metrics-secret flags are set. Needed by the Google Cloud Agent for Compute Workloads.
+- `roles/artifactregistry.reader` - Grants access to the AR remote repository,
+  if `enable_ar_repo` is set to `true`.
 
 ### 3. Terraform State Bucket
 

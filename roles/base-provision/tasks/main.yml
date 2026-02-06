@@ -32,12 +32,14 @@
     name: ntp
     state: absent
     lock_timeout: "{{ pkg_mgr_lock_timeout }}"
+  when: cluster_name is defined
   tags: ntp
 
 - name: Remove ntp conf
   file:
     path: /etc/ntp.conf
     state: absent
+  when: cluster_name is defined
   tags: ntp
 
 - name: Gather installed packages
@@ -57,6 +59,14 @@
     - avahi-daemon.socket
     - avahi-daemon.service
   tags: cvu
+
+- name: Set up Artifact Registry mirrors if enabled
+  include_tasks:
+    file: ar_repo_setup.yml
+  when:
+    - install_os_packages
+    - ar_repo_url is defined and ar_repo_url | length > 0
+  tags: os-packages
 
 - name: Install required base OS packages
   package:

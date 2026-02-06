@@ -390,3 +390,9 @@ variable "create_firewall" {
   type        = bool
   default     = false
 }
+
+variable "enable_ar_repo" {
+  description = "Controls whether to create Google Cloud Artifact Registry remote repositories to fetch OS packages."
+  type        = bool
+  default     = false
+}
