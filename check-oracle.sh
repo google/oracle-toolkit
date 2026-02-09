@@ -192,7 +192,7 @@ fi
         exit 1
     }
 
-    ( gsutil ls "$AHF_LOCATION"  >/dev/null 2>&1 ) || {
+    ( gcloud storage ls "$AHF_LOCATION"  >/dev/null 2>&1 ) || {
         echo "--ahf-location file '$AHF_LOCATION' not found"
         exit 1;
     }
@@ -219,5 +219,4 @@ fi
     ansible-playbook -i "$INVENTORY_FILE" check-oracle.yml \
         --extra-vars "uninstall_ahf=false run_orachk=true ORACLE_SID=$ORACLE_SID $ANSIBLE_EXTRA_VARS"
 }
-
 
