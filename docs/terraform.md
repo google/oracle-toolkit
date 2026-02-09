@@ -119,7 +119,7 @@ zip -r /tmp/oracle-toolkit.zip . -x "terraform/*" -x ".git/*"
 Upload the ZIP file to your GCS bucket:
 
 ```bash
-gsutil cp /tmp/oracle-toolkit.zip gs://your-bucket-name/
+gcloud storage cp /tmp/oracle-toolkit.zip gs://your-bucket-name/
 ```
 
 ---
