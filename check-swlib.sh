@@ -170,8 +170,6 @@ if [[ -n "$ANSIBLE_PARAMS" ]]; then
   CMD_ARRAY+=(-e "$ANSIBLE_PARAMS")
 fi
 
-export ANSIBLE_DISPLAY_SKIPPED_HOSTS=false
-
 # exit on any error from the following scripts
 set -e
 

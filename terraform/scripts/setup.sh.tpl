@@ -11,27 +11,47 @@
 # We truncate the error message to this size to guarantee the entire log payload is accepted.
 readonly MAX_ERROR_SIZE=250000 # leaving 6 KiB margin for other JSON fields
 
-control_node_name="$(curl -fsS http://metadata.google.internal/computeMetadata/v1/instance/name -H 'Metadata-Flavor: Google')" || {
+# Retrieve GCP metadata with a retry loop
+fetch_metadata() {
+  local path=$1
+  local value
+  for i in {1..10}; do
+    if value=$(curl -fsS "http://metadata.google.internal/computeMetadata/v1/$path" -H "Metadata-Flavor: Google"); then
+      echo "$value"
+      return 0
+    fi
+    echo "Waiting for metadata server (attempt $i)..."
+    sleep 2
+  done
+  return 1
+}
+
+control_node_name=$(fetch_metadata "instance/name") || {
   echo "Error: Failed to retrieve control node's instance name"
   exit 1
 }
-control_node_vmid="$(curl -fsS http://metadata.google.internal/computeMetadata/v1/instance/id -H 'Metadata-Flavor: Google')" || {
+
+control_node_vmid=$(fetch_metadata "instance/id") || {
   echo "Error: Failed to retrieve control node's instance ID"
   exit 1
 }
-control_node_zone_full="$(curl -fsS http://metadata.google.internal/computeMetadata/v1/instance/zone -H 'Metadata-Flavor: Google')" || {
-  echo "Error: Failed to retrieve control's node zone"
+
+control_node_zone_full=$(fetch_metadata "instance/zone") || {
+  echo "Error: Failed to retrieve control node's zone"
   exit 1
 }
+
 control_node_zone="$(basename "$control_node_zone_full")" || {
   echo "Error: Failed to extract zone name from: $control_node_zone_full"
   exit 1
 }
-control_node_project_id="$(curl -fsS http://metadata.google.internal/computeMetadata/v1/project/project-id -H 'Metadata-Flavor: Google')" || {
+
+control_node_project_id=$(fetch_metadata "project/project-id") || {
   echo "Error: Failed to retrieve project ID"
   exit 1
 }
-control_node_sa="$(curl -fsS http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email -H 'Metadata-Flavor: Google')" || {
+
+control_node_sa=$(fetch_metadata "instance/service-accounts/default/email") || {
   echo "Error: Failed to retrieve service account email"
   exit 1
 }
@@ -51,6 +71,13 @@ cleanup() {
     fi
     echo "Public SSH key has been removed from the control node's service account OS Login profile"
   fi
+  %{ if delete_control_node && create_firewall }
+  ssh_fw_rule_name="ora-ssh-$control_node_name"
+  echo "Deleting temporary SSH firewall rule $ssh_fw_rule_name..."
+  if ! gcloud --quiet compute firewall-rules delete "$ssh_fw_rule_name" --project="$control_node_project_id"; then
+    echo "WARNING: Failed to delete firewall rule $ssh_fw_rule_name. It may require manual removal."
+  fi
+  %{ endif }
   %{ if delete_control_node }
   echo "Deleting '$control_node_name' GCE instance in zone '$control_node_zone' in project '$control_node_project_id'..."
   gcloud --quiet compute instances delete "$control_node_name" --zone="$control_node_zone" --project="$control_node_project_id"

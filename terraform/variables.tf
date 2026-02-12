@@ -418,3 +418,8 @@ variable "db_hostname" {
   type        = string
   default     = ""
 }
+variable "create_firewall" {
+  description = "Create firewall rules for Ansible SSH and Oracle Data Guard"
+  type        = bool
+  default     = false
+}

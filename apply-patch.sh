@@ -76,8 +76,6 @@ INVENTORY_FILE="${INVENTORY_FILE:-./inventory_files/inventory}"
 LOG_FILE="${LOG_FILE}_${ORA_DB_NAME}_${TIMESTAMP}.log"
 export ANSIBLE_LOG_PATH=${LOG_FILE}
 
-# Suppress displaying hosts if a "when" condition isn't satisfied, to reduce overall output file size.
-export ANSIBLE_DISPLAY_SKIPPED_HOSTS=false
 ###
 GETOPT_MANDATORY="ora-swlib-bucket:,ora-swlib-type:,inventory-file:"
 GETOPT_OPTIONAL="ora-version:,ora-release:,ora-swlib-path:,ora-staging:,ora-db-name:"

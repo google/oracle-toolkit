@@ -69,6 +69,20 @@
   changed_when: false
   tags: readiness_checks
 
+- name: readiness_check | ASM disk configuration is provided for Grid Infrastructure
+  assert:
+    that: asm_disk_input | default('', true) | trim | length > 0
+    quiet: true
+    fail_msg: >-
+      ASM disk configuration is missing but Grid Infrastructure (ASM) is requested.
+      Default management is 'udev' (ASM). To fix this:
+      1. Provide --ora-asm-disks for an ASM deployment, OR
+      2. Explicitly set --ora-disk-mgmt FS for a file system deployment.
+  when:
+    - parameter_checks | default(false) | bool
+    - gi_install
+  tags: readiness_checks
+
 - name: readiness_check | Verify that specified disk groups are valid
   assert:
     that: item in (asm_disks | map(attribute='diskgroup') | list)
@@ -77,6 +91,6 @@
   when:
     - parameter_checks | default(false) | bool
     - gi_install
-    - asm_disks is defined
+    - asm_disks | length > 0  # Only run if we actually have disks to compare against
   with_items: "{{ [ data_destination | default(''), reco_destination | default('') ] | reject('equalto', '') | list }}"
   tags: readiness_checks

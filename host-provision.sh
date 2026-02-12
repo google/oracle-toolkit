@@ -87,8 +87,6 @@ echo -e "Running with parameters from command line or environment variables:\n"
 set | grep -E '^(ORA_|INVENTORY_|INSTANCE_)' | grep -v '_PARAM='
 echo
 
-export ANSIBLE_DISPLAY_SKIPPED_HOSTS=false
-
 ANSIBLE_PLAYBOOK="ansible-playbook"
 if ! type ansible-playbook >/dev/null 2>&1; then
     echo "Ansible executable not found in path"

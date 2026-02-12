@@ -45,6 +45,8 @@ The Terraform module deploys the following elements:
 - **SSH Key Management** using Ansible SSH keys for secure access
 - **Custom Metadata Scripts** for VM initialization
 - **Ansible Playbooks** to automate post-deployment configurations
+- **Firewall Rules** to allow Ansible SSH execution and Data Guard communication
+  (if `create_firewall` is set to `true`)
 
 This infrastructure is modular and customizable, allowing you to tailor it to specific application needs or organizational requirements.
 
@@ -84,6 +86,10 @@ Grant the service account attached to the control node VM the following IAM role
 - `roles/storage.objectUser` on the Terraform state bucket specified in backend.tf to write Terraform state.
 - `roles/compute.instanceAdmin.v1` (or a custom role including compute.instances.delete)
   Required to delete the ephemeral control node VM after the deployment is complete.
+- `roles/compute.securityAdmin` (or a custom role including
+  `compute.firewalls.*`)
+  Allows creation of firewall rules for Ansible SSH access and Oracle Data
+  Guard HA, as well as cleanup of firewall rules when the control node is deleted.  (Only if `create_firewall` is set to `true`)
 - `roles/logging.logWriter`
   Required to write to Google Cloud Logging.
 
@@ -92,11 +98,6 @@ Grant the service account attached to the control node VM the following IAM role
 - `roles/secretmanager.secretAccessor` - Grants access to retrieve passwords from Secret Manager. Must be granted in the project containing the secrets either at the project or individual secret level.
 - `roles/monitoring.metricWriter` - Required only if the --install-workload-agent and --oracle-metrics-secret flags are set. This allows the Google Cloud Agent for Compute Workloads to write metrics to Cloud Monitoring.
 - `roles/compute.viewer` - Required only if the --install-workload-agent and --oracle-metrics-secret flags are set. Needed by the Google Cloud Agent for Compute Workloads.
-
-### 2. Firewall Rule for Internal IP Access
-
-Create a VPC firewall rule that allows ingress on TCP port 22 (or your custom SSH port) from the control node VM to the target VM.
-Since both VMs reside in the same VPC, a rule permitting traffic on port 22 between their subnets or network tags is sufficient.
 
 ### 3. Terraform State Bucket
 
