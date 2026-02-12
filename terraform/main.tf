@@ -514,6 +514,8 @@ resource "google_privateca_ca_pool_iam_member" "vm_ca_requester" {
   ca_pool    = var.cas_pool_id
   role       = "roles/privateca.certificateRequester"
   member     = "serviceAccount:${var.vm_service_account}"
+}
+
 # This rule is deleted by the startup script upon deployment completion.
 resource "google_compute_firewall" "control_ssh" {
   count       = var.create_firewall ? 1 : 0
