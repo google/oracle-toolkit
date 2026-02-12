@@ -322,6 +322,186 @@ resource "google_compute_instance" "control_node" {
   depends_on = [google_compute_instance_from_template.database_vm]
 }
 
+# -----------------------------------------------------------------------------
+# TLS Infrastructure & Identity (Phase 1)
+# -----------------------------------------------------------------------------
+
+locals {
+  # Logic to determine hostname and port based on TLS inputs
+  tls_hostname = var.db_hostname != "" ? var.db_hostname : var.instance_name
+  listener_port = var.enable_tls && var.ora_listener_port == "1521" ? "2484" : var.ora_listener_port
+  
+  # Determine the primary IP for DNS registration
+  # Assumes single instance or primary node for the DNS record
+  primary_ip = [for vm in google_compute_instance_from_template.database_vm : vm.network_interface[0].network_ip if local.instances[vm.name].role == "primary"][0]
+}
+
+# 1. Generate Private Key (Locally in Terraform memory, strictly for Secret Manager)
+resource "tls_private_key" "oracle_db_key" {
+  count     = var.enable_tls ? 1 : 0
+  algorithm = "RSA"
+  rsa_bits  = 2048
+}
+
+# 2. Create Certificate Signing Request (CSR)
+resource "tls_cert_request" "oracle_db_csr" {
+  count           = var.enable_tls ? 1 : 0
+  private_key_pem = tls_private_key.oracle_db_key[0].private_key_pem
+
+  subject {
+    common_name  = "${local.tls_hostname}.${trimsuffix(var.dns_domain_name, ".")}"
+    organization = "Oracle Database Internal"
+  }
+
+  dns_names = [
+    "${local.tls_hostname}.${trimsuffix(var.dns_domain_name, ".")}"
+  ]
+}
+
+# 3. Issue Certificate via Google CAS
+resource "google_privateca_certificate" "oracle_db_cert" {
+  count       = var.enable_tls ? 1 : 0
+  pool        = var.cas_pool_id
+  location    = split("/", var.cas_pool_id)[3] # Extract region from ID
+  project     = var.project_id
+  name        = "${var.instance_name}-tls-cert"
+  
+  pem_csr     = tls_cert_request.oracle_db_csr[0].cert_request_pem
+  lifetime    = "31536000s" # 1 year validity (rotation logic handles renewal)
+
+  # Security Hardening: Ensure strict checking
+  config {
+    subject_config {
+      subject {
+        common_name = "${local.tls_hostname}.${trimsuffix(var.dns_domain_name, ".")}"
+      }
+      subject_alt_name {
+        dns_names = ["${local.tls_hostname}.${trimsuffix(var.dns_domain_name, ".")}"]
+      }
+    }
+    x509_config {
+      key_usage {
+        base_key_usage {
+          digital_signature = true
+          key_encipherment  = true
+        }
+        extended_key_usage {
+          server_auth = true
+        }
+      }
+    }
+  }
+}
+
+# 4. Create DNS A Record for Service Discovery
+resource "google_dns_record_set" "db_a_record" {
+  count        = var.enable_tls ? 1 : 0
+  project      = var.project_id
+  managed_zone = var.dns_zone_name
+  name         = "${local.tls_hostname}.${var.dns_domain_name}"
+  type         = "A"
+  ttl          = 300
+  rrdatas      = [local.primary_ip]
+}
+
+# 5. Generate Wallet Password
+resource "random_password" "wallet_password" {
+  count   = var.enable_tls ? 1 : 0
+  length  = 16
+  special = true
+}
+
+# -----------------------------------------------------------------------------
+# Secrets Management (Secure Storage)
+# -----------------------------------------------------------------------------
+
+# Secret: Private Key
+resource "google_secret_manager_secret" "db_private_key" {
+  count     = var.enable_tls ? 1 : 0
+  secret_id = "${var.instance_name}-tls-key"
+  project   = var.project_id
+  
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "db_private_key_val" {
+  count       = var.enable_tls ? 1 : 0
+  secret      = google_secret_manager_secret.db_private_key[0].id
+  secret_data = tls_private_key.oracle_db_key[0].private_key_pem
+}
+
+# Secret: Certificate (Public Chain)
+resource "google_secret_manager_secret" "db_cert" {
+  count     = var.enable_tls ? 1 : 0
+  secret_id = "${var.instance_name}-tls-cert"
+  project   = var.project_id
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "db_cert_val" {
+  count       = var.enable_tls ? 1 : 0
+  secret      = google_secret_manager_secret.db_cert[0].id
+  # Construct full chain: Leaf Cert + Issuer Chain
+  secret_data = "${google_privateca_certificate.oracle_db_cert[0].pem_certificate}\n${join("\n", google_privateca_certificate.oracle_db_cert[0].pem_certificate_chain)}"
+}
+
+# Secret: Wallet Password
+resource "google_secret_manager_secret" "wallet_pwd" {
+  count     = var.enable_tls ? 1 : 0
+  secret_id = "${var.instance_name}-wallet-pwd"
+  project   = var.project_id
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "wallet_pwd_val" {
+  count       = var.enable_tls ? 1 : 0
+  secret      = google_secret_manager_secret.wallet_pwd[0].id
+  secret_data = random_password.wallet_password[0].result
+}
+
+# -----------------------------------------------------------------------------
+# IAM & Security Hardening (Task 2)
+# -----------------------------------------------------------------------------
+
+# Grant VM Service Account access ONLY to these specific secrets
+resource "google_secret_manager_secret_iam_member" "vm_access_key" {
+  count     = var.enable_tls ? 1 : 0
+  secret_id = google_secret_manager_secret.db_private_key[0].id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.vm_service_account}"
+}
+
+resource "google_secret_manager_secret_iam_member" "vm_access_cert" {
+  count     = var.enable_tls ? 1 : 0
+  secret_id = google_secret_manager_secret.db_cert[0].id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.vm_service_account}"
+}
+
+resource "google_secret_manager_secret_iam_member" "vm_access_pwd" {
+  count     = var.enable_tls ? 1 : 0
+  secret_id = google_secret_manager_secret.wallet_pwd[0].id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.vm_service_account}"
+}
+
+# Grant VM Service Account permission to request renewals from the specific CA Pool
+# (Scoped via IAM Condition if needed, or binding directly to the pool resource)
+resource "google_privateca_ca_pool_iam_member" "vm_ca_requester" {
+  count      = var.enable_tls ? 1 : 0
+  ca_pool    = var.cas_pool_id
+  role       = "roles/privateca.certificateRequester"
+  member     = "serviceAccount:${var.vm_service_account}"
+}
+
 output "control_node_log_url" {
   description = "Logs Explorer URL with Oracle Toolkit output"
   value       = "https://console.cloud.google.com/logs/query;query=resource.labels.instance_id%3D${urlencode(google_compute_instance.control_node.instance_id)};duration=P30D?project=${urlencode(var.project_id)}"
