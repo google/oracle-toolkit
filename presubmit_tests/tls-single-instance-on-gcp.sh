@@ -1,0 +1,32 @@
+#!/bin/bash
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+source presubmit_tests/infra-manager-lib.sh || {
+  echo "Error: cannot source common library" >&2
+  exit 1
+}
+
+# Define unique names for this test run to avoid collisions
+instance_name="github-presubmit-tls-${BUILD_ID}"
+deployment_name="presubmit-tls-${BUILD_ID}"
+
+# Point to the new single-instance TLS configuration file
+tfvars_file="./presubmit_tests/tls-single-instance.tfvars"
+location="us-central1"
+
+# Execute the standard test lifecycle
+setup_vars
+apply_deployment
+watch_logs
