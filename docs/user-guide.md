@@ -583,6 +583,12 @@ Support")</th>
 <tr>
 <td></td>
 <td>Patch - MOS</TD>
+<TD>COMBO OF OJVM RU COMPONENT 19.30.0.0.260120 + GI RU 19.30.0.0.260120</td>
+<td>p38658588_190000_Linux-x86-64.zip</td>
+</tr>
+<tr>
+<td></td>
+<td>Patch - MOS</TD>
 <TD>COMBO OF OJVM RU COMPONENT 19.29.0.0.251021 + GI RU 19.29.0.0.251021</td>
 <td>p38273558_190000_Linux-x86-64.zip</td>
 </tr>
@@ -1243,8 +1249,7 @@ partitions), the mount point names, the file system types, and the mount options
 in valid JSON format.
 
 When you run the toolkit, specify the path to the configuration file by using
-either the `--ora-data-mounts` command line option or the
-`ORA_DATA_MOUNTS` environment variable. The file path can be relative or
+the `--ora-data-mounts` command line option. The file path can be relative or
 fully qualified. The file name defaults to `data_mounts_config.json`.
 Alternatively, pass the file content directly as JSON using `--ora-data-mounts-json` parameter.
 If both are present, `--ora-data-mounts-json` takes precedence.
@@ -1276,8 +1281,7 @@ The following example shows a properly formatted JSON data mount configuration f
 
 Installing Grid Infrastructure and using ASM is the default, but is not
 mandatory. Whether GI is installed and ASM used is based on the value of the
-`--ora-disk-mgmt` command line option or the `ORA_DISK_MGMT` environment
-variable.
+`--ora-disk-mgmt` command line option.
 
 Specify `ASMLIB` to use the Oracle ASMLib library or `ASMUDEV` to use ASM
 with the Linux Udev device manager. `ASMUDEV` is the default.
@@ -1287,8 +1291,7 @@ names, and the associated block devices (the actual devices, not partitions) in 
 valid JSON format.
 
 When you run the toolkit, specify the path to the configuration file by using
-either the `--ora-asm-disks` command line option or the `ORA_ASM_DISKS`
-environment variable. The file path can be relative or fully qualified. The file
+the `--ora-asm-disks` command line option. The file path can be relative or fully qualified. The file
 name defaults to `ask_disk_config.json`. Alternatively, pass the file content directly
 as a JSON using `--ora-asm-disks-json` parameter. If both are present,
 `--ora-asm-disks-json` takes precedence.
@@ -1323,8 +1326,7 @@ The following example shows a properly formatted JSON ASM disk group configurati
 
 Installing and creating databases that use XFS Linux file systems for database
 storage is also possible. To use Linux file systems, include the
-`--ora-disk-mgmt FS` command line option or the `ORA_DISK_MGMT=FS` environment
-variable.
+`--ora-disk-mgmt FS` command line option.
 
 When disk management is set to `FS`, the Grid Infrastrure software is not
 installed.
@@ -1498,13 +1500,9 @@ To use a Cloud Storage bucket for your backups, you need to follow the steps bel
 The following sections document the parameters, organized by installation task
 and then by the attribute that you use the parameter to specify.
 
-Most attributes can be specified by using either an environment variable or a
-command-line command. Environment variables are presented in capital letters.
+Most attributes can be specified by using command-line flags.
 Command-line commands are presented in lower case letters and are preceded by
 two dashes.
-
-You can specify parameters as either command line arguments or as predefined
-environment variables.
 
 Default values for the parameters are shown in bold letters.
 
@@ -2451,7 +2449,7 @@ Tasks can also be skipped using tags. If the toolkit fails while executing a tas
 
 ### Example Toolkit Execution
 
-In the following example, environment variables are used to specify the
+In the following example, command-line parameters are used to specify the
 following values:
 
 - The IP address of the target instance
@@ -2460,15 +2458,11 @@ following values:
 
 For all other parameters, the default values are accepted.
 
-Note: Unless you specify a hostname on the INSTANCE_HOSTNAME environment
-variable or the --instance-hostname command line argument, the target hostname
+Note: Unless you specify a hostname on the --instance-hostname command line argument, the target hostname
 defaults to the target IP address.
 
 ```bash
-$ export INSTANCE_IP_ADDR=10.150.0.42
-$ export ORA_VERSION=19.3.0.0.0
-$ export ORA_DB_NAME=PROD1
-$ ./install-oracle.sh --ora-swlib-bucket gs://oracle-software --backup-dest +RECO
+$ ./install-oracle.sh --ora-swlib-bucket gs://oracle-software --backup-dest +RECO --instance-ip-addr 10.150.0.42 --ora-version 19.3.0.0.0 --ora-db-name PROD1
 
 Inventory file for this execution: ./inventory_files/inventory_10.150.0.42_PROD1.
 
@@ -2727,7 +2721,7 @@ rdbms_software:
 
 If installing by URL, refer to [Oracle Database Free Get Started](https://www.oracle.com/database/free/get-started/) to obtain the most recent links and `sha256sum` values.
 
-If no Free Edition version is explicitly defined (via the `--ora-version` command line switch or the corresponding environment variable), the toolkit will default to the most recent version.
+If no Free Edition version is explicitly defined (via the `--ora-version` command line switch), the toolkit will default to the most recent version.
 
 If a specific version is required, it can be specified using the `--ora-version` command line switch and one of the above listed version values. For example: `--ora-version 23.6.0.24.10` or `--ora-version 23.2.0.0.0`.
 
@@ -3520,7 +3514,7 @@ To patch RAC databases, the toolkit performs the following actions:
 
 Regardless of which script is used, the specifics about which patch files to
 use, such as the file names of the source media, patch paths, and the software
-versions, are taken from the `gi_patches` and `rdbms_patches` environment
+versions, are taken from the `gi_patches` and `rdbms_patches`
 variables. The defaults for these variables are defined in the
 `roles/common/defaults/main.yml` Ansible file. You can override the default
 values or specify patches that are not included in the

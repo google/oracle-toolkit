@@ -24,13 +24,7 @@ if [ $? != 4 ]; then
     exit 1
 fi
 
-# do not display skipped hosts - 
-# a misnomer, as it does not display all 'skipped' tasks
 export ANSIBLE_EXTRA_VARS=''
-# use ANSIBLE_DISPLAY_SKIPPED_HOSTS=true ./check-oracle.sh to see skipped tasks
-: ${ANSIBLE_DISPLAY_SKIPPED_HOSTS:=false}
-export ANSIBLE_DISPLAY_SKIPPED_HOSTS
-#echo ANSIBLE_DISPLAY_SKIPPED_HOSTS: $ANSIBLE_DISPLAY_SKIPPED_HOSTS
 
 export INVENTORY_FILE=''
 export AHF_LOCATION=''

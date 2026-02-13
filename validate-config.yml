@@ -386,3 +386,31 @@
               - ora_data_mounts_file.stat.exists
             fail_msg: "The file specified for ora-data-mounts '{{ ora_data_mounts }}' does not exist."
           when: ora_data_mounts is defined and ora_data_mounts_json is not defined
+
+    - name: Validate ASM Disk Configuration
+      block:
+        - name: Assert that ora_asm_disks and ora_asm_disks_json are mutually exclusive
+          ansible.builtin.assert:
+            that:
+              - not (ora_asm_disks is defined and ora_asm_disks_json is defined)
+            fail_msg: "The variables 'ora-asm-disks' and 'ora-asm-disks-json' are mutually exclusive. Please specify only one."
+
+        - name: Assert that an ASM disk configuration is provided
+          ansible.builtin.assert:
+            that:
+              - asm_disk_input | default('', true) | length > 0
+            fail_msg: >-
+              ASM disk configuration is missing but Grid Infrastructure (ASM) is required.
+              The default management is 'udev' (ASM). To fix this:
+              1. Provide --ora-asm-disks for an ASM deployment, OR
+              2. Explicitly set --ora-disk-mgmt FS for a file system deployment.
+
+        - name: Verify that specified disk groups are valid
+          ansible.builtin.assert:
+            that: item in (asm_disks | map(attribute='diskgroup') | list)
+            fail_msg: "The destination '{{ item }}' is not a valid disk group from the 'asm_disks' list."
+          loop: "{{ [ data_destination | default(''), reco_destination | default('') ] | reject('equalto', '') | list }}"
+          when:
+            - item is match('^\+')
+            - asm_disks | length > 0
+      when: gi_install  # Covers asmlib, asmudev, and the default 'udev' mode

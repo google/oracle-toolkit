@@ -81,7 +81,7 @@ locals {
   )
 
   # DBCA destinations
-  data_dest    = local.is_fs ? "/u02/oradata" : "DATA"
+  data_dest = local.is_fs ? "/u02/oradata" : "DATA"
   reco_dest = local.is_fs ? "/u03/fast_recovery_area" : "RECO"
 
   # Takes the list of filesystem disks and converts them into a list of objects with the required fields by ansible
@@ -137,6 +137,20 @@ locals {
       role       = "primary"
     }
   }
+
+  deployment_id = var.deployment_name != "" ? var.deployment_name : var.instance_name
+  db_tag        = "ora-db-${local.deployment_id}"
+  control_tag   = "ora-control-node-${local.deployment_id}"
+}
+
+# Resolve parent VPC network from the subnetwork URI
+data "google_compute_subnetwork" "subnetwork" {
+  count     = local.subnetwork1_opt != null ? 1 : 0
+  self_link = "https://www.googleapis.com/compute/v1/${local.subnetwork1_opt}"
+}
+
+locals {
+  network = local.subnetwork1_opt == null ? "projects/${var.project_id}/global/networks/default" : data.google_compute_subnetwork.subnetwork[0].network
 }
 
 data "google_compute_image" "os_image" {
@@ -156,10 +170,10 @@ resource "google_compute_instance_template" "default" {
   machine_type = var.machine_type
 
   network_interface {
-  
-  subnetwork = local.subnetwork1_opt
-  network    = local.subnetwork1_opt == null ? "projects/${var.project_id}/global/networks/default" : null
-}
+    subnetwork = local.subnetwork1_opt
+    network    = local.subnetwork1_opt == null ? "projects/${var.project_id}/global/networks/default" : null
+  }
+
   disk {
     boot         = true
     auto_delete  = true
@@ -190,7 +204,7 @@ resource "google_compute_instance_template" "default" {
     enable-oslogin          = "TRUE"
   }
 
-  tags = var.network_tags
+  tags = concat([local.db_tag], var.network_tags)
 }
 
 resource "google_compute_instance_from_template" "database_vm" {
@@ -202,16 +216,15 @@ resource "google_compute_instance_from_template" "database_vm" {
   source_instance_template = google_compute_instance_template.default.self_link
 
   network_interface {
-  # Provide one of: subnetwork (preferred) OR default network
-  subnetwork = each.value.subnetwork
-  network    = each.value.subnetwork == null ? "projects/${var.project_id}/global/networks/default" : null
+    # Provide one of: subnetwork (preferred) OR default network
+    subnetwork = each.value.subnetwork
+    network    = each.value.subnetwork == null ? "projects/${var.project_id}/global/networks/default" : null
 
     dynamic "access_config" {
       for_each = var.assign_public_ip ? [1] : []
       content {}
     }
   }
-
 }
 
 resource "random_id" "suffix" {
@@ -227,9 +240,7 @@ locals {
       role = local.instances[vm.name].role
     }
   ]
-}
 
-locals {
   common_flags = join(" ", compact([
     local.ora_disk_mgmt_flag != "" ? "--ora-disk-mgmt ${local.ora_disk_mgmt_flag}" : "",
     length(local.asm_disk_config) > 0 ? "--ora-asm-disks-json '${jsonencode(local.asm_disk_config)}'" : "",
@@ -279,9 +290,9 @@ resource "google_compute_instance" "control_node" {
   }
 
   network_interface {
-  subnetwork         = local.subnetwork1_opt
-  network            = local.subnetwork1_opt == null ? "projects/${var.project_id}/global/networks/default" : null
-  subnetwork_project = local.subnetwork1_opt != null ? local.project_id : null
+    subnetwork         = local.subnetwork1_opt
+    network            = local.subnetwork1_opt == null ? "projects/${var.project_id}/global/networks/default" : null
+    subnetwork_project = local.subnetwork1_opt != null ? local.project_id : null
 
     dynamic "access_config" {
       for_each = var.assign_public_ip ? [1] : []
@@ -310,14 +321,17 @@ resource "google_compute_instance" "control_node" {
     gcs_source             = var.gcs_source
     database_vm_nodes_json = jsonencode(local.database_vm_nodes)
     common_flags           = local.common_flags
-    deployment_name        = var.deployment_name
+    deployment_name        = local.deployment_id
     delete_control_node    = var.delete_control_node
     assign_public_ip       = var.assign_public_ip
+    create_firewall        = var.create_firewall
   })
 
   metadata = {
     enable-oslogin = "TRUE"
   }
+
+  tags = [local.control_tag]
 
   depends_on = [google_compute_instance_from_template.database_vm]
 }
@@ -362,18 +376,23 @@ resource "tls_cert_request" "oracle_db_csr" {
 resource "google_privateca_certificate" "oracle_db_cert" {
   count       = var.enable_tls ? 1 : 0
   pool        = var.cas_pool_id
-  location    = split("/", var.cas_pool_id)[3] # Extract region from ID
+  location    = split("/", var.cas_pool_id)[3]
   project     = var.project_id
   name        = "${var.instance_name}-tls-cert"
   
   pem_csr     = tls_cert_request.oracle_db_csr[0].cert_request_pem
-  lifetime    = "31536000s" # 1 year validity (rotation logic handles renewal)
+  lifetime    = "31536000s"
 
-  # Security Hardening: Ensure strict checking
   config {
+    public_key {
+      format = "PEM"
+      key    = tls_private_key.oracle_db_key[0].public_key_pem
+    }
+
     subject_config {
       subject {
         common_name = "${local.tls_hostname}.${trimsuffix(var.dns_domain_name, ".")}"
+        organization = "Oracle Database Internal"
       }
       subject_alt_name {
         dns_names = ["${local.tls_hostname}.${trimsuffix(var.dns_domain_name, ".")}"]
@@ -502,6 +521,45 @@ resource "google_privateca_ca_pool_iam_member" "vm_ca_requester" {
   member     = "serviceAccount:${var.vm_service_account}"
 }
 
+# This rule is deleted by the startup script upon deployment completion.
+resource "google_compute_firewall" "control_ssh" {
+  count       = var.create_firewall ? 1 : 0
+  name        = "ora-ssh-${google_compute_instance.control_node.name}"
+  project     = var.project_id
+  network     = local.network
+  description = "Temporary rule for deployment ${local.deployment_id}: Allows Control Node SSH access to Database VMs for initial provisioning."
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+  allow {
+    protocol = "icmp"
+  }
+
+  source_tags = [local.control_tag]
+  target_tags = [local.db_tag]
+}
+
+resource "google_compute_firewall" "db_sync" {
+  count       = (local.is_multi_instance && var.create_firewall) ? 1 : 0
+  name        = "oracle-${local.deployment_id}-db-sync"
+  project     = var.project_id
+  network     = local.network
+  description = "Deployment ${local.deployment_id}: Allows inter-database communication on the Oracle listener port for Data Guard synchronization."
+
+  allow {
+    protocol = "tcp"
+    ports    = [var.ora_listener_port]
+  }
+  allow {
+    protocol = "icmp"
+  }
+
+  source_tags = [local.db_tag]
+  target_tags = [local.db_tag]
+}
+
 output "control_node_log_url" {
   description = "Logs Explorer URL with Oracle Toolkit output"
   value       = "https://console.cloud.google.com/logs/query;query=resource.labels.instance_id%3D${urlencode(google_compute_instance.control_node.instance_id)};duration=P30D?project=${urlencode(var.project_id)}"
@@ -511,4 +569,3 @@ output "database_vm_names" {
   description = "Names of the created database VMs from instance templates"
   value       = [for vm in google_compute_instance_from_template.database_vm : vm.name]
 }
-
