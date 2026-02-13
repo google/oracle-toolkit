@@ -376,18 +376,23 @@ resource "tls_cert_request" "oracle_db_csr" {
 resource "google_privateca_certificate" "oracle_db_cert" {
   count       = var.enable_tls ? 1 : 0
   pool        = var.cas_pool_id
-  location    = split("/", var.cas_pool_id)[3] # Extract region from ID
+  location    = split("/", var.cas_pool_id)[3]
   project     = var.project_id
   name        = "${var.instance_name}-tls-cert"
   
   pem_csr     = tls_cert_request.oracle_db_csr[0].cert_request_pem
-  lifetime    = "31536000s" # 1 year validity (rotation logic handles renewal)
+  lifetime    = "31536000s"
 
-  # Security Hardening: Ensure strict checking
   config {
+    public_key {
+      format = "PEM"
+      key    = tls_private_key.oracle_db_key[0].public_key_pem
+    }
+
     subject_config {
       subject {
         common_name = "${local.tls_hostname}.${trimsuffix(var.dns_domain_name, ".")}"
+        organization = "Oracle Database Internal"
       }
       subject_alt_name {
         dns_names = ["${local.tls_hostname}.${trimsuffix(var.dns_domain_name, ".")}"]
