@@ -18,11 +18,9 @@ source presubmit_tests/infra-manager-lib.sh || {
   exit 1
 }
 
-# Define unique names for this test run to avoid collisions
 instance_name="github-presubmit-tls-${BUILD_ID}"
-deployment_name="presubmit-tls-${BUILD_ID}"
+deployment_name="github-presubmit-tls-${BUILD_ID}"
 
-# Point to the new single-instance TLS configuration file
 tfvars_file="./presubmit_tests/tls-single-instance.tfvars"
 location="us-central1"
 

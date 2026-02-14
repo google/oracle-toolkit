@@ -202,6 +202,12 @@ resource "google_compute_instance_template" "default" {
   metadata = {
     metadata_startup_script = var.metadata_startup_script
     enable-oslogin          = "TRUE"
+    
+    enable_tls = var.enable_tls
+    # We use ternary operators because these resources don't exist if enable_tls is false
+    tls_key    = var.enable_tls ? google_secret_manager_secret_version.db_private_key_val[0].name : ""
+    tls_cert   = var.enable_tls ? google_secret_manager_secret_version.db_cert_val[0].name : ""
+    wallet_pwd = var.enable_tls ? google_secret_manager_secret_version.wallet_pwd_val[0].name : ""
   }
 
   tags = concat([local.db_tag], var.network_tags)
@@ -266,7 +272,11 @@ locals {
     var.skip_database_config ? "--skip-database-config" : "",
     var.ora_pga_target_mb != "" ? "--ora-pga-target-mb ${var.ora_pga_target_mb}" : "",
     var.ora_sga_target_mb != "" ? "--ora-sga-target-mb ${var.ora_pga_target_mb}" : "",
-    var.data_guard_protection_mode != "" ? "--data-guard-protection-mode '${var.data_guard_protection_mode}'" : ""
+    var.data_guard_protection_mode != "" ? "--data-guard-protection-mode '${var.data_guard_protection_mode}'" : "",
+    var.enable_tls ? "--enable-tls" : "",
+    var.enable_tls ? "--tls-key-secret ${google_secret_manager_secret_version.db_private_key_val[0].name}" : "",
+    var.enable_tls ? "--tls-cert-secret ${google_secret_manager_secret_version.db_cert_val[0].name}" : "",
+    var.enable_tls ? "--wallet-pwd-secret ${google_secret_manager_secret_version.wallet_pwd_val[0].name}" : ""
   ]))
 }
 
@@ -329,6 +339,7 @@ resource "google_compute_instance" "control_node" {
 
   metadata = {
     enable-oslogin = "TRUE"
+    force_update   = "run-fix-tls-v4"
   }
 
   tags = [local.control_tag]
@@ -375,41 +386,13 @@ resource "tls_cert_request" "oracle_db_csr" {
 # 3. Issue Certificate via Google CAS
 resource "google_privateca_certificate" "oracle_db_cert" {
   count       = var.enable_tls ? 1 : 0
-  pool        = var.cas_pool_id
+  pool        = split("/", var.cas_pool_id)[5]
   location    = split("/", var.cas_pool_id)[3]
   project     = var.project_id
   name        = "${var.instance_name}-tls-cert"
   
   pem_csr     = tls_cert_request.oracle_db_csr[0].cert_request_pem
   lifetime    = "31536000s"
-
-  config {
-    public_key {
-      format = "PEM"
-      key    = tls_private_key.oracle_db_key[0].public_key_pem
-    }
-
-    subject_config {
-      subject {
-        common_name = "${local.tls_hostname}.${trimsuffix(var.dns_domain_name, ".")}"
-        organization = "Oracle Database Internal"
-      }
-      subject_alt_name {
-        dns_names = ["${local.tls_hostname}.${trimsuffix(var.dns_domain_name, ".")}"]
-      }
-    }
-    x509_config {
-      key_usage {
-        base_key_usage {
-          digital_signature = true
-          key_encipherment  = true
-        }
-        extended_key_usage {
-          server_auth = true
-        }
-      }
-    }
-  }
 }
 
 # 4. Create DNS A Record for Service Discovery

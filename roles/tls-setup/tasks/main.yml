@@ -1,17 +1,3 @@
-# Copyright 2025 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 ---
 - name: tls-setup | Check if TLS is enabled
   meta: end_play
@@ -19,7 +5,6 @@
 
 - name: tls-setup | Define TLS Wallet Directory
   set_fact:
-    # Uses a standard location under ORACLE_BASE/admin
     tls_wallet_dir: "{{ oracle_base }}/admin/{{ oracle_db_name | default('ORCL') }}/tls_wallet"
 
 - name: tls-setup | Create TLS Wallet Directory
@@ -34,14 +19,14 @@
 - name: tls-setup | Retrieve Secrets from Secret Manager
   shell: |
     set -o pipefail
-    gcloud secrets versions access latest --secret="{{ secret_name_prefix }}-tls-key" --project="{{ google_project_id }}" > "{{ tls_wallet_dir }}/key.pem"
-    gcloud secrets versions access latest --secret="{{ secret_name_prefix }}-tls-cert" --project="{{ google_project_id }}" > "{{ tls_wallet_dir }}/cert.pem"
-    gcloud secrets versions access latest --secret="{{ secret_name_prefix }}-wallet-pwd" --project="{{ google_project_id }}" > "{{ tls_wallet_dir }}/pwd.txt"
+    gcloud secrets versions access latest --secret="{{ tls_key_secret }}" --project="{{ google_project_id }}" > "{{ tls_wallet_dir }}/key.pem"
+    gcloud secrets versions access latest --secret="{{ tls_cert_secret }}" --project="{{ google_project_id }}" > "{{ tls_wallet_dir }}/cert.pem"
+    gcloud secrets versions access latest --secret="{{ wallet_pwd_secret }}" --project="{{ google_project_id }}" > "{{ tls_wallet_dir }}/pwd.txt"
   args:
     executable: /bin/bash
   become: true
   become_user: "{{ oracle_user }}"
-  no_log: true # Prevent printing secrets in logs
+  no_log: true
 
 - name: tls-setup | Create PKCS#12 Keystore
   shell: |
@@ -64,8 +49,9 @@
     
     # Import the PKCS#12 content (Key + Cert)
     orapki wallet import_pkcs12 -wallet "{{ tls_wallet_dir }}" \
-    -pkcs12file "{{ tls_wallet_dir }}/ewallet.p12" \
-    -pwd $(cat "{{ tls_wallet_dir }}/pwd.txt")
+      -pkcs12file "{{ tls_wallet_dir }}/ewallet.p12" \
+      -pwd $(cat "{{ tls_wallet_dir }}/pwd.txt") \
+      -pkcs12pwd $(cat "{{ tls_wallet_dir }}/pwd.txt")
   args:
     executable: /bin/bash
   become: true

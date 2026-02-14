@@ -68,6 +68,7 @@ GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-swlib-type:,ora-swlib-path:,ora-swlib-cred
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,instance-ssh-key:,instance-hostname:,ntp-pref:,inventory-file:,compatible-rdbms:,instance-ssh-extra-args:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,help,validate,check-instance,prep-host,install-sw,config-db,allow-install-on-vm,skip-database-config,swap-blk-device:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,install-workload-agent,oracle-metrics-secret:,db-password-secret:,data-guard-protection-mode:,skip-platform-compatibility"
+GETOPT_OPTIONAL="$GETOPT_OPTIONAL,enable-tls,tls-key-secret:,tls-cert-secret:,wallet-pwd-secret:"
 GETOPT_LONG="$GETOPT_MANDATORY,$GETOPT_OPTIONAL"
 GETOPT_SHORT="h"
 
@@ -158,6 +159,10 @@ while true; do
     --skip-platform-compatibility) YAML_VARS["_skip_platform_compatibility"]="true"; shift ;;
     --compatible-rdbms) YAML_VARS["compatible_rdbms"]="$2"; shift 2 ;;
     --data-guard-protection-mode) YAML_VARS["ora_data_guard_protection_mode"]="$2"; shift 2 ;;
+    --enable-tls) YAML_VARS["enable_tls"]="true"; shift ;;
+    --tls-key-secret) YAML_VARS["tls_key_secret"]="$2"; shift 2 ;;
+    --tls-cert-secret) YAML_VARS["tls_cert_secret"]="$2"; shift 2 ;;
+    --wallet-pwd-secret) YAML_VARS["wallet_pwd_secret"]="$2"; shift 2 ;;
     --) shift; ANSIBLE_ARGS+=("$@"); break ;;
     *) echo "Internal error! Unexpected option: $1" >&2; exit 1 ;;
   esac
