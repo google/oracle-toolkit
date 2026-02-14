@@ -339,7 +339,6 @@ resource "google_compute_instance" "control_node" {
 
   metadata = {
     enable-oslogin = "TRUE"
-    force_update   = "run-fix-tls-v4"
   }
 
   tags = [local.control_tag]
