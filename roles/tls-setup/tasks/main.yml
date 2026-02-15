@@ -19,8 +19,7 @@
 - name: tls-setup | Retrieve Secrets from Secret Manager
   shell: |
     set -o pipefail
-    # The variable contains a full path like: projects/123/secrets/my-secret-name/versions/1
-    # We split by '/' and grab the 4th element (index 3) to get just 'my-secret-name'
+    # Extract just the secret name from the full path variable
     SECRET_KEY_NAME="{{ tls_key_secret.split('/')[3] }}"
     SECRET_CERT_NAME="{{ tls_cert_secret.split('/')[3] }}"
     SECRET_PWD_NAME="{{ wallet_pwd_secret.split('/')[3] }}"
