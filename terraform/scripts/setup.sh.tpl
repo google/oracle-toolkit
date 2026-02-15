@@ -253,7 +253,7 @@ for node in $(echo '${database_vm_nodes_json}' | jq -c '.[] | select(.role == "p
     --instance-ip-addr "$node_ip" \
     --instance-ssh-user "$ssh_user" \
     --instance-ssh-key /root/.ssh/google_compute_engine \
-    ${common_flags} 2>&1 | tee "$temp_log"
+    ${common_flags} 2>&1 | tee "$temp_log" # The common_flags is passed in from terraform/main.tf.
     exit_code="$${PIPESTATUS[0]}"
     # Exit code 52 indicates a failure in the install-oracle.sh script.
     if [[ "$exit_code" -eq 52 ]]; then
@@ -290,14 +290,13 @@ if [[ "$num_nodes" -gt 1 ]]; then
 
     echo "Configuring STANDBY node: $node_name, IP: $node_ip, Zone: $node_zone"
     temp_log=$(mktemp)
-    echo "Configuring PRIMARY node: $node_name, IP: $node_ip, Zone: $node_zone"
-    temp_log=$(mktemp)
     bash install-oracle.sh \
-    --cluster-type NONE \
+    --cluster-type DG \
+    --primary-ip-addr "$primary_ip" \
     --instance-ip-addr "$node_ip" \
     --instance-ssh-user "$ssh_user" \
     --instance-ssh-key /root/.ssh/google_compute_engine \
-    ${common_flags} 2>&1 | tee "$temp_log"
+    ${common_flags} 2>&1 | tee "$temp_log"  # The common_flags is passed in from terraform/main.tf.
     exit_code="$${PIPESTATUS[0]}"
     # Exit code 52 indicates a failure in the install-oracle.sh script.
     if [[ "$exit_code" -eq 52 ]]; then
