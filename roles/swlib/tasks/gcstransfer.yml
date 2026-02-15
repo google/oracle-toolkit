@@ -4,7 +4,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#      http://www.apache.org/licenses/LICENSE-2.0
+#       http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,7 +20,7 @@
 - name: gcstransfer | Transfer OPatch
   shell: |
     set -o pipefail
-    gcloud storage cat "gs://{{ swlib_mount_src }}/{{ item }}" | {{ ssh_cmd }} "cat > \"{{ swlib_path }}/{{ item }}\""
+    gcloud storage cat "gs://{{ swlib_mount_src }}/{{ item }}" | {{ ssh_cmd }} "sudo tee \"{{ swlib_path }}/{{ item }}\" > /dev/null"
   register: shell_result
   args:
     executable: /bin/bash
@@ -37,7 +37,7 @@
       f_name="{{ item.alt_name | default('x') }}"
     fi
     if ! {{ ssh_cmd }} "unzip -l \"{{ swlib_path }}/${f_name}\""; then
-      gcloud storage cat "gs://{{ swlib_mount_src }}/${f_name}" | {{ ssh_cmd }} "cat > \"{{ swlib_path }}/{{ item.file_name }}\""
+      gcloud storage cat "gs://{{ swlib_mount_src }}/${f_name}" | {{ ssh_cmd }} "sudo tee \"{{ swlib_path }}/{{ item.file_name }}\" > /dev/null"
     fi
   register: shell_result
   args:
@@ -51,7 +51,7 @@
   shell: |
     set -o pipefail
     if ! {{ ssh_cmd }} "unzip -l \"{{ swlib_path }}/{{ item }}\""; then
-      gcloud storage cat "gs://{{ swlib_mount_src }}/{{ item }}" | {{ ssh_cmd }} "cat > \"{{ swlib_path }}/{{ item }}\""
+      gcloud storage cat "gs://{{ swlib_mount_src }}/{{ item }}" | {{ ssh_cmd }} "sudo tee \"{{ swlib_path }}/{{ item }}\" > /dev/null"
     fi
   register: shell_result
   args:
@@ -67,7 +67,7 @@
       if [[ "{{ item.file_name }}" == https://*oracle.com/* || "{{ item.file_name }}" == http://*oracle.com/* ]]; then
         {{ ssh_cmd }} "curl --location --silent --connect-timeout 20 --fail -o \"{{ swlib_path }}/{{ item.file_name | basename }}\" \"{{ item.file_name }}\" && echo \"File downloaded\""
       else
-        gcloud storage cat "gs://{{ swlib_mount_src }}/{{ item.file_name }}" | {{ ssh_cmd }} "cat > \"{{ swlib_path }}/{{ item.file_name }}\" && echo \"File copied\""
+        gcloud storage cat "gs://{{ swlib_mount_src }}/{{ item.file_name }}" | {{ ssh_cmd }} "sudo tee \"{{ swlib_path }}/{{ item.file_name }}\" > /dev/null && echo \"File copied\""
       fi
     fi
   register: shell_result

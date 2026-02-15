@@ -19,14 +19,20 @@
 - name: tls-setup | Retrieve Secrets from Secret Manager
   shell: |
     set -o pipefail
-    gcloud secrets versions access latest --secret="{{ tls_key_secret }}" --project="{{ google_project_id }}" > "{{ tls_wallet_dir }}/key.pem"
-    gcloud secrets versions access latest --secret="{{ tls_cert_secret }}" --project="{{ google_project_id }}" > "{{ tls_wallet_dir }}/cert.pem"
-    gcloud secrets versions access latest --secret="{{ wallet_pwd_secret }}" --project="{{ google_project_id }}" > "{{ tls_wallet_dir }}/pwd.txt"
+    # The variable contains a full path like: projects/123/secrets/my-secret-name/versions/1
+    # We split by '/' and grab the 4th element (index 3) to get just 'my-secret-name'
+    SECRET_KEY_NAME="{{ tls_key_secret.split('/')[3] }}"
+    SECRET_CERT_NAME="{{ tls_cert_secret.split('/')[3] }}"
+    SECRET_PWD_NAME="{{ wallet_pwd_secret.split('/')[3] }}"
+
+    gcloud secrets versions access latest --secret="$SECRET_KEY_NAME" --project="{{ google_project_id }}" > "{{ tls_wallet_dir }}/key.pem"
+    gcloud secrets versions access latest --secret="$SECRET_CERT_NAME" --project="{{ google_project_id }}" > "{{ tls_wallet_dir }}/cert.pem"
+    gcloud secrets versions access latest --secret="$SECRET_PWD_NAME" --project="{{ google_project_id }}" > "{{ tls_wallet_dir }}/pwd.txt"
   args:
     executable: /bin/bash
   become: true
   become_user: "{{ oracle_user }}"
-  no_log: true
+  no_log: false
 
 - name: tls-setup | Create PKCS#12 Keystore
   shell: |
