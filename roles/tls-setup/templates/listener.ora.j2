@@ -1,0 +1,16 @@
+LISTENER =
+  (DESCRIPTION_LIST =
+    (DESCRIPTION =
+      (ADDRESS = (PROTOCOL = TCPS)(HOST = {{ ansible_hostname }})(PORT = 2484))
+      (ADDRESS = (PROTOCOL = TCP)(HOST = {{ ansible_hostname }})(PORT = 1521))
+    )
+  )
+
+SSL_CLIENT_AUTHENTICATION = FALSE
+WALLET_LOCATION =
+  (SOURCE =
+    (METHOD = FILE)
+    (METHOD_DATA =
+      (DIRECTORY = {{ tls_wallet_dir }})
+    )
+  )

@@ -118,7 +118,7 @@ variable "ora_edition" {
 variable "ora_listener_port" {
   type        = string
   default     = "1521"
-  description = "TCP port for Oracle listener."
+  description = "TCP port for Oracle listener. Defaults to 1521, but should be set to 2484 (or similar) if enable_tls is true."
   validation {
     condition     = var.ora_listener_port == "" || can(regex("^[0-9]+$", var.ora_listener_port))
     error_message = "Invalid listener port. It must be a numeric value."
@@ -385,6 +385,39 @@ variable "ora_disk_mgmt" {
   }
 }
 
+# -----------------------------------------------------------------------------
+# TLS / SSL Configuration Inputs
+# -----------------------------------------------------------------------------
+
+variable "enable_tls" {
+  description = "Enable TLS encryption for Oracle listener and creating associated Identity/DNS resources."
+  type        = bool
+  default     = false
+}
+
+variable "cas_pool_id" {
+  description = "The ID of the CAS CA Pool to use for issuing the DB certificate (e.g. 'projects/my-proj/locations/us-central1/caPools/my-pool'). Required if enable_tls is true."
+  type        = string
+  default     = ""
+}
+
+variable "dns_zone_name" {
+  description = "The name of the Cloud DNS Managed Zone (Private) where the DB hostname will be registered. Required if enable_tls is true."
+  type        = string
+  default     = ""
+}
+
+variable "dns_domain_name" {
+  description = "The DNS domain suffix for the database (e.g. 'internal.example.com.'). Required if enable_tls is true."
+  type        = string
+  default     = ""
+}
+
+variable "db_hostname" {
+  description = "The desired hostname for the database A-record (without domain). If empty, defaults to instance_name."
+  type        = string
+  default     = ""
+}
 variable "create_firewall" {
   description = "Create firewall rules for Ansible SSH and Oracle Data Guard"
   type        = bool

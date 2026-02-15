@@ -1,0 +1,109 @@
+---
+- name: tls-setup | Check if TLS is enabled
+  meta: end_play
+  when: not enable_tls | default(false) | bool
+
+- name: tls-setup | Define TLS Wallet Directory
+  set_fact:
+    tls_wallet_dir: "{{ oracle_base }}/admin/{{ oracle_db_name | default('ORCL') }}/tls_wallet"
+
+- name: tls-setup | Create TLS Wallet Directory
+  file:
+    path: "{{ tls_wallet_dir }}"
+    state: directory
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
+    mode: '0700'
+    recurse: yes
+
+- name: tls-setup | Retrieve Secrets from Secret Manager
+  shell: |
+    set -o pipefail
+    # Extract just the secret name from the full path variable
+    SECRET_KEY_NAME="{{ tls_key_secret.split('/')[3] }}"
+    SECRET_CERT_NAME="{{ tls_cert_secret.split('/')[3] }}"
+    SECRET_PWD_NAME="{{ wallet_pwd_secret.split('/')[3] }}"
+
+    gcloud secrets versions access latest --secret="$SECRET_KEY_NAME" --project="{{ google_project_id }}" > "{{ tls_wallet_dir }}/key.pem"
+    gcloud secrets versions access latest --secret="$SECRET_CERT_NAME" --project="{{ google_project_id }}" > "{{ tls_wallet_dir }}/cert.pem"
+    gcloud secrets versions access latest --secret="$SECRET_PWD_NAME" --project="{{ google_project_id }}" > "{{ tls_wallet_dir }}/pwd.txt"
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ oracle_user }}"
+  no_log: false
+
+- name: tls-setup | Create PKCS#12 Keystore
+  shell: |
+    set -o pipefail
+    openssl pkcs12 -export -in "{{ tls_wallet_dir }}/cert.pem" \
+    -inkey "{{ tls_wallet_dir }}/key.pem" \
+    -out "{{ tls_wallet_dir }}/ewallet.p12" \
+    -name "oracle-db-server" \
+    -passout file:"{{ tls_wallet_dir }}/pwd.txt"
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ oracle_user }}"
+
+- name: tls-setup | Create Oracle Auto-Login Wallet
+  shell: |
+    set -o pipefail
+    # Create empty wallet
+    orapki wallet create -wallet "{{ tls_wallet_dir }}" -auto_login -pwd $(cat "{{ tls_wallet_dir }}/pwd.txt")
+    
+    # Import the PKCS#12 content (Key + Cert)
+    orapki wallet import_pkcs12 -wallet "{{ tls_wallet_dir }}" \
+      -pkcs12file "{{ tls_wallet_dir }}/ewallet.p12" \
+      -pwd $(cat "{{ tls_wallet_dir }}/pwd.txt") \
+      -pkcs12pwd $(cat "{{ tls_wallet_dir }}/pwd.txt")
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ oracle_user }}"
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    PATH: "{{ oracle_home }}/bin:{{ ansible_env.PATH }}"
+
+- name: tls-setup | Secure Wallet Permissions (0600)
+  file:
+    path: "{{ tls_wallet_dir }}"
+    state: directory
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
+    mode: '0600'
+    recurse: yes
+
+- name: tls-setup | Configure listener.ora for TCPS
+  template:
+    src: listener.ora.j2
+    dest: "{{ oracle_home }}/network/admin/listener.ora"
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
+    mode: '0644'
+    backup: yes
+  notify: Reload Listener
+
+- name: tls-setup | Configure sqlnet.ora for TLS
+  template:
+    src: sqlnet.ora.j2
+    dest: "{{ oracle_home }}/network/admin/sqlnet.ora"
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
+    mode: '0644'
+    backup: yes
+  notify: Reload Listener
+
+- name: tls-setup | Deploy Certificate Rotation Script
+  template:
+    src: rotate-cert.sh.j2
+    dest: "/usr/local/bin/rotate-oracle-cert.sh"
+    mode: '0750'
+    owner: "root"
+    group: "root"
+
+- name: tls-setup | Setup Daily Rotation Cron Job
+  cron:
+    name: "Rotate Oracle TLS Certificate"
+    job: "/usr/local/bin/rotate-oracle-cert.sh >> /var/log/oracle-tls-rotation.log 2>&1"
+    special_time: daily
