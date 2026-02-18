@@ -1,0 +1,10 @@
+---
+- name: Reload Listener
+  shell: |
+    {{ oracle_home }}/bin/lsnrctl stop
+    {{ oracle_home }}/bin/lsnrctl start
+  become: true
+  become_user: "{{ oracle_user }}"
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    PATH: "{{ oracle_home }}/bin:{{ ansible_env.PATH }}"

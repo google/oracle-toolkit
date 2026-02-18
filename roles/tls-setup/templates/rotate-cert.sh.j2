@@ -1,0 +1,8 @@
+#!/bin/bash
+export ORACLE_HOME={{ oracle_home }}
+export PATH=$ORACLE_HOME/bin:$PATH
+WALLET_DIR="{{ tls_wallet_dir }}"
+
+echo "Starting Certificate Rotation..."
+# (Logic to re-download secrets would go here)
+echo "Rotation placeholder executed."
