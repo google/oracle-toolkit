@@ -122,8 +122,9 @@
   tags: install-google-cloud-cli
 
 - name: Install Google Cloud CLI
-  include_tasks:
-    file: google_cloud_cli.yml
+  include_role:
+    name: common
+    tasks_from: google_cloud_cli.yml
   when:
     - ansible_os_family == "RedHat"
     - install_workload_agent | bool

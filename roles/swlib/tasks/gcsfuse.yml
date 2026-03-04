@@ -13,8 +13,10 @@
 # limitations under the License.
 
 ---
-- name: gcsfuse | gcloud install
-  include_tasks: gcloud.yml
+- name: gcsfuse | Install Google Cloud CLI
+  include_role:
+    name: common
+    tasks_from: google_cloud_cli.yml
 
 - name: gcsfuse | Install gcsfuse dependencies
   become: true
