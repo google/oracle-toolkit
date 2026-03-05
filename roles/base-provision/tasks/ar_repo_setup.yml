@@ -4,10 +4,31 @@
     - name: ar_repo_setup | Disable all repositories to prevent timeouts
       command: "dnf config-manager --set-disabled *"
 
-    - name: ar_mirror_setup | Re-enable google-compute-engine google-cloud-sdk repositories (via PGA)
-      # This preserves the Guest Agent and other critical GCP services
-      command: "dnf config-manager --set-enabled google-compute-engine google-cloud-sdk"
-      failed_when: false
+    - name: ar_repo_setup | Add official google-compute-engine repo (via PGA)
+      yum_repository:
+        name: google-compute-engine
+        file: google-cloud
+        description: Google Compute Engine
+        baseurl: "https://packages.cloud.google.com/yum/repos/google-compute-engine-el{{ ansible_distribution_major_version }}-x86_64"
+        enabled: yes
+        gpgcheck: yes
+        repo_gpgcheck: no
+        gpgkey:
+          - https://packages.cloud.google.com/yum/doc/yum-key.gpg
+          - https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+
+    - name: ar_repo_setup | Add official google-cloud-sdk repo (via PGA)
+      yum_repository:
+        name: google-cloud-sdk
+        file: google-cloud
+        description: Google Cloud SDK
+        baseurl: "https://packages.cloud.google.com/yum/repos/cloud-sdk-el{{ ansible_distribution_major_version }}-x86_64"
+        enabled: yes
+        gpgcheck: yes
+        repo_gpgcheck: no
+        gpgkey:
+          - https://packages.cloud.google.com/yum/doc/yum-key.gpg
+          - https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 
     - name: ar_repo_setup | Install Artifact Registry DNF plugin
       package:
