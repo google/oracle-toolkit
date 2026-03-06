@@ -9,7 +9,7 @@
         name: google-compute-engine
         file: google-cloud
         description: Google Compute Engine
-        baseurl: "https://packages.cloud.google.com/yum/repos/google-compute-engine-el{{ ansible_distribution_major_version }}-x86_64"
+        baseurl: "https://packages.cloud.google.com/yum/repos/google-compute-engine-el{{ ansible_distribution_major_version }}-x86_64-stable"
         enabled: yes
         gpgcheck: yes
         repo_gpgcheck: no
