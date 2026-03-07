@@ -40,6 +40,20 @@
     pga_target: "{{ pga_target_mb }}M"
   tags: db-create
 
+- name: Create directories with correct permissions in case ASM created them already
+  file:
+    path: "/u01/app/oracle/{{ item }}"
+    state: directory
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
+    mode: '0775'
+  loop:
+    - audit
+    - cfgtoollogs
+    - admin
+  become: true
+  tags: db-create
+
 - name: Create DBCA response file script
   become: true
   become_user: "{{ oracle_user }}"

@@ -72,7 +72,7 @@ control_node_key_file: "~/.ssh/id_rsa_oracle_toolkit"
 db_name: "{% if oracle_edition == 'FREE' %}FREE{% else %}{{ ora_db_name | default('ORCL',true) }}{% endif %}"
 db_domain: "{{ ora_db_domain | default('',true) }}"
 version_map:
-  '26': '23.26.0.0.0'
+  '26': '23.26.1.0.0'
   '23': '23.0.0.0.0'
   '21': '21.3.0.0.0'
   '19': '19.3.0.0.0'
@@ -87,7 +87,8 @@ oracle_ver_base: "{{ oracle_ver | regex_replace('^(.*?\\..*?)\\..*$', '\\1') }}"
 oracle_rel: "{{ ora_release | default('latest',true) }}"
 oracle_edition: "{{ ora_edition | default('EE',true) }}"
 cluster_type: "{{ ora_cluster_type | default('NONE',true) }}"
-container_db: "{{ ora_db_container | default(false,true) | bool }}"
+# Default to true in versions >= 21c, otherwise false.
+container_db: "{{ ora_db_container if ora_db_container is defined else (oracle_ver is version('21.0.0.0.0', '>=')) }}"
 pdb_prefix: "{{ ora_pdb_name_prefix | default('PDB',true) }}"
 pdb_count: "{{ ora_pdb_count | default('1',true) }}"
 db_type: "{{ (ora_db_type | default('multipurpose',true)) | lower }}"

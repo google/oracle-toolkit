@@ -7,11 +7,10 @@
   gather_facts: false
   tags: validation
   tasks:
-    
     - name: Validate ora_version value
       ansible.builtin.assert:
         that:
-          - ora_version is match('^(23(\.0\.0\.0\.0)?|21(\.3\.0\.0\.0)?|19(\.3\.0\.0\.0)?|18(\.0\.0\.0\.0)?|12(\.[12])?(\.2\.0\.1\.0|\.1\.0\.2\.0)?|11(\.2\.0\.4\.0)?)$')
+          - ora_version is match('^(26|23\.26\.1\.0\.0|23(\.0\.0\.0\.0)?|21(\.3\.0\.0\.0)?|19(\.3\.0\.0\.0)?|18(\.0\.0\.0\.0)?|12(\.[12])?(\.2\.0\.1\.0|\.1\.0\.2\.0)?|11(\.2\.0\.4\.0)?)$')
         fail_msg: "Invalid ora-version '{{ ora_version }}'."
 
     - name: Validate ora_release value
@@ -320,6 +319,13 @@
         fail_msg: "Artifact Registry repositories (--ar-repo-url) are not supported with the Oracle Database free edition."
       when: ora_edition is defined and ora_edition == 'FREE'
 
+    - name: Validate Oracle 21+ is a container database
+      ansible.builtin.assert:
+        that:
+          - container_db | bool
+        fail_msg: "Oracle 21c and newer (including 23ai/26ai) require a Container Database. Set 'ora-db-container' to true."
+      when: oracle_ver is version('21.0.0.0.0', '>=')
+
     - name: Validate ASM Disk Configuration
       block:
         - name: Assert that ora_asm_disks and ora_asm_disks_json are mutually exclusive
@@ -382,7 +388,7 @@
           ansible.builtin.stat:
             path: "{{ ora_data_mounts }}"
           register: ora_data_mounts_file
-          when: 
+          when:
             - ora_data_mounts is defined
             - ora_data_mounts != ''
             - ora_data_mounts_json is not defined

@@ -13,13 +13,32 @@
 # limitations under the License.
 
 ---
-- name: Shut down RAC clusterware
-  # Regrettably we can't use ansible's service module, as Oracle's init scripts don't report status
-  shell: /etc/init.d/init.ohasd stop
-  become: true
-  register: service_stop
-  ignore_errors: true
+- name: brute-ora-cleanup | Check if legacy init.ohasd exists
+  stat:
+    path: /etc/init.d/init.ohasd
+  register: ohasd_script
   when: cluster_name is defined
+
+- name: brute-ora-cleanup | Shut down RAC clusterware (legacy 19c)
+  # Using shell directly because init.ohasd doesn't support 'status'
+  # which breaks the standard service/systemd modules.
+  shell: "/etc/init.d/init.ohasd stop"
+  failed_when: false
+  become: true
+  when:
+    - cluster_name is defined
+    - ohasd_script.stat is defined
+    - ohasd_script.stat.exists
+
+- name: brute-ora-cleanup | Shut down RAC clusterware (systemd)
+  systemd:
+    name: oracle-ohasd
+    state: stopped
+  failed_when: false
+  become: true
+  when:
+    - cluster_name is defined
+    - (ohasd_script.stat is not defined) or (not ohasd_script.stat.exists)
 
 - name: De-configure RAC CRS
   shell: |
@@ -508,6 +527,33 @@
   become: true
   become_user: root
   shell: awk '/^oracle/ {print $1}' /proc/modules | sudo xargs -r modprobe -r
+
+- name: brute-ora-cleanup | Remove any remaining VIP, SCAN, and HAIP addresses
+  shell: |
+    # 1. Isolate the Ansible managed block
+    BLOCK=$(sed -n '/# BEGIN ANSIBLE MANAGED BLOCK/,/# END ANSIBLE MANAGED BLOCK/p' /etc/hosts)
+    # 2. Collect VIP/SCAN IPs
+    readarray -t TARGET_IPS < <(grep -E "(-vip|scan)" <<< "$BLOCK" | awk '{print $1}' | sort -u)
+    # 3. Collect active HAIP addresses (169.254.0.0/16 range)
+    readarray -t HAIPS < <(ip -o addr show | grep -oE "169\.254\.[0-9]+\.[0-9]+" | sort -u)
+    # 4. Iterate and remove
+    for ip in "${TARGET_IPS[@]}" "${HAIPS[@]}"; do
+      if [[ -n "$ip" ]]; then
+        IFACE=$(ip -o addr show | grep " $ip/" | awk '{print $2}')
+        if [[ -n "$IFACE" ]]; then
+          echo "Removing RAC/HAIP IP $ip from $IFACE"
+          # Appending /32 avoids the "wildcard deletion" warning
+          ip addr del "${ip}/32" dev "$IFACE" || true
+        fi
+      fi
+    done
+  args:
+    executable: /bin/bash
+  register: ip_cleanup_output
+  ignore_errors: true
+  become: true
+  when: cluster_name is defined
+  changed_when: "'Removing' in ip_cleanup_output.stdout"
 
 - name: Reset kernel sysctl values to EL defaults
   sysctl:

@@ -60,14 +60,13 @@
         free_versions
           | select('version', '23.26.0.0.0', operator='>=')
           | list
-        if oracle_ver == '23.26.0.0.0'
+        if oracle_ver in ['23.26.0.0.0', '23.26.1.0.0']
         else
         []
     }}"
   when:
     - free_edition
-    - oracle_ver == "23.0.0.0.0" or oracle_ver == "23.26.0.0.0"
-  tags: oracle-rel
+    - oracle_ver in ["23.0.0.0.0", "23.26.0.0.0", "23.26.1.0.0"]
 
 - name: populate-vars | Show resolved release
   debug:

@@ -1,30 +1,39 @@
 #!/bin/bash
 
+# Define source and destination for the response file
 {% if oracle_ver == "11.2.0.4.0" or oracle_ver == "12.1.0.2.0" or oracle_ver == "12.2.0.1.0" %}
-[[ -r {{ swlib_unzip_path }}/database/response/db_install.rsp ]] || { echo "db_install.rsp.sh: cannot read {{ swlib_unzip_path }}/database/response/db_install.rsp"; exit 1; }
-cp {{ swlib_unzip_path }}/database/response/db_install.rsp {{ swlib_unzip_path }}/db_install.rsp
+RSP_SRC="{{ swlib_unzip_path }}/database/response/db_install.rsp"
 {% else %}
-[[ -r {{ oracle_home }}/install/response/db_install.rsp ]] || { echo "db_install.rsp.sh: cannot read  {{ oracle_home }}/install/response/db_install.rsp"; exit 1; }
-cp {{ oracle_home }}/install/response/db_install.rsp {{ swlib_unzip_path }}/db_install.rsp
+RSP_SRC="{{ oracle_home }}/install/response/db_install.rsp"
 {% endif %}
- 
-sed -i '/^oracle.install.option/                s~oracle.install.option=~oracle.install.option=INSTALL_DB_SWONLY~'                                       {{ swlib_unzip_path }}/db_install.rsp
-sed -i '/^oracle.install.db.InstallEdition/     s~oracle.install.db.InstallEdition=~oracle.install.db.InstallEdition='{{ oracle_edition }}'~'            {{ swlib_unzip_path }}/db_install.rsp
-sed -i '/^ORACLE_HOSTNAME/                      s~ORACLE_HOSTNAME=~ORACLE_HOSTNAME=`hostname -A`~'                                                       {{ swlib_unzip_path }}/db_install.rsp
-sed -i '/^UNIX_GROUP_NAME/                      s~UNIX_GROUP_NAME=~UNIX_GROUP_NAME=oinstall~'                                                            {{ swlib_unzip_path }}/db_install.rsp
-sed -i '/^INVENTORY_LOCATION/                   s~INVENTORY_LOCATION=~INVENTORY_LOCATION='{{ oracle_root }}'/oraInventory~'                              {{ swlib_unzip_path }}/db_install.rsp
-sed -i '/^ORACLE_HOME/                          s~ORACLE_HOME=~ORACLE_HOME='{{ oracle_home }}'~'                                                         {{ swlib_unzip_path }}/db_install.rsp
-sed -i '/^ORACLE_BASE/                          s~ORACLE_BASE=~ORACLE_BASE='{{ oracle_base }}'~'                                                         {{ swlib_unzip_path }}/db_install.rsp
-sed -i '/^oracle.install.db.DBA_GROUP/          s~oracle.install.db.DBA_GROUP=~oracle.install.db.DBA_GROUP=dba~'                                         {{ swlib_unzip_path }}/db_install.rsp
-sed -i '/^oracle.install.db.OPER_GROUP/         s~oracle.install.db.OPER_GROUP=~oracle.install.db.OPER_GROUP=dba~'                                       {{ swlib_unzip_path }}/db_install.rsp
-sed -i '/^oracle.install.db.BACKUPDBA_GROUP/    s~oracle.install.db.BACKUPDBA_GROUP=~oracle.install.db.BACKUPDBA_GROUP=dba~'                             {{ swlib_unzip_path }}/db_install.rsp
-sed -i '/^oracle.install.db.DGDBA_GROUP/        s~oracle.install.db.DGDBA_GROUP=~oracle.install.db.DGDBA_GROUP=dba~'                                     {{ swlib_unzip_path }}/db_install.rsp
-sed -i '/^oracle.install.db.KMDBA_GROUP/        s~oracle.install.db.KMDBA_GROUP=~oracle.install.db.KMDBA_GROUP=dba~'                                     {{ swlib_unzip_path }}/db_install.rsp
-sed -i '/^oracle.install.db.OSDBA_GROUP/        s~oracle.install.db.OSDBA_GROUP=~oracle.install.db.OSDBA_GROUP=dba~'                                     {{ swlib_unzip_path }}/db_install.rsp
-sed -i '/^oracle.install.db.OSOPER_GROUP/       s~oracle.install.db.OSOPER_GROUP=~oracle.install.db.OSOPER_GROUP=dba~'                                   {{ swlib_unzip_path }}/db_install.rsp
-sed -i '/^oracle.install.db.OSBACKUPDBA_GROUP/  s~oracle.install.db.OSBACKUPDBA_GROUP=~oracle.install.db.OSBACKUPDBA_GROUP=dba~'                         {{ swlib_unzip_path }}/db_install.rsp
-sed -i '/^oracle.install.db.OSDGDBA_GROUP/      s~oracle.install.db.OSDGDBA_GROUP=~oracle.install.db.OSDGDBA_GROUP=dba~'                                 {{ swlib_unzip_path }}/db_install.rsp
-sed -i '/^oracle.install.db.OSKMDBA_GROUP/      s~oracle.install.db.OSKMDBA_GROUP=~oracle.install.db.OSKMDBA_GROUP=dba~'                                 {{ swlib_unzip_path }}/db_install.rsp
-sed -i '/^oracle.install.db.OSRACDBA_GROUP/     s~oracle.install.db.OSRACDBA_GROUP=~oracle.install.db.OSRACDBA_GROUP=dba~'                               {{ swlib_unzip_path }}/db_install.rsp
-sed -i '/^SECURITY_UPDATES_VIA_MYORACLESUPPORT/ s~SECURITY_UPDATES_VIA_MYORACLESUPPORT=~SECURITY_UPDATES_VIA_MYORACLESUPPORT=false~'                     {{ swlib_unzip_path }}/db_install.rsp
-sed -i '/^DECLINE_SECURITY_UPDATES/             s~DECLINE_SECURITY_UPDATES=~DECLINE_SECURITY_UPDATES=TRUE~'                                              {{ swlib_unzip_path }}/db_install.rsp
+
+RSP_DEST="{{ swlib_unzip_path }}/db_install.rsp"
+
+[[ -r "$RSP_SRC" ]] || { echo "db_install.rsp.sh: cannot read $RSP_SRC"; exit 1; }
+cp "$RSP_SRC" "$RSP_DEST"
+
+# 1. Installation Options and Edition (Handling modern and legacy keys)
+# Use [# ]* to match optional comment characters or spaces at the start of the line
+sed -i 's~^[# ]*\(oracle.install.option\|installOption\)=.*$~\1=INSTALL_DB_SWONLY~' "$RSP_DEST"
+sed -i 's~^[# ]*\(oracle.install.db.InstallEdition\|installEdition\)=.*$~\1={{ oracle_edition }}~' "$RSP_DEST"
+
+# 2. Host and Core Paths
+# Note: Using 'hostname' is safer than 'hostname -A' which can return multiple names/IPs
+sed -i 's~^[# ]*ORACLE_HOSTNAME=.*$~ORACLE_HOSTNAME=`hostname`~' "$RSP_DEST"
+sed -i 's~^[# ]*UNIX_GROUP_NAME=.*$~UNIX_GROUP_NAME=oinstall~' "$RSP_DEST"
+sed -i 's~^[# ]*INVENTORY_LOCATION=.*$~INVENTORY_LOCATION={{ oracle_inventory }}~' "$RSP_DEST"
+sed -i 's~^[# ]*ORACLE_HOME=.*$~ORACLE_HOME={{ oracle_home }}~' "$RSP_DEST"
+sed -i 's~^[# ]*ORACLE_BASE=.*$~ORACLE_BASE={{ oracle_base }}~' "$RSP_DEST"
+
+# 3. Comprehensive OS Group Mapping for 26ai (Required for INS-35344)
+# Targets both the new 26ai keys (OSDBA, etc.) and legacy keys (OSDBA_GROUP)
+sed -i 's~^[# ]*\(oracle.install.db.OSDBA_GROUP\|OSDBA\)=.*$~\1=dba~' "$RSP_DEST"
+sed -i 's~^[# ]*\(oracle.install.db.OSOPER_GROUP\|OSOPER\)=.*$~\1=dba~' "$RSP_DEST"
+sed -i 's~^[# ]*\(oracle.install.db.OSBACKUPDBA_GROUP\|OSBACKUPDBA\)=.*$~\1=dba~' "$RSP_DEST"
+sed -i 's~^[# ]*\(oracle.install.db.OSDGDBA_GROUP\|OSDGDBA\)=.*$~\1=dba~' "$RSP_DEST"
+sed -i 's~^[# ]*\(oracle.install.db.OSKMDBA_GROUP\|OSKMDBA\)=.*$~\1=dba~' "$RSP_DEST"
+sed -i 's~^[# ]*\(oracle.install.db.OSRACDBA_GROUP\|OSRACDBA\)=.*$~\1=dba~' "$RSP_DEST"
+
+# 4. Security and Support Updates
+sed -i 's~^[# ]*SECURITY_UPDATES_VIA_MYORACLESUPPORT=.*$~SECURITY_UPDATES_VIA_MYORACLESUPPORT=false~' "$RSP_DEST"
+sed -i 's~^[# ]*DECLINE_SECURITY_UPDATES=.*$~DECLINE_SECURITY_UPDATES=TRUE~' "$RSP_DEST"

@@ -14,6 +14,11 @@
 
 ---
 gi_software:
+  - name: 26ai_gi
+    version: 23.26.1.0.0
+    files:
+      - { name: "V1054596-01.zip", sha256sum: "2deb199610357780ebb4d1213d6aa52df1694c7b12bd21f9e02dc3f9c992cd61", md5sum: "0RYfEpdfPWCBBfDcEk+5ng==",
+          alt_name: "LINUX.X64_2326100_grid_home.zip", alt_sha256sum: "2deb199610357780ebb4d1213d6aa52df1694c7b12bd21f9e02dc3f9c992cd61", alt_md5sum: "0RYfEpdfPWCBBfDcEk+5ng==" }
   - name: 21c_gi
     version: 21.3.0.0.0
     files:

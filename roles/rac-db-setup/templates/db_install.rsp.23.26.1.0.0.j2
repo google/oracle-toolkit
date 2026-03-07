@@ -1,0 +1,15 @@
+oracle.install.responseFileVersion=/oracle/install/rspfmt_dbinstall_response_schema_v23.0.0
+installOption=INSTALL_DB_SWONLY
+UNIX_GROUP_NAME={{ oracle_group }}
+INVENTORY_LOCATION={{ oracle_inventory }}
+ORACLE_HOME={{ oracle_home }}
+ORACLE_BASE={{ oracle_base }}
+installEdition={{ oracle_edition }}
+OSDBA=dba
+OSOPER=oper
+OSBACKUPDBA=backupdba
+OSDGDBA=dgdba
+OSKMDBA=kmdba
+OSRACDBA=racdba
+
+clusterNodes={% set c = joiner(",") %}{% for h in groups['dbasm'] %}{{ c() }}{{ h }}{% endfor %}

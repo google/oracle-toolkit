@@ -130,7 +130,14 @@
 
 - name: gi-install | Set mgmtdb option
   set_fact:
-    mgmt_option: "{% if oracle_ver_base in ('12.1') %}-J-Doracle.install.mgmtDB=false{% else %}-J-Doracle.install.mgmtDB=false -J-Doracle.install.mgmtDB.CDB=false -J-Doracle.install.crs.enableRemoteGIMR=false{% endif %}"
+    mgmt_option: >-
+      {% if oracle_ver_base in ('12.1') %}
+        -J-Doracle.install.mgmtDB=false
+      {% elif oracle_ver_base | float <= 19.3 %}
+        -J-Doracle.install.mgmtDB=false -J-Doracle.install.mgmtDB.CDB=false -J-Doracle.install.crs.enableRemoteGIMR=false
+      {% else %}
+        {# No flags needed for 21c, 23ai, or 26ai #}
+      {% endif %}
   tags: gi-setup
 
 - name: gi-install | Set installer command
@@ -158,9 +165,12 @@
     verbosity: 0
   tags: gi-setup
 
-- name: gi-install | Set CV_ASSUME_DISTID to OEL7 when installing on RHEL8  # MOS Note: 2878100.1
+- name: gi-install | Set CV_ASSUME_DISTID to OEL7 when installing on RHEL8  # MOS Note: 3017836.1
   set_fact:
-    cv_distid: "{{ 'OEL7' if ansible_os_family == 'RedHat' and (ansible_distribution_major_version | int) >= 8 and (oracle_ver_base | float) <= 19.3 else '' }}"
+    cv_distid: "CV_ASSUME_DISTID=OEL7.9"
+  when:
+    - ansible_distribution_major_version in ["8", "9"]
+    - oracle_ver is version('21.0.0.0.0', '<')
   tags: gi-setup
 
 - name: gi-install | Run installer
@@ -168,7 +178,7 @@
   become_user: "{{ grid_user }}"
   command: "{{ installer_command }}"
   environment:
-    CV_ASSUME_DISTID: "{{ cv_distid }}"
+    CV_ASSUME_DISTID: "{{ cv_distid | default(omit) }}"
   register: install_grid_software
   failed_when: >
     ('Successfully Setup Software' not in install_grid_software.stdout) or
@@ -286,8 +296,11 @@
   command: "{{ grid_home }}/gridSetup.sh -executeConfigTools -silent -responseFile {{ swlib_unzip_path }}/grid_install.rsp"
   register: install_grid_plugins
   when: oracle_ver not in ['11.2.0.4.0','12.1.0.2.0']
-  failed_when: "(   ('Successfully Setup Software' not in install_grid_plugins.stdout) or
-                    (install_grid_plugins.rc not in [0,6,250]) )
-               and
-               ('The Installer has detected that there are no config tools to execute for the specified Oracle home' not in install_grid_plugins.stdout)"
+  failed_when: >
+    (
+      ('Successfully Setup Software' not in install_grid_plugins.stdout) or
+      (install_grid_plugins.rc not in [0, 6, 250])
+    ) and
+    ('no config tools to execute' not in install_grid_plugins.stdout) and
+    ('no config tools to run' not in install_grid_plugins.stdout)
   tags: gi-setup

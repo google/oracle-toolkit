@@ -30,7 +30,7 @@ cp /etc/files_needed_for_tk/google-cloud-sdk.repo /etc/yum.repos.d/google-cloud-
 yum --disablerepo=* --enablerepo=google-cloud-sdk -y install google-cloud-sdk
 
 pwd
-./cleanup-oracle.sh --ora-version 19 \
+./cleanup-oracle.sh --ora-version 26 \
 --inventory-file /etc/files_needed_for_tk/single-instance-inventory \
 --yes-i-am-sure --ora-disk-mgmt udev --ora-swlib-path /u01/oracle_install \
 --ora-asm-disks /etc/files_needed_for_tk/single-instance-asm.json \
@@ -43,7 +43,7 @@ fi
 
 ./install-oracle.sh --ora-swlib-bucket gs://bmaas-testing-oracle-software \
 --instance-ssh-user ansible --instance-ssh-key /etc/files_needed_for_tk/ansible_private_ssh_key \
---backup-dest "+RECO" --ora-swlib-path /u01/oracle_install --ora-version 19 --ora-swlib-type gcs \
+--backup-dest "+RECO" --ora-swlib-path /u01/oracle_install --ora-version 26 --ora-swlib-type gcs \
 --ora-asm-disks /etc/files_needed_for_tk/single-instance-asm.json \
 --ora-data-mounts /etc/files_needed_for_tk/single-instance-data-mounts.json --cluster-type NONE \
 --ora-data-destination DATA --ora-reco-destination RECO --ora-db-name orcl --ora-db-container true \

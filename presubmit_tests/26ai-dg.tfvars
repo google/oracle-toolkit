@@ -1,0 +1,12 @@
+gcs_source = "@gcs_source@"
+deployment_name = "@deployment_name@"
+instance_name = "@instance_name@"
+ora_swlib_bucket = "gs://bmaas-testing-oracle-software"
+project_id = "gcp-oracle-benchmarks"
+source_image_family = "oracle-linux-8"
+source_image_project = "oracle-linux-cloud"
+ora_version = "26"
+ora_release = "base"
+ora_edition = "EE"
+ora_db_container = true
+ora_disk_mgmt = "FS"

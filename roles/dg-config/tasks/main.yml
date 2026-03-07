@@ -132,17 +132,58 @@
             state: file
           register: temp_file
 
-        - name: Fetch password file from primary
+        - name: dg-config | Get primary password file info from srvctl
+          shell: |
+            set -o pipefail
+            (srvctl config db -d {{ db_name }} || true) | grep "^Password file" || true
+          delegate_to: primary1
+          register: primary_srvctl_output
+          changed_when: false
+
+        - name: dg-config | Extract password file name from srvctl
+          set_fact:
+            pwfile_from_srvctl: "{{ primary_srvctl_output.stdout | regex_replace('^Password file:') | trim }}"
+
+        - name: dg-config | Search for password file in ORACLE_HOME
+          stat:
+            path: "{{ oracle_home }}/dbs/orapw{{ oracle_sid }}"
+          delegate_to: primary1
+          register: orapw_home_stat
+          when: pwfile_from_srvctl | length == 0
+
+        - name: dg-config | Search for password file in ORACLE_BASE (Traditional)
+          stat:
+            path: "{{ oracle_base }}/dbs/orapw{{ oracle_sid }}"
+          delegate_to: primary1
+          register: orapw_base_stat
+          when: pwfile_from_srvctl | length == 0 and not orapw_home_stat.stat.exists
+
+        - name: dg-config | Search for password file in ORACLE_BASE (Read-Only Home)
+          stat:
+            path: "{{ oracle_base }}/homes/{{ home_name }}/dbs/orapw{{ oracle_sid }}"
+          delegate_to: primary1
+          register: orapw_rooh_stat
+          when: pwfile_from_srvctl | length == 0 and not orapw_home_stat.stat.exists and not orapw_base_stat.stat.exists
+
+        - name: dg-config | Set primary password file path
+          set_fact:
+            primary_pwfile_path: >-
+              {{ pwfile_from_srvctl if pwfile_from_srvctl | length > 0
+                 else (oracle_home + '/dbs/orapw' + oracle_sid) if orapw_home_stat.stat.exists
+                 else (oracle_base + '/dbs/orapw' + oracle_sid) if orapw_base_stat.stat.exists
+                 else (oracle_base + '/homes/' + home_name + '/dbs/orapw' + oracle_sid) }}
+
+        - name: dg-config | Fetch password file from primary
           fetch:
-            src: "{{ oracle_base }}/dbs/orapw{{ oracle_sid }}"
+            src: "{{ primary_pwfile_path }}"
             dest: "{{ temp_file.path }}"
             flat: true
           delegate_to: primary1
 
-        - name: Copy password file to standby
+        - name: dg-config | Copy password file to standby
           copy:
             src: "{{ temp_file.path }}"
-            dest: "{{ oracle_base }}/dbs/orapw{{ oracle_sid }}"
+            dest: "{{ oracle_home }}/dbs/orapw{{ oracle_sid }}"
             owner: "{{ oracle_user }}"
             group: "{{ oracle_group }}"
             mode: "u=wr,go="

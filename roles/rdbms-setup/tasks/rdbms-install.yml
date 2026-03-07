@@ -15,8 +15,8 @@
 ---
 - name: rdbms-install | Set facts
   set_fact:
-    install_unzip_path: "{% if oracle_ver_base in ('21.3', '19.3', '18.0') %}{{ oracle_home }}{% else %}{{ swlib_unzip_path }}{% endif %}"
-    runinstaller_loc: "{% if oracle_ver_base in ('21.3', '19.3', '18.0') %}{{ oracle_home }}{% else %}{{ swlib_unzip_path }}/database{% endif %}"
+    install_unzip_path: "{% if oracle_ver_base in ('23.26', '21.3', '19.3', '18.0') %}{{ oracle_home }}{% else %}{{ swlib_unzip_path }}{% endif %}"
+    runinstaller_loc: "{% if oracle_ver_base in ('23.26', '21.3', '19.3', '18.0') %}{{ oracle_home }}{% else %}{{ swlib_unzip_path }}/database{% endif %}"
   tags: rdbms-setup
 
 - name: rdbms-install | Installer confirmations
@@ -128,12 +128,12 @@
     verbosity: 0
   tags: rdbms-setup
 
-- name: rdbms-install | Set CV_ASSUME_DISTID to OEL7 when installing on RHEL8  # MOS Note 2878100.1
+- name: rdbms-install | Set CV_ASSUME_DISTID to OEL7 when installing on RHEL8  # MOS Note 3017836.1
   set_fact:
-    cv_distid: "{{ 'OEL7' if ansible_os_family == 'RedHat'
-                           and (ansible_distribution_major_version | int) >= 8
-                           and (oracle_ver_base | float) <= 19.3
-                           else '' }}"
+    cv_distid: "CV_ASSUME_DISTID=OEL7.9"
+  when:
+    - ansible_distribution_major_version in ["8", "9"]
+    - oracle_ver is version('21.0.0.0.0', '<')
   tags: rdbms-setup
 
 - name: rdbms-install | Run DB installer
@@ -141,7 +141,7 @@
   become_user: "{{ oracle_user }}"
   command: "{{ db_installer_cmd }}"
   environment:
-    CV_ASSUME_DISTID: "{{ cv_distid }}"
+    CV_ASSUME_DISTID: "{{ cv_distid | default(omit) }}"
   register: db_install_result
   failed_when: >
     ('Successfully Setup Software' not in db_install_result.stdout) or

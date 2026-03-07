@@ -142,3 +142,4 @@ oracle_compatibility_matrix:
       min_kernel:
         rh: "5.14.0-284.30.1.el9"
         uek: "5.15.0-201.135.6.el9uek"
+

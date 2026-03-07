@@ -47,13 +47,13 @@ data_disk = {
 reco_disk = {
   size_gb = 15
 }
-ora_version = "19"
+ora_version = "26"
 ora_release = "latest"
 ora_edition = "EE"
 ora_backup_dest = "/u03/backup"
 ora_db_name = "orcl"
 ora_db_domain = "test2.example_domain01.com"
-ora_db_container = false
+ora_db_container = true
 ora_disk_mgmt = "FS"
 assign_public_ip = false
 enable_ar_repo = true

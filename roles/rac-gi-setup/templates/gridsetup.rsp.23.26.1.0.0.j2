@@ -1,0 +1,28 @@
+{% macro domain() -%}{% if hostvars[groups['dbasm'].0]['cluster_domain'] is defined and hostvars[groups['dbasm'].0]['cluster_domain'] |
+length > 0 -%}.{{ hostvars[groups['dbasm'].0]['cluster_domain'] }}{% endif -%}{% endmacro -%}
+oracle.install.responseFileVersion=/oracle/install/rspfmt_crsinstall_response_schema_v23.0.0
+INVENTORY_LOCATION={{ oracle_inventory }}
+installOption=CRS_CONFIG
+ORACLE_BASE={{ grid_base }}
+OSDBA=asmdba
+OSOPER=asmoper
+OSASM=asmadmin
+scanType=LOCAL_SCAN
+scanName={{ hostvars[groups['dbasm'].0]['scan_name'] }}{{ domain() }}
+scanPort={{ hostvars[groups['dbasm'].0]['scan_port'] }}
+clusterName={{ hostvars[groups['dbasm'].0]['cluster_name'][:15] }}
+configureDHCPAssignedVIPs=false
+clusterNodes={% set c = joiner(",") %}{% for h in groups['dbasm'] %}{{ c() }}{{ h }}{{ domain() }}:{{ hostvars[h]['vip_name'] }}{{ domain() }}{% endfor %}
+
+# Preserve the newline above in the template to avoid line collision.
+networkInterfaceList={% set pub = hostvars[groups['dbasm'].0]['public_net'] | regex_replace('@.*$', '') -%}
+{% set prv = hostvars[groups['dbasm'].0]['private_net'] | regex_replace('@.*$', '') -%}
+{{ pub }}:{{ hostvars[groups['dbasm'].0]['ansible_facts'][pub]['ipv4']['network'] }}:1,{{ prv }}:{{ hostvars[groups['dbasm'].0]['ansible_facts'][prv]['ipv4']['network'] }}:5
+storageOption=FLEX_ASM_STORAGE
+sysasmPassword={{ pass_asmsys }}
+diskGroupName={{ hostvars[groups['dbasm'].0]['dg_name'] }}
+redundancy=EXTERNAL
+auSize=4
+diskList={{ symlink | json_query('results[*].stdout') | join(',') }}
+diskString={{ asm_diskstring }}
+asmsnmpPassword={{ pass_asmmon }}

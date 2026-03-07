@@ -17,7 +17,7 @@
 pkg_mgr_lock_timeout: 180
 
 free_edition_name: "{% if free_edition %}{% if oracle_ver[:5] == '23.26' %}26ai{% elif oracle_ver[:4] == '23.2' or oracle_ver[:4] == '23.3' %}23c{% else %}{{ oracle_ver[:2] }}ai{% endif %}{% endif %}"
-oracle_ver_dir: "{% if free_edition %}{{ free_edition_name }}{% else %}{{ oracle_ver[:6] }}{% endif %}"
+oracle_ver_dir: "{% if free_edition %}{{ free_edition_name }}{% elif oracle_ver_base == '23.26' %}23.26.0{% else %}{{ oracle_ver[:6] }}{% endif %}"
 oracle_inventory: "{{ oracle_root }}/oraInventory"
 oracle_base: "{% if free_edition %}/opt/oracle{% else %}{{ oracle_root }}/oracle{% endif %}"
 oracle_home: "{{ oracle_base }}/product/{{ oracle_ver_dir }}/{{ home_name }}"
@@ -139,14 +139,11 @@ safe_unzip_path: /usr/local/bin
 safe_unzip: "{{ safe_unzip_path }}/{{ safe_unzip_file }}"
 
 diskgroup_compatible_asm: "{{ oracle_ver }}"
-diskgroup_compatible_rdbms: "{# assign to variable c compatible parameter and set to default if not defined #}\
-                            {% set c = compatible_rdbms | default('11.2.0.4.0',true) %} \
+diskgroup_compatible_rdbms: "{%- set floor = '19.0.0.0.0' if (oracle_ver is version('21.0.0.0.0', '>=')) else '11.2.0.4.0' -%}\
+                            {%- set c = compatible_rdbms | default(floor, true) -%}\
+                            {%- set c = floor if (c is version(floor, '<')) else c -%}\
                             {# if 19.3... base then lower it to 19.0... to avoid issues with dbca #}\
-                            {% if c == '19.3.0.0.0' %}\
-                              19.0.0.0.0\
-                            {% else %}\
-                              {{ c }}\
-                            {% endif %}"
+                            {%- if c == '19.3.0.0.0' -%}19.0.0.0.0{%- else -%}{{ c }}{%- endif -%}"
 
 run_cluvfy: false
 

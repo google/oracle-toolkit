@@ -34,7 +34,7 @@ yum --disablerepo=* --enablerepo=google-cloud-sdk -y install google-cloud-sdk
 yum --disablerepo=* --enablerepo=appstream -y install jq
 
 pwd
-./cleanup-oracle.sh --ora-version 19 \
+./cleanup-oracle.sh --ora-version 26 \
 --inventory-file /etc/files_needed_for_tk/rac-inventory \
 --yes-i-am-sure --ora-disk-mgmt udev --ora-swlib-path /u01/oracle_install \
 --ora-asm-disks /etc/files_needed_for_tk/rac-asm.json \
@@ -47,8 +47,8 @@ fi
 
 ./install-oracle.sh --ora-swlib-bucket gs://bmaas-testing-oracle-software \
 --instance-ssh-user ansible --instance-ssh-key /etc/files_needed_for_tk/ansible_private_ssh_key \
---backup-dest "+RECO" --ora-swlib-path /u01/oracle_install --ora-version 19 --ora-swlib-type gcs \
+--backup-dest "+RECO" --ora-swlib-path /u01/oracle_install --ora-version 26 --ora-swlib-type gcs \
 --ora-asm-disks /etc/files_needed_for_tk/rac-asm.json \
 --ora-data-mounts /etc/files_needed_for_tk/rac-data-mounts.json --cluster-type RAC \
 --cluster-config /etc/files_needed_for_tk/rac-config.json --ora-data-destination DATA \
---ora-reco-destination RECO --ora-db-name orcl --ora-db-container false 
+--ora-reco-destination RECO --ora-db-name orcl --ora-db-container true

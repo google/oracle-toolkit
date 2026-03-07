@@ -1,16 +1,33 @@
 #!/bin/bash
 
+# Copy the appropriate template response file based on version
 {% if oracle_ver == "11.2.0.4.0" or oracle_ver == "12.1.0.2.0" %}
 cp {{ swlib_unzip_path }}/grid/response/grid_install.rsp {{ swlib_unzip_path }}/grid_install.rsp
 {% else %}
 cp {{ grid_home }}/inventory/response/grid_install.rsp {{ swlib_unzip_path }}/grid_install.rsp
 {% endif %}
- 
-sed -i '/^oracle.install.option/                            s~oracle.install.option=$~oracle.install.option=CRS_SWONLY~'                                                                 {{ swlib_unzip_path }}/grid_install.rsp
-sed -i '/^ORACLE_HOSTNAME/                                  s~ORACLE_HOSTNAME=$~ORACLE_HOSTNAME=`hostname -A`~'                                                                          {{ swlib_unzip_path }}/grid_install.rsp
-sed -i '/^INVENTORY_LOCATION/                               s~INVENTORY_LOCATION=$~INVENTORY_LOCATION='{{ oracle_root }}'/oraInventory~'                                                            {{ swlib_unzip_path }}/grid_install.rsp
-sed -i '/^ORACLE_BASE/                                      s~ORACLE_BASE=$~ORACLE_BASE='{{ oracle_base }}'~'                                                                            {{ swlib_unzip_path }}/grid_install.rsp
-sed -i '/^ORACLE_HOME/                                      s~ORACLE_HOME=$~ORACLE_HOME='{{ grid_home }}'~'                                                                              {{ swlib_unzip_path }}/grid_install.rsp
-sed -i '/^oracle.install.asm.OSDBA/                         s~oracle.install.asm.OSDBA=$~oracle.install.asm.OSDBA=asmdba~'                                                               {{ swlib_unzip_path }}/grid_install.rsp
-sed -i '/^oracle.install.asm.OSOPER/                        s~oracle.install.asm.OSOPER=$~oracle.install.asm.OSOPER=asmoper~'                                                            {{ swlib_unzip_path }}/grid_install.rsp
-sed -i '/^oracle.install.asm.OSASM/                         s~oracle.install.asm.OSASM=$~oracle.install.asm.OSASM=asmadmin~'                                                             {{ swlib_unzip_path }}/grid_install.rsp
+
+# Define the target response file for easier reference
+RSP_FILE="{{ swlib_unzip_path }}/grid_install.rsp"
+
+# 1. Installation Option & Paths
+# Standardizes on 'installOption' while supporting legacy 'oracle.install.option'
+sed -i 's~^\(oracle.install.option\|installOption\)=.*~installOption=CRS_SWONLY~' "${RSP_FILE}"
+sed -i "s~^INVENTORY_LOCATION=.*~INVENTORY_LOCATION={{ oracle_root }}/oraInventory~" "${RSP_FILE}"
+sed -i "s~^ORACLE_BASE=.*~ORACLE_BASE={{ oracle_base }}~" "${RSP_FILE}"
+
+# 2. OS Group Mappings
+# Modernizes group keys to the 26ai schema (OSDBA, OSOPER, OSASM)
+sed -i 's~^\(oracle.install.asm.OSDBA\|OSDBA\)=.*~OSDBA=asmdba~' "${RSP_FILE}"
+sed -i 's~^\(oracle.install.asm.OSOPER\|OSOPER\)=.*~OSOPER=asmoper~' "${RSP_FILE}"
+sed -i 's~^\(oracle.install.asm.OSASM\|OSASM\)=.*~OSASM=asmadmin~' "${RSP_FILE}"
+
+# 3. Optional/Legacy Parameters
+# Only updates these if they exist in the source template (avoids errors in modern schemas)
+if grep -q "^ORACLE_HOME=" "${RSP_FILE}"; then
+  sed -i "s~^ORACLE_HOME=.*~ORACLE_HOME={{ grid_home }}~" "${RSP_FILE}"
+fi
+
+if grep -q "^ORACLE_HOSTNAME=" "${RSP_FILE}"; then
+  sed -i "s~^ORACLE_HOSTNAME=.*~ORACLE_HOSTNAME=$(hostname -A | awk '{print $1}')~" "${RSP_FILE}"
+fi

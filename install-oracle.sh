@@ -226,7 +226,7 @@ if [ "$HELP_ONLY" = true ]; then
   echo "  --config-db                  Run only the database configuration playbook and exit."
   echo "  --skip-database-config       Skip database configuration."
   echo "  --install-workload-agent     Install the workload agent."
-  echo "  --ora-version <version>      Oracle version (e.g., 19)."
+  echo "  --ora-version <version>      Oracle version (e.g., 19, 23, 26)."
   echo "  --ora-release <release>      Oracle release (e.g., 19.0.0.0.0)."
   echo "  --ora-edition <edition>      Oracle edition (EE, SE, SE2, FREE)."
   echo "  --cluster-type <type>        Cluster type (NONE, RAC, DG)."
