@@ -174,29 +174,29 @@ done
 if [[ -z "${YAML_VARS[ora_asm_disks_json]}" && -n "${YAML_VARS[ora_asm_disks]}" && -f "${YAML_VARS[ora_asm_disks]}" ]]; then
   JSON_CONTENT=$(<"${YAML_VARS[ora_asm_disks]}")
   YAML_VARS["ora_asm_disks_json"]="${JSON_CONTENT}"
-  unset YAML_VARS["ora_asm_disks"]
+  unset 'YAML_VARS[ora_asm_disks]'
 fi
 if [[ -z "${YAML_VARS[ora_data_mounts_json]}" && -n "${YAML_VARS[ora_data_mounts]}" && -f "${YAML_VARS[ora_data_mounts]}" ]]; then
   JSON_CONTENT=$(<"${YAML_VARS[ora_data_mounts]}")
   YAML_VARS["ora_data_mounts_json"]="${JSON_CONTENT}"
-  unset YAML_VARS["ora_data_mounts"]
+  unset 'YAML_VARS[ora_data_mounts]'
 fi
 if [[ -z "${YAML_VARS[cluster_config_json]}" && -n "${YAML_VARS[cluster_config]}" && -f "${YAML_VARS[cluster_config]}" ]]; then
   JSON_CONTENT=$(<"${YAML_VARS[cluster_config]}")
   YAML_VARS["cluster_config_json"]="${JSON_CONTENT}"
-  unset YAML_VARS["cluster_config"]
+  unset 'YAML_VARS[cluster_config]'
 fi
 
 
 # If a custom inventory file is provided, use it directly.
 if [[ -n "${CUSTOM_INVENTORY_FILE}" ]]; then
-  INVENTORY_ARG="-i ${CUSTOM_INVENTORY_FILE}"
+  INVENTORY_ARGS=("-i" "${CUSTOM_INVENTORY_FILE}")
   for key in "${!YAML_VARS[@]}"; do
     ANSIBLE_ARGS+=("-e" "${key}='${YAML_VARS[$key]}'")
   done
 else
   TEMP_CONFIG_FILE=$(mktemp gcp_oracle.yml.XXXXXX)
-  INVENTORY_ARG="-i ${TEMP_CONFIG_FILE}"
+  INVENTORY_ARGS=("-i" "${TEMP_CONFIG_FILE}")
 
   # Default instance_hostname to instance_ip_addr if not provided.
   if [[ -z "${YAML_VARS[instance_hostname]}" && -n "${YAML_VARS[instance_ip_addr]}" ]]; then
@@ -328,5 +328,5 @@ fi
 
 for PLAYBOOK in ${PB_LIST}; do
   echo "Running playbook: ${PLAYBOOK}"
-  ansible-playbook ${INVENTORY_ARG} "${PLAYBOOK}" "${ANSIBLE_ARGS[@]}"
+  ansible-playbook "${INVENTORY_ARGS[@]}" "${PLAYBOOK}" "${ANSIBLE_ARGS[@]}"
 done

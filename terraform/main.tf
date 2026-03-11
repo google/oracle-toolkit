@@ -151,6 +151,22 @@ data "google_compute_subnetwork" "subnetwork" {
 
 locals {
   network = local.subnetwork1_opt == null ? "projects/${var.project_id}/global/networks/default" : data.google_compute_subnetwork.subnetwork[0].network
+  
+  # Derive region from zone1 (e.g., us-central1-b -> us-central1)
+  region = join("-", slice(split("-", var.zone1), 0, 2))
+
+  os_repo_types = ["baseos", "appstream"]
+
+  os_upstreams = {
+    "oracle-linux-8" = {
+      "baseos"    = "https://yum.oracle.com/repo/OracleLinux/OL8/baseos/latest/x86_64"
+      "appstream" = "https://yum.oracle.com/repo/OracleLinux/OL8/appstream/x86_64"
+    }
+    "oracle-linux-9" = {
+      "baseos"    = "https://yum.oracle.com/repo/OracleLinux/OL9/baseos/latest/x86_64"
+      "appstream" = "https://yum.oracle.com/repo/OracleLinux/OL9/appstream/x86_64"
+    }
+  }
 }
 
 data "google_compute_image" "os_image" {
@@ -202,7 +218,7 @@ resource "google_compute_instance_template" "default" {
   metadata = {
     metadata_startup_script = var.metadata_startup_script
     enable-oslogin          = "TRUE"
-    
+
     enable_tls = var.enable_tls
     # We use ternary operators because we're referring to conditionally generated values rather than direct user-provided variables.
     tls_secret = var.enable_tls ? google_secret_manager_secret_version.db_tls_secret_val[0].name : ""
@@ -244,6 +260,8 @@ locals {
       role = local.instances[vm.name].role
     }
   ]
+  
+  ar_repo_base_url = var.enable_ar_repo ? "https://${local.region}-yum.pkg.dev/remote/${var.project_id}" : ""
 
   common_flags = join(" ", compact([
     local.ora_disk_mgmt_flag != "" ? "--ora-disk-mgmt ${local.ora_disk_mgmt_flag}" : "",
@@ -349,9 +367,9 @@ resource "google_compute_instance" "control_node" {
 
 locals {
   # Logic to determine hostname and port based on TLS inputs
-  tls_hostname = var.db_hostname != "" ? var.db_hostname : var.instance_name
+  tls_hostname  = var.db_hostname != "" ? var.db_hostname : var.instance_name
   listener_port = var.enable_tls && var.ora_listener_port == "1521" ? "2484" : var.ora_listener_port
-  
+
   # Determine the primary IP for DNS registration
   # Assumes single instance or primary node for the DNS record
   primary_ip = [for vm in google_compute_instance_from_template.database_vm : vm.network_interface[0].network_ip if local.instances[vm.name].role == "primary"][0]
@@ -381,14 +399,14 @@ resource "tls_cert_request" "oracle_db_csr" {
 
 # 3. Issue Certificate via Google CAS
 resource "google_privateca_certificate" "oracle_db_cert" {
-  count       = var.enable_tls ? 1 : 0
-  pool        = split("/", var.cas_pool_id)[5]
-  location    = split("/", var.cas_pool_id)[3]
-  project     = var.project_id
-  name        = "${var.instance_name}-tls-cert"
-  
-  pem_csr     = tls_cert_request.oracle_db_csr[0].cert_request_pem
-  lifetime    = "31536000s"
+  count    = var.enable_tls ? 1 : 0
+  pool     = split("/", var.cas_pool_id)[5]
+  location = split("/", var.cas_pool_id)[3]
+  project  = var.project_id
+  name     = "${var.instance_name}-tls-cert"
+
+  pem_csr  = tls_cert_request.oracle_db_csr[0].cert_request_pem
+  lifetime = "31536000s"
 }
 
 # 4. Create DNS A Record for Service Discovery
@@ -413,22 +431,21 @@ resource "random_password" "wallet_password" {
 # Secrets Management (Secure Storage)
 # -----------------------------------------------------------------------------
 
-# Secret: Private Key
 # Secret: Consolidated TLS Payload (Key, Cert, Password)
 resource "google_secret_manager_secret" "db_tls_secret" {
   count     = var.enable_tls ? 1 : 0
   secret_id = "${var.instance_name}-tls-secret"
   project   = var.project_id
-  
+
   replication {
     auto {}
   }
 }
 
 resource "google_secret_manager_secret_version" "db_tls_secret_val" {
-  count       = var.enable_tls ? 1 : 0
-  secret      = google_secret_manager_secret.db_tls_secret[0].id
-  
+  count  = var.enable_tls ? 1 : 0
+  secret = google_secret_manager_secret.db_tls_secret[0].id
+
   # Store all TLS artifacts in a single JSON payload
   secret_data = jsonencode({
     key  = tls_private_key.oracle_db_key[0].private_key_pem
@@ -451,8 +468,75 @@ resource "google_secret_manager_secret_iam_member" "vm_access_tls_secret" {
 
 # Grant VM Service Account permission to request renewals from the specific CA Pool
 resource "google_privateca_ca_pool_iam_member" "vm_ca_requester" {
-  count      = var.enable_tls ? 1 : 0
-  ca_pool    = var.cas_pool_id
-  role       = "roles/privateca.certificateRequester"
-  member     = "serviceAccount:${var.vm_service_account}"
+  count   = var.enable_tls ? 1 : 0
+  ca_pool = var.cas_pool_id
+  role    = "roles/privateca.certificateRequester"
+  member  = "serviceAccount:${var.vm_service_account}"
+}
+
+# This rule is deleted by the startup script upon deployment completion.
+resource "google_compute_firewall" "control_ssh" {
+  count       = var.create_firewall ? 1 : 0
+  name        = "ora-ssh-${google_compute_instance.control_node.name}"
+  project     = var.project_id
+  network     = local.network
+  description = "Temporary rule for deployment ${local.deployment_id}: Allows Control Node SSH access to Database VMs for initial provisioning."
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+  allow {
+    protocol = "icmp"
+  }
+
+  source_tags = [local.control_tag]
+  target_tags = [local.db_tag]
+}
+
+resource "google_compute_firewall" "db_sync" {
+  count       = (local.is_multi_instance && var.create_firewall) ? 1 : 0
+  name        = "oracle-${local.deployment_id}-db-sync"
+  project     = var.project_id
+  network     = local.network
+  description = "Deployment ${local.deployment_id}: Allows inter-database communication on the Oracle listener port for Data Guard synchronization."
+
+  allow {
+    protocol = "tcp"
+    ports    = [var.ora_listener_port]
+  }
+  allow {
+    protocol = "icmp"
+  }
+
+  source_tags = [local.db_tag]
+  target_tags = [local.db_tag]
+}
+
+resource "google_artifact_registry_repository" "os_package_repos" {
+  # Only create repositories if the guard is true and the image family is supported
+  for_each = (var.enable_ar_repo && contains(keys(local.os_upstreams), var.source_image_family)) ? toset(local.os_repo_types) : []
+
+  project       = var.project_id
+  location      = local.region
+  repository_id = "${var.source_image_family}-${each.key}-repo"
+  description   = "Remote repo for ${var.source_image_family} ${each.key} packages"
+  format        = "YUM"
+  mode          = "REMOTE_REPOSITORY"
+
+  remote_repository_config {
+    common_repository {
+      uri = local.os_upstreams[var.source_image_family][each.key]
+    }
+  }
+}
+
+output "control_node_log_url" {
+  description = "Logs Explorer URL with Oracle Toolkit output"
+  value       = "https://console.cloud.google.com/logs/query;query=resource.labels.instance_id%3D${urlencode(google_compute_instance.control_node.instance_id)};duration=P30D?project=${urlencode(var.project_id)}"
+}
+
+output "database_vm_names" {
+  description = "Names of the created database VMs from instance templates"
+  value       = [for vm in google_compute_instance_from_template.database_vm : vm.name]
 }
