@@ -1,8 +1,7 @@
 ---
 - name: Reload Listener
   shell: |
-    {{ oracle_home }}/bin/lsnrctl stop
-    {{ oracle_home }}/bin/lsnrctl start
+    {{ oracle_home }}/bin/lsnrctl reload
   become: true
   become_user: "{{ oracle_user }}"
   environment:

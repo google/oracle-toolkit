@@ -20,7 +20,7 @@
 - name: gcstransfer | Transfer OPatch
   shell: |
     set -o pipefail
-    gcloud storage cat "gs://{{ swlib_mount_src }}/{{ item }}" | {{ ssh_cmd }} "sudo tee \"{{ swlib_path }}/{{ item }}\" > /dev/null"
+    gcloud storage cat "gs://{{ swlib_mount_src }}/{{ item }}" | {{ ssh_cmd }} "cat > \"{{ swlib_path }}/{{ item }}\""
   register: shell_result
   args:
     executable: /bin/bash

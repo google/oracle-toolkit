@@ -204,10 +204,8 @@ resource "google_compute_instance_template" "default" {
     enable-oslogin          = "TRUE"
     
     enable_tls = var.enable_tls
-    # We use ternary operators because these resources don't exist if enable_tls is false
-    tls_key    = var.enable_tls ? google_secret_manager_secret_version.db_private_key_val[0].name : ""
-    tls_cert   = var.enable_tls ? google_secret_manager_secret_version.db_cert_val[0].name : ""
-    wallet_pwd = var.enable_tls ? google_secret_manager_secret_version.wallet_pwd_val[0].name : ""
+    # We use ternary operators because we're referring to conditionally generated values rather than direct user-provided variables.
+    tls_secret = var.enable_tls ? google_secret_manager_secret_version.db_tls_secret_val[0].name : ""
   }
 
   tags = concat([local.db_tag], var.network_tags)
@@ -273,10 +271,9 @@ locals {
     var.ora_pga_target_mb != "" ? "--ora-pga-target-mb ${var.ora_pga_target_mb}" : "",
     var.ora_sga_target_mb != "" ? "--ora-sga-target-mb ${var.ora_pga_target_mb}" : "",
     var.data_guard_protection_mode != "" ? "--data-guard-protection-mode '${var.data_guard_protection_mode}'" : "",
-    var.enable_tls ? "--enable-tls" : "",
-    var.enable_tls ? "--tls-key-secret ${google_secret_manager_secret_version.db_private_key_val[0].name}" : "",
-    var.enable_tls ? "--tls-cert-secret ${google_secret_manager_secret_version.db_cert_val[0].name}" : "",
-    var.enable_tls ? "--wallet-pwd-secret ${google_secret_manager_secret_version.wallet_pwd_val[0].name}" : ""
+    # Automatically pass the single consolidated secret if TLS is enabled; the script infers enablement from this.
+    var.enable_tls ? "--tls-secret ${google_secret_manager_secret_version.db_tls_secret_val[0].name}" : "",
+    local.ar_repo_base_url != "" ? "--ar-repo-url '${local.ar_repo_base_url}'" : ""
   ]))
 }
 
@@ -417,9 +414,10 @@ resource "random_password" "wallet_password" {
 # -----------------------------------------------------------------------------
 
 # Secret: Private Key
-resource "google_secret_manager_secret" "db_private_key" {
+# Secret: Consolidated TLS Payload (Key, Cert, Password)
+resource "google_secret_manager_secret" "db_tls_secret" {
   count     = var.enable_tls ? 1 : 0
-  secret_id = "${var.instance_name}-tls-key"
+  secret_id = "${var.instance_name}-tls-secret"
   project   = var.project_id
   
   replication {
@@ -427,127 +425,34 @@ resource "google_secret_manager_secret" "db_private_key" {
   }
 }
 
-resource "google_secret_manager_secret_version" "db_private_key_val" {
+resource "google_secret_manager_secret_version" "db_tls_secret_val" {
   count       = var.enable_tls ? 1 : 0
-  secret      = google_secret_manager_secret.db_private_key[0].id
-  secret_data = tls_private_key.oracle_db_key[0].private_key_pem
-}
-
-# Secret: Certificate (Public Chain)
-resource "google_secret_manager_secret" "db_cert" {
-  count     = var.enable_tls ? 1 : 0
-  secret_id = "${var.instance_name}-tls-cert"
-  project   = var.project_id
-
-  replication {
-    auto {}
-  }
-}
-
-resource "google_secret_manager_secret_version" "db_cert_val" {
-  count       = var.enable_tls ? 1 : 0
-  secret      = google_secret_manager_secret.db_cert[0].id
-  # Construct full chain: Leaf Cert + Issuer Chain
-  secret_data = "${google_privateca_certificate.oracle_db_cert[0].pem_certificate}\n${join("\n", google_privateca_certificate.oracle_db_cert[0].pem_certificate_chain)}"
-}
-
-# Secret: Wallet Password
-resource "google_secret_manager_secret" "wallet_pwd" {
-  count     = var.enable_tls ? 1 : 0
-  secret_id = "${var.instance_name}-wallet-pwd"
-  project   = var.project_id
-
-  replication {
-    auto {}
-  }
-}
-
-resource "google_secret_manager_secret_version" "wallet_pwd_val" {
-  count       = var.enable_tls ? 1 : 0
-  secret      = google_secret_manager_secret.wallet_pwd[0].id
-  secret_data = random_password.wallet_password[0].result
+  secret      = google_secret_manager_secret.db_tls_secret[0].id
+  
+  # Store all TLS artifacts in a single JSON payload
+  secret_data = jsonencode({
+    key  = tls_private_key.oracle_db_key[0].private_key_pem
+    cert = "${google_privateca_certificate.oracle_db_cert[0].pem_certificate}\n${join("\n", google_privateca_certificate.oracle_db_cert[0].pem_certificate_chain)}"
+    pwd  = random_password.wallet_password[0].result
+  })
 }
 
 # -----------------------------------------------------------------------------
 # IAM & Security Hardening (Task 2)
 # -----------------------------------------------------------------------------
 
-# Grant VM Service Account access ONLY to these specific secrets
-resource "google_secret_manager_secret_iam_member" "vm_access_key" {
+# Grant VM Service Account access ONLY to the consolidated TLS secret
+resource "google_secret_manager_secret_iam_member" "vm_access_tls_secret" {
   count     = var.enable_tls ? 1 : 0
-  secret_id = google_secret_manager_secret.db_private_key[0].id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${var.vm_service_account}"
-}
-
-resource "google_secret_manager_secret_iam_member" "vm_access_cert" {
-  count     = var.enable_tls ? 1 : 0
-  secret_id = google_secret_manager_secret.db_cert[0].id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${var.vm_service_account}"
-}
-
-resource "google_secret_manager_secret_iam_member" "vm_access_pwd" {
-  count     = var.enable_tls ? 1 : 0
-  secret_id = google_secret_manager_secret.wallet_pwd[0].id
+  secret_id = google_secret_manager_secret.db_tls_secret[0].id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${var.vm_service_account}"
 }
 
 # Grant VM Service Account permission to request renewals from the specific CA Pool
-# (Scoped via IAM Condition if needed, or binding directly to the pool resource)
 resource "google_privateca_ca_pool_iam_member" "vm_ca_requester" {
   count      = var.enable_tls ? 1 : 0
   ca_pool    = var.cas_pool_id
   role       = "roles/privateca.certificateRequester"
   member     = "serviceAccount:${var.vm_service_account}"
-}
-
-# This rule is deleted by the startup script upon deployment completion.
-resource "google_compute_firewall" "control_ssh" {
-  count       = var.create_firewall ? 1 : 0
-  name        = "ora-ssh-${google_compute_instance.control_node.name}"
-  project     = var.project_id
-  network     = local.network
-  description = "Temporary rule for deployment ${local.deployment_id}: Allows Control Node SSH access to Database VMs for initial provisioning."
-
-  allow {
-    protocol = "tcp"
-    ports    = ["22"]
-  }
-  allow {
-    protocol = "icmp"
-  }
-
-  source_tags = [local.control_tag]
-  target_tags = [local.db_tag]
-}
-
-resource "google_compute_firewall" "db_sync" {
-  count       = (local.is_multi_instance && var.create_firewall) ? 1 : 0
-  name        = "oracle-${local.deployment_id}-db-sync"
-  project     = var.project_id
-  network     = local.network
-  description = "Deployment ${local.deployment_id}: Allows inter-database communication on the Oracle listener port for Data Guard synchronization."
-
-  allow {
-    protocol = "tcp"
-    ports    = [var.ora_listener_port]
-  }
-  allow {
-    protocol = "icmp"
-  }
-
-  source_tags = [local.db_tag]
-  target_tags = [local.db_tag]
-}
-
-output "control_node_log_url" {
-  description = "Logs Explorer URL with Oracle Toolkit output"
-  value       = "https://console.cloud.google.com/logs/query;query=resource.labels.instance_id%3D${urlencode(google_compute_instance.control_node.instance_id)};duration=P30D?project=${urlencode(var.project_id)}"
-}
-
-output "database_vm_names" {
-  description = "Names of the created database VMs from instance templates"
-  value       = [for vm in google_compute_instance_from_template.database_vm : vm.name]
 }
