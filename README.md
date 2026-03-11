@@ -14,7 +14,7 @@ Supports usage with:
 1. [Extract the toolkit code](/docs/user-guide.md#installing-the-toolkit) on the control node.
 1. Create a Cloud Storage bucket to host Oracle software images.
      ```bash
-     gsutil mb -b on gs://installation-media-1234
+     gcloud storage buckets create --uniform-bucket-level-access gs://installation-media-1234
      ```
 1. [Download software](/docs/user-guide.md#downloading-and-staging-the-oracle-software) from Oracle and populate the bucket. Use [check-swlib.sh](/docs/user-guide.md#validating-media) to determine which files are required for your Oracle version.
 

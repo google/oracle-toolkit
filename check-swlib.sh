@@ -162,6 +162,11 @@ else
 fi
 
 declare -a CMD_ARRAY=("$ANSIBLE_PLAYBOOK" -i "$INVENTORY_FILE")
+CMD_ARRAY+=(-e "ora_version=${ORA_VERSION}")
+CMD_ARRAY+=(-e "ora_release=${ORA_RELEASE}")
+CMD_ARRAY+=(-e "ora_edition=${ORA_EDITION}")
+CMD_ARRAY+=(-e "ora_swlib_bucket=${ORA_SWLIB_BUCKET}")
+CMD_ARRAY+=(-e "ora_disk_mgmt=${ORA_DISK_MGMT}")
 CMD_ARRAY+=("$@")
 
 # Add any passthrough arguments from the script command line

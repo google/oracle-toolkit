@@ -104,7 +104,6 @@ variable "ora_db_domain" {
   }
 }
 
-
 variable "ora_edition" {
   type        = string
   default     = "EE"
@@ -418,11 +417,13 @@ variable "db_hostname" {
   type        = string
   default     = ""
 }
+
 variable "create_firewall" {
   description = "Create firewall rules for Ansible SSH and Oracle Data Guard"
   type        = bool
   default     = false
 }
+
 variable "enable_ar_repo" {
   description = "Controls whether to create Google Cloud Artifact Registry remote repositories to fetch OS packages."
   type        = bool

@@ -155,6 +155,17 @@ echo "Heartbeat started with PID $heartbeat_pid"
 DEST_DIR="/oracle-toolkit"
 
 %{ if !assign_public_ip }
+# Disable default external mirrors that cause timeouts without internet access
+for list in /etc/apt/mirrors/debian.list /etc/apt/mirrors/debian-security.list; do
+    if [[ -f "$list" ]]; then
+        mv "$list" "$list.bak"
+    fi
+done
+mkdir -p /etc/apt/sources.list.d/backup
+mv /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/backup/ 2>/dev/null || true
+if [[ -f /etc/apt/sources.list ]]; then
+    mv /etc/apt/sources.list /etc/apt/sources.list.bak
+fi
 # Use a package mirror accessible via Private Google Access
 cat > /etc/apt/sources.list.d/debian-mirror.list <<-EOF
 deb https://us-apt.pkg.dev/remote/artifact-registry-apt-cache/remote-debian-bookworm bookworm main contrib non-free non-free-firmware

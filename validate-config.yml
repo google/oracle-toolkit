@@ -313,6 +313,13 @@
         fail_msg: "instance-ip-addr and primary-ip-addr cannot be the same."
       when: primary_ip_addr is defined
 
+    - name: Validate AR Repo is not used with free edition
+      ansible.builtin.assert:
+        that:
+          - not (ar_repo_url is defined and ar_repo_url | length > 0)
+        fail_msg: "Artifact Registry repositories (--ar-repo-url) are not supported with the Oracle Database free edition."
+      when: ora_edition is defined and ora_edition == 'FREE'
+
     - name: Validate ASM Disk Configuration
       block:
         - name: Assert that ora_asm_disks and ora_asm_disks_json are mutually exclusive

@@ -13,23 +13,25 @@
 # limitations under the License.
 
 ---
-- name: Add google-cloud-sdk yum repository
+- name: common | Add google-cloud-sdk yum repository
   yum_repository:
     name: google-cloud-sdk
     file: google-cloud
     description: Google Cloud SDK
-    baseurl: https://packages.cloud.google.com/yum/repos/cloud-sdk-el{{ ansible_distribution_major_version }}-x86_64
+    baseurl: "https://packages.cloud.google.com/yum/repos/cloud-sdk-el{{ ansible_distribution_major_version }}-x86_64"
     enabled: yes
     gpgcheck: yes
     repo_gpgcheck: no
     gpgkey:
       - https://packages.cloud.google.com/yum/doc/yum-key.gpg
       - https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+  when: ansible_os_family == "RedHat"
   tags: install-google-cloud-cli
 
-- name: Install Google Cloud CLI
-  dnf:
-    name: google-cloud-cli
-    state: latest
-    lock_timeout: "{{ pkg_mgr_lock_timeout }}"
+- name: common | Install Google Cloud CLI
+  package:
+    name: "{{ 'google-cloud-sdk' if ansible_distribution_major_version | int < 8 else 'google-cloud-cli' }}"
+    state: present
+    lock_timeout: "{{ pkg_mgr_lock_timeout | default(180) }}"
+  when: ansible_os_family == "RedHat"
   tags: install-google-cloud-cli

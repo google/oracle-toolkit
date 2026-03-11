@@ -1,8 +1,9 @@
 LISTENER =
   (DESCRIPTION_LIST =
     (DESCRIPTION =
-      (ADDRESS = (PROTOCOL = TCPS)(HOST = {{ ansible_hostname }})(PORT = 2484))
-      (ADDRESS = (PROTOCOL = TCP)(HOST = {{ ansible_hostname }})(PORT = 1521))
+      (ADDRESS = (PROTOCOL = IPC)(KEY = EXTPROC1521))
+      (ADDRESS = (PROTOCOL = TCP)(HOST = {{ ansible_hostname }})(PORT = {{ ora_listener_port | default('1521') }}))
+      (ADDRESS = (PROTOCOL = TCPS)(HOST = {{ ansible_hostname }})(PORT = {{ ora_tls_listener_port | default('2484') }}))
     )
   )
 

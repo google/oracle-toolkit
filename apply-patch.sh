@@ -214,19 +214,18 @@ ORA_STAGING=${ORA_STAGING%/}
 ORA_SWLIB_BUCKET=${ORA_SWLIB_BUCKET%/}
 ORA_SWLIB_PATH=${ORA_SWLIB_PATH%/}
 
-export ORA_DB_NAME
-export ORA_STAGING
-export ORA_SWLIB_BUCKET
-export ORA_SWLIB_TYPE
-export ORA_SWLIB_PATH
-export ORA_VERSION
-export ORA_RELEASE
-
 echo -e "Running with parameters from command line or environment variables:\n"
 set | grep -E '^(ORA_|BACKUP_|ARCHIVE_)' | grep -v '_PARAM='
 echo
 
 ANSIBLE_PARAMS="-i ${INVENTORY_FILE} "
+ANSIBLE_PARAMS="${ANSIBLE_PARAMS} -e ora_version=${ORA_VERSION}"
+ANSIBLE_PARAMS="${ANSIBLE_PARAMS} -e ora_release=${ORA_RELEASE}"
+ANSIBLE_PARAMS="${ANSIBLE_PARAMS} -e ora_swlib_bucket=${ORA_SWLIB_BUCKET}"
+ANSIBLE_PARAMS="${ANSIBLE_PARAMS} -e ora_swlib_type=${ORA_SWLIB_TYPE}"
+ANSIBLE_PARAMS="${ANSIBLE_PARAMS} -e ora_swlib_path=${ORA_SWLIB_PATH}"
+ANSIBLE_PARAMS="${ANSIBLE_PARAMS} -e ora_staging=${ORA_STAGING}"
+ANSIBLE_PARAMS="${ANSIBLE_PARAMS} -e ora_db_name=${ORA_DB_NAME}"
 ANSIBLE_PARAMS="${ANSIBLE_PARAMS} $@"
 
 echo "Ansible params: ${ANSIBLE_PARAMS}"
