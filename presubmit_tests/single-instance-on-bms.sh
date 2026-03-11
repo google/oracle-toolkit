@@ -18,11 +18,8 @@ node_ip=172.16.117.3
 install -d -m 0700 ~/.ssh
 ssh-keyscan "${node_ip}" > ~/.ssh/known_hosts
 
-sed -i \
-  -e '/^baseurl=/s/^/#/' \
-  -e '/^mirrorlist=/s/^/#/' \
-  -e '$a baseurl=http://vault.centos.org/8-stream/AppStream/x86_64/os/' \
-  /etc/yum.repos.d/CentOS-Stream-AppStream.repo
+sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
 
 # install pre-reqs
 pip install jmespath
