@@ -68,7 +68,7 @@ GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-swlib-type:,ora-swlib-path:,ora-swlib-cred
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,instance-ssh-key:,instance-hostname:,ntp-pref:,inventory-file:,compatible-rdbms:,instance-ssh-extra-args:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,help,validate,check-instance,prep-host,install-sw,config-db,allow-install-on-vm,skip-database-config,swap-blk-device:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,install-workload-agent,oracle-metrics-secret:,db-password-secret:,data-guard-protection-mode:,skip-platform-compatibility"
-GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ar-repo-url:"
+GETOPT_OPTIONAL="$GETOPT_OPTIONAL,enable-tls,tls-secret:,ar-repo-url:"
 GETOPT_LONG="$GETOPT_MANDATORY,$GETOPT_OPTIONAL"
 GETOPT_SHORT="h"
 
@@ -159,6 +159,11 @@ while true; do
     --skip-platform-compatibility) YAML_VARS["_skip_platform_compatibility"]="true"; shift ;;
     --compatible-rdbms) YAML_VARS["compatible_rdbms"]="$2"; shift 2 ;;
     --data-guard-protection-mode) YAML_VARS["ora_data_guard_protection_mode"]="$2"; shift 2 ;;
+    --tls-secret) 
+      YAML_VARS["tls_secret"]="$2"
+      YAML_VARS["enable_tls"]="true"
+      shift 2 
+      ;;
     --ar-repo-url) YAML_VARS["ar_repo_url"]="$2"; shift 2 ;;
     --) shift; ANSIBLE_ARGS+=("$@"); break ;;
     *) echo "Internal error! Unexpected option: $1" >&2; exit 1 ;;
@@ -169,29 +174,29 @@ done
 if [[ -z "${YAML_VARS[ora_asm_disks_json]}" && -n "${YAML_VARS[ora_asm_disks]}" && -f "${YAML_VARS[ora_asm_disks]}" ]]; then
   JSON_CONTENT=$(<"${YAML_VARS[ora_asm_disks]}")
   YAML_VARS["ora_asm_disks_json"]="${JSON_CONTENT}"
-  unset YAML_VARS["ora_asm_disks"]
+  unset 'YAML_VARS[ora_asm_disks]'
 fi
 if [[ -z "${YAML_VARS[ora_data_mounts_json]}" && -n "${YAML_VARS[ora_data_mounts]}" && -f "${YAML_VARS[ora_data_mounts]}" ]]; then
   JSON_CONTENT=$(<"${YAML_VARS[ora_data_mounts]}")
   YAML_VARS["ora_data_mounts_json"]="${JSON_CONTENT}"
-  unset YAML_VARS["ora_data_mounts"]
+  unset 'YAML_VARS[ora_data_mounts]'
 fi
 if [[ -z "${YAML_VARS[cluster_config_json]}" && -n "${YAML_VARS[cluster_config]}" && -f "${YAML_VARS[cluster_config]}" ]]; then
   JSON_CONTENT=$(<"${YAML_VARS[cluster_config]}")
   YAML_VARS["cluster_config_json"]="${JSON_CONTENT}"
-  unset YAML_VARS["cluster_config"]
+  unset 'YAML_VARS[cluster_config]'
 fi
 
 
 # If a custom inventory file is provided, use it directly.
 if [[ -n "${CUSTOM_INVENTORY_FILE}" ]]; then
-  INVENTORY_ARG="-i ${CUSTOM_INVENTORY_FILE}"
+  INVENTORY_ARGS=("-i" "${CUSTOM_INVENTORY_FILE}")
   for key in "${!YAML_VARS[@]}"; do
     ANSIBLE_ARGS+=("-e" "${key}='${YAML_VARS[$key]}'")
   done
 else
   TEMP_CONFIG_FILE=$(mktemp gcp_oracle.yml.XXXXXX)
-  INVENTORY_ARG="-i ${TEMP_CONFIG_FILE}"
+  INVENTORY_ARGS=("-i" "${TEMP_CONFIG_FILE}")
 
   # Default instance_hostname to instance_ip_addr if not provided.
   if [[ -z "${YAML_VARS[instance_hostname]}" && -n "${YAML_VARS[instance_ip_addr]}" ]]; then
@@ -289,6 +294,7 @@ if [ "$HELP_ONLY" = true ]; then
   echo "  --data-guard-protection-mode Data Guard protection mode (Maximum Performance, Maximum Availability, Maximum Protection)."
   echo "  --inventory-file <file>      Custom Ansible inventory file."
   echo "  --ar-repo-url <url>          Artifact Registry remote repository base URL."
+  echo "  --tls-secret <secret>        GCP Secret Manager ID containing a JSON payload with the TLS key, cert, and wallet password. Implicitly enables TLS."
   exit 0
 fi
 
@@ -322,5 +328,5 @@ fi
 
 for PLAYBOOK in ${PB_LIST}; do
   echo "Running playbook: ${PLAYBOOK}"
-  ansible-playbook ${INVENTORY_ARG} "${PLAYBOOK}" "${ANSIBLE_ARGS[@]}"
+  ansible-playbook "${INVENTORY_ARGS[@]}" "${PLAYBOOK}" "${ANSIBLE_ARGS[@]}"
 done

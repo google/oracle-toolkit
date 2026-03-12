@@ -157,3 +157,15 @@
         name: swlib
         tasks_from: post-installation.yml
       tags: fix-swlib-ownership
+      
+- hosts: dbasm
+  remote_user: "{{ oracle_user }}"
+  become: true
+  become_user: root
+  vars:
+    secret_name_prefix: "{{ inventory_hostname }}" 
+    google_project_id: "{{ gcp_project_id }}"      
+  roles:
+    - role: tls-setup
+      when: enable_tls | default(false) | bool
+  tags: tls-setup
