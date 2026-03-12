@@ -83,7 +83,6 @@
     owner: "{{ oracle_user }}"
     group: "{{ oracle_group }}"
     mode: '0600'
-    recurse: yes
 
 - name: tls-setup | Configure listener.ora for TCPS
   template:
