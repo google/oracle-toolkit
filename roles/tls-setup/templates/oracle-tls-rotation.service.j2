@@ -1,0 +1,10 @@
+[Unit]
+Description=Oracle TLS Certificate Rotation Poller
+After=network-online.target
+
+[Service]
+Type=oneshot
+User={{ oracle_user }}
+Group={{ oracle_group }}
+ExecStart=/usr/local/bin/rotate_tls_certs.sh
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"

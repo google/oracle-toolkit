@@ -49,3 +49,9 @@ dns_zone_name     = "oracle-internal-dns-zone"
 # ------------------------------------------------------------------------
 # Required by main.tf for Private DNS Zone visibility
 vpc_network_self_link = "projects/your-gcp-project-id/global/networks/your-vpc-network"
+
+# Note on Day-2 Operations:
+# Setting enable_tls = true automatically deploys a zero-downtime certificate rotation 
+# systemd service on the database nodes. Because this architecture uses a strict Zero-Trust 
+# model, no additional IAM permissions or Terraform resources are required here. The VMs will
+# autonomously poll Secret Manager for updates using their existing secretAccessor roles.

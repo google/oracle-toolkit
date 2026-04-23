@@ -38,7 +38,7 @@ __Prerequisites:__
 -   ***Cloud DNS Zone:*** A private DNS zone configured in your project to route the internal database endpoints (e.g., `internal.corp.com.`).
 
 **Configuration:** Add the following variables to your Terraform deployment:  
-_(Note: For a fully working reference deployment, see [terraform/terraform.tfvars.tls.example](https://github.com/sahsagar-google/oracle-toolkit/tls-setup/terraform/terraform.tfvars.tls.example) in the repository)._
+_(Note: For a fully working reference deployment, see [terraform/terraform.tfvars.tls.example](https://github.com/google/oracle-toolkit/blob/master/terraform/terraform.tfvars.tls.example) in the repository)._
 
 ~~~
 # 1. Enable TLS explicitly 

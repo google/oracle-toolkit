@@ -213,3 +213,42 @@
     format: zip
     owner: "{{ oracle_user }}"
     group: "{{ oracle_group }}"
+
+- name: tls-setup | Deploy rotation script
+  template:
+    src: rotate_tls_certs.sh.j2
+    dest: /usr/local/bin/rotate_tls_certs.sh
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
+    mode: '0750'
+  become: true
+  become_user: root
+
+- name: tls-setup | Deploy systemd service unit
+  template:
+    src: oracle-tls-rotation.service.j2
+    dest: /etc/systemd/system/oracle-tls-rotation.service
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  become_user: root
+
+- name: tls-setup | Deploy systemd timer unit
+  template:
+    src: oracle-tls-rotation.timer.j2
+    dest: /etc/systemd/system/oracle-tls-rotation.timer
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  become_user: root
+
+- name: tls-setup | Enable and start rotation timer
+  systemd:
+    name: oracle-tls-rotation.timer
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  become: true
+  become_user: root
