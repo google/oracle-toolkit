@@ -69,6 +69,8 @@ oracle_required_rpms_el8:
   - compat-openssl10
   - elfutils-libelf
   - fontconfig
+  - gcc
+  - gcc-c++
   - libasan
   - libibverbs
   - liblsan
@@ -86,6 +88,8 @@ oracle_required_rpms_el9:
   - compat-openssl11
   - elfutils-libelf
   - fontconfig
+  - gcc
+  - gcc-c++
   - glibc-headers
   - grub2-tools
   - libasan

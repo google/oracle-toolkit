@@ -114,6 +114,17 @@
     - not (ansible_distribution == 'RedHat' and ansible_distribution_major_version | int == 7)
   tags: os-packages
 
+- name: Create libcap.so.1 symlink for Oracle compatibility on EL8/EL9
+  file:
+    src: "/usr/lib64/libcap.so.2"
+    dest: "/usr/lib64/libcap.so.1"
+    state: link
+  when:
+    - ansible_os_family == 'RedHat'
+    - ansible_distribution_major_version | int in [8, 9]
+    - oracle_ver is version('12.2.0.1.0', '<')
+  tags: os-packages
+
 - name: Skip Google Cloud CLI installation if non-RHEL OS detected
   debug:
     msg: "Non-RHEL OS detected. Skipping the installation of Google Cloud CLI"

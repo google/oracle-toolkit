@@ -26,15 +26,15 @@
 
 - name: Get base and latest releases
   block:
-    - name: Create a list of releases for the target base version | not 11g
+    - name: Create a list of releases for the target base version | 12.2+
       ansible.builtin.set_fact:
         releases_for_base: "{{ rdbms_patches | selectattr('base', 'match', oracle_ver_base) | selectattr('category', 'eq', 'DB_RU') | map(attribute='release') | list }}"
-      when: oracle_ver_base is not match('^11.2.*')
+      when: not oracle_ver_base is match('^(11\.2|12\.1).*')
 
-    - name: Create a list of releases for the target base version | 11g
+    - name: Create a list of releases for the target base version | 11g / 12.1
       ansible.builtin.set_fact:
         releases_for_base: "{{ rdbms_patches | selectattr('base', 'match', oracle_ver_base) | selectattr('category', 'eq', 'PSU_Combo') | map(attribute='release') | list }}"
-      when: oracle_ver_base is match('^11.2.*')
+      when: oracle_ver_base is match('^(11\.2|12\.1).*')
 
     - name: Set lowest and highest release from the list
       ansible.builtin.set_fact:

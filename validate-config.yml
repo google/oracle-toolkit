@@ -262,6 +262,15 @@
         fail_msg: "Invalid instance-hostname format."
       when: cluster_type != 'RAC'
 
+    - name: Validate hostname length for legacy Grid Infrastructure deployments
+      ansible.builtin.assert:
+        that:
+          - inventory_hostname | length <= 30
+        fail_msg: "For legacy Oracle versions (< 12.2) using Grid Infrastructure (ASM), the hostname '{{ inventory_hostname }}' must not exceed 30 characters due to OLR/ADR buffer limits. Current length: {{ inventory_hostname | length }}."
+      when:
+        - gi_install | bool
+        - oracle_ver is version('12.2.0.1.0', '<')
+
     - name: Validate instance_ip_addr
       ansible.builtin.assert:
         that:

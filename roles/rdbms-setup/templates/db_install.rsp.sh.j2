@@ -25,14 +25,14 @@ sed -i 's~^[# ]*INVENTORY_LOCATION=.*$~INVENTORY_LOCATION={{ oracle_inventory }}
 sed -i 's~^[# ]*ORACLE_HOME=.*$~ORACLE_HOME={{ oracle_home }}~' "$RSP_DEST"
 sed -i 's~^[# ]*ORACLE_BASE=.*$~ORACLE_BASE={{ oracle_base }}~' "$RSP_DEST"
 
-# 3. Comprehensive OS Group Mapping for 26ai (Required for INS-35344)
-# Targets both the new 26ai keys (OSDBA, etc.) and legacy keys (OSDBA_GROUP)
-sed -i 's~^[# ]*\(oracle.install.db.OSDBA_GROUP\|OSDBA\)=.*$~\1=dba~' "$RSP_DEST"
-sed -i 's~^[# ]*\(oracle.install.db.OSOPER_GROUP\|OSOPER\)=.*$~\1=dba~' "$RSP_DEST"
-sed -i 's~^[# ]*\(oracle.install.db.OSBACKUPDBA_GROUP\|OSBACKUPDBA\)=.*$~\1=dba~' "$RSP_DEST"
-sed -i 's~^[# ]*\(oracle.install.db.OSDGDBA_GROUP\|OSDGDBA\)=.*$~\1=dba~' "$RSP_DEST"
-sed -i 's~^[# ]*\(oracle.install.db.OSKMDBA_GROUP\|OSKMDBA\)=.*$~\1=dba~' "$RSP_DEST"
-sed -i 's~^[# ]*\(oracle.install.db.OSRACDBA_GROUP\|OSRACDBA\)=.*$~\1=dba~' "$RSP_DEST"
+# 3. Comprehensive OS Group Mapping (Handles variants with/without "OS" prefixes)
+# Targets: oracle.install.db.DBA_GROUP, oracle.install.db.OSDBA_GROUP, and OSDBA
+sed -i 's~^[# ]*\(oracle.install.db.\(OS\)\?DBA_GROUP\|OSDBA\)=.*$~\1=dba~' "$RSP_DEST"
+sed -i 's~^[# ]*\(oracle.install.db.\(OS\)\?OPER_GROUP\|OSOPER\)=.*$~\1=dba~' "$RSP_DEST"
+sed -i 's~^[# ]*\(oracle.install.db.\(OS\)\?BACKUPDBA_GROUP\|OSBACKUPDBA\)=.*$~\1=dba~' "$RSP_DEST"
+sed -i 's~^[# ]*\(oracle.install.db.\(OS\)\?DGDBA_GROUP\|OSDGDBA\)=.*$~\1=dba~' "$RSP_DEST"
+sed -i 's~^[# ]*\(oracle.install.db.\(OS\)\?KMDBA_GROUP\|OSKMDBA\)=.*$~\1=dba~' "$RSP_DEST"
+sed -i 's~^[# ]*\(oracle.install.db.\(OS\)\?RACDBA_GROUP\|OSRACDBA\)=.*$~\1=dba~' "$RSP_DEST"
 
 # 4. Security and Support Updates
 sed -i 's~^[# ]*SECURITY_UPDATES_VIA_MYORACLESUPPORT=.*$~SECURITY_UPDATES_VIA_MYORACLESUPPORT=false~' "$RSP_DEST"
