@@ -26,6 +26,13 @@ setup_vars() {
     exit 1
   fi
   apk add --no-cache zip curl py3-pip expect || exit 1
+
+  # Force gcloud to use the preinstalled Python 3.14 environment
+  # which already has grpcio installed, preventing version mismatch conflicts
+  # with the system Python 3.12 dynamically pulled in by apk for py3-pip.
+  export CLOUDSDK_PYTHON=python3
+  export CLOUDSDK_PYTHON_SITEPACKAGES=1
+
   gcs_bucket="gs://oracle-toolkit-presubmit-artifacts"
   # Append BUILD_ID to the file name to ensure each zip file gets a unique name.
   # This prevents one test from deleting the file while it's still in use by another concurrently running test.
@@ -128,15 +135,14 @@ EOF
   # 'unbuffer' is used here to avoid delayed and missing logs caused by output buffering in non-interactive session"
   # gcloud logging tail has a 1-hour session limit. We run it in a loop to maintain continuous log streaming beyond that limit.
   setsid bash <<EOF &
-    export CLOUDSDK_PYTHON_SITEPACKAGES=1
     while true; do
-      echo "$(date '+%Y-%m-%d %H:%M:%S')    Starting gcloud logging tail session..."
+      echo "\$(date '+%Y-%m-%d %H:%M:%S')    Starting gcloud logging tail session..."
       PYTHONWARNINGS="ignore" unbuffer gcloud alpha logging tail \
       "resource.type=gce_instance AND \
       resource.labels.instance_id=${control_node_instance_id} \
       AND log_name=projects/${project_id}/logs/google_metadata_script_runner" \
       --format='value(timestamp.date(format="%Y-%m-%d %H:%M:%S"), json_payload.message.sub("^startup-script: ", ""))'
-      echo "$(date '+%Y-%m-%d %H:%M:%S')     Tail session ended. Restarting..."
+      echo "\$(date '+%Y-%m-%d %H:%M:%S')     Tail session ended. Restarting..."
     done
 EOF
 
