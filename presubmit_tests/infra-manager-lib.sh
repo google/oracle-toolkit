@@ -25,11 +25,10 @@ setup_vars() {
     echo "\$deployment_name is missing." >&2
     exit 1
   fi
-  apk add --no-cache zip curl py3-pip expect || exit 1
+  apk add --no-cache zip curl expect || exit 1
 
   # Force gcloud to use the preinstalled Python 3.14 environment
-  # which already has grpcio installed, preventing version mismatch conflicts
-  # with the system Python 3.12 dynamically pulled in by apk for py3-pip.
+  # which already has grpcio prepackaged, ensuring robust execution.
   export CLOUDSDK_PYTHON=python3
   export CLOUDSDK_PYTHON_SITEPACKAGES=1
 
@@ -126,7 +125,6 @@ EOF
   # https://cloud.google.com/logging/docs/reference/tools/gcloud-logging#install_live_tailing
   echo "Installing required gcloud alpha components..."
   gcloud --quiet components install alpha || exit 1
-  pip3 install grpcio --break-system-packages || exit 1
   echo "Streaming logs from the control node's startup script execution..."
   echo
 
