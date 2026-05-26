@@ -26,12 +26,6 @@ setup_vars() {
     exit 1
   fi
   apk add --no-cache zip curl expect || exit 1
-
-  # Force gcloud to use the preinstalled Python 3.14 environment
-  # which already has grpcio prepackaged, ensuring robust execution.
-  export CLOUDSDK_PYTHON=python3
-  export CLOUDSDK_PYTHON_SITEPACKAGES=1
-
   gcs_bucket="gs://oracle-toolkit-presubmit-artifacts"
   # Append BUILD_ID to the file name to ensure each zip file gets a unique name.
   # This prevents one test from deleting the file while it's still in use by another concurrently running test.
