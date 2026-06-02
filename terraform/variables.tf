@@ -249,7 +249,16 @@ variable "create_storage_pool" {
     pool_provisioned_iops         = optional(number, 10000)
     pool_provisioned_throughput   = optional(number, 1024)
   })
-  default = null
+  default = {
+    enabled                       = false
+    storage_pool_type             = "hyperdisk-balanced"
+    capacity_provisioning_type    = "advanced"
+    deletion_protection           = true
+    performance_provisioning_type = "advanced"
+    pool_provisioned_capacity_gb  = 10240
+    pool_provisioned_iops         = 10000
+    pool_provisioned_throughput   = 1024
+  }
 
   validation {
     condition = var.create_storage_pool == null || contains(
