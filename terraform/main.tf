@@ -446,7 +446,7 @@ resource "google_compute_instance" "control_node" {
     }
 
     precondition {
-      condition = !local.storage_pool_enabled || (
+      condition = !local.create_pool_enabled || (
         var.create_storage_pool.enabled &&
         var.oracle_home_disk.type == var.create_storage_pool.storage_pool_type &&
         var.data_disk.type == var.create_storage_pool.storage_pool_type &&

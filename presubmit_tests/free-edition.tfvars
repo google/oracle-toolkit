@@ -53,8 +53,6 @@ ora_db_name = "orcl"
 ora_db_domain = "test1.example_domain01.com"
 ora_db_container = true
 
-
-# --- Optional Shared Storage Pools ---
 # To create new database disks using a shared Hyperdisk Storage Pools:
 create_storage_pool = {
  enabled                       = true

@@ -16,7 +16,6 @@ This setup supports the deployment of the following configurations:
 - Network configuration using specified subnets and NAT IPs
 - Custom startup scripts for VM initialization (Google Cloud metadata [startup scripts](https://cloud.google.com/compute/docs/instances/startup-scripts/linux))
 - Ansible automation for post-provisioning configuration tasks
-- Storage Pools options for VM deployments
 
 This approach is particularly suitable for deploying and configuring:
 
