@@ -1,3 +1,4 @@
+# Test commit to trigger presubmit
 DOCUMENTATION = r'''
     name: gcp_oracle_inventory
     plugin_type: inventory
