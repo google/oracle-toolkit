@@ -1,0 +1,17 @@
+# ASM disk udev rules (Managed by https://github.com/google/oracle-toolkit)
+
+{% if uuid_result is defined and uuid_result %}
+# Multipath ASM disks
+{% for uuid, disk_list in uuid_result.items() %}
+# ASM disk udev rules for {{ disk_list | json_query('[*].blk_device') | list | join(', ') }}
+SUBSYSTEM=="block", ACTION=="add|change", ENV{DM_UUID}=="{{ uuid }}", SYMLINK+="{{ path_udev }}/{{ disk_list | json_query('[*].name') | list | join(', ') }}", GROUP="{{ grid_group }}", OWNER="{{ grid_user }}", MODE="0660"
+{% endfor %}
+{% endif %}
+
+{% if uuid_result_nonmultipath is defined and uuid_result_nonmultipath %}
+# Non-multipath ASM disks
+{% for serial, disk_list in uuid_result_nonmultipath.items() %}
+# ASM disk udev rules for {{ disk_list | json_query('[*].blk_device') | list | join(', ') }}
+SUBSYSTEM=="block", ACTION=="add|change", ENV{ID_SERIAL_SHORT}=="{{ serial }}", SYMLINK+="{{ path_udev }}/{{ disk_list | json_query('[*].name') | list | join(', ') }}", GROUP="{{ grid_group }}", OWNER="{{ grid_user }}", MODE="0660"
+{% endfor %}
+{% endif %}

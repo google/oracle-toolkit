@@ -352,20 +352,6 @@
   with_items: "{{ udevadm_result_nonmultipath.results }}"
   tags: udev-mpath
 
-- name: (udev) Add ASM non-multipath disk rules (udev rules file)
-  become: true
-  become_user: root
-  blockinfile:
-    block: "SUBSYSTEM==\"block\" ACTION==\"add|change\", ENV{ID_SERIAL_SHORT}==\"{{ item.key }}\", SYMLINK+=\"{{ path_udev }}/{{ uuid_result_nonmultipath[item.key] | json_query('[*].name') | list | join(', ') }}\", GROUP=\"{{ grid_group }}\", OWNER=\"{{ grid_user }}\", MODE=\"0660\""
-    path: "/etc/udev/rules.d/99-oracle-asmdevices.rules"
-    marker: "# {mark} ASM disk udev rules for {{ uuid_result_nonmultipath[item.key] | json_query('[*].blk_device') | list | join(', ') }}"
-    create: true
-  register: udevRules_nonmultipath
-  when: uuid_result_nonmultipath is defined
-  with_dict:
-    - "{{ uuid_result_nonmultipath }}"
-  tags: udev-mpath
-
 ######## Udev rules for multipath disks ########
 
 - name: (udev) Add ASM mpath disk rules (udevadm info)
@@ -392,18 +378,16 @@
   with_items: "{{ udevadm_result.results }}"
   tags: udev-mpath
 
-- name: (udev) Add ASM mpath disk rules (udev rules file)
+- name: (udev) Generate ASM udev rules file
   become: true
   become_user: root
-  blockinfile:
-    block: "SUBSYSTEM==\"block\" ACTION==\"add|change\", ENV{DM_UUID}==\"{{ item.key }}\", SYMLINK+=\"{{ path_udev }}/{{ uuid_result[item.key] | json_query('[*].name') | list | join(', ') }}\", GROUP=\"{{ grid_group }}\", OWNER=\"{{ grid_user }}\", MODE=\"0660\""
-    path: "/etc/udev/rules.d/99-oracle-asmdevices.rules"
-    marker: "# {mark} ASM disk udev rules for {{ uuid_result[item.key] | json_query('[*].blk_device') | list | join(', ') }}"
-    create: true
-  register: udevRules
-  when: uuid_result is defined
-  with_dict:
-    - "{{ uuid_result }}"
+  template:
+    src: 99-oracle-asmdevices.rules.j2
+    dest: /etc/udev/rules.d/99-oracle-asmdevices.rules
+    owner: root
+    group: root
+    mode: '0644'
+  when: (uuid_result is defined and uuid_result) or (uuid_result_nonmultipath is defined and uuid_result_nonmultipath)
   tags: udev-mpath
 
 - name: (udev) reload rules
