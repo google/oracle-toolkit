@@ -88,15 +88,22 @@ apply_deployment() {
 watch_logs() {
   # Extract the id of the control node resource
   # The format is: projects/<project>/zones/<zone>/instances/control-node-<random-suffix>
-  control_node_resource_id="$(gcloud infra-manager resources list \
-  --deployment="${deployment_name}" \
-  --location="${location}" \
-  --revision=r-0 \
-  --filter='terraformInfo.address=google_compute_instance.control_node' \
-  --format='value(terraformInfo.id)')" || {
+  local control_node_resource_id=""
+  while read -r address id; do
+    if [[ "${address}" == "google_compute_instance.control_node" ]]; then
+      control_node_resource_id="${id}"
+      break
+    fi
+  done < <(gcloud infra-manager resources list \
+    --deployment="${deployment_name}" \
+    --location="${location}" \
+    --revision=r-0 \
+    --format="value(terraformInfo.address,terraformInfo.id)")
+
+  if [[ -z "${control_node_resource_id}" ]]; then
     echo "Error: Failed to retrieve control node's resource ID." >&2
     exit 1
-  }
+  fi
 
   # Get the instance ID from the instance resource
   control_node_instance_id="$(gcloud compute instances describe "${control_node_resource_id}" --format="value(id)")" || {
