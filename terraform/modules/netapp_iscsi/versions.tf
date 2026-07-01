@@ -1,4 +1,4 @@
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,24 +13,15 @@
 # limitations under the License.
 
 terraform {
-  required_version = ">= 1.5.7"
+  required_version = ">= 1.5.0"
   required_providers {
     google = {
-      source = "hashicorp/google"
-      # Raised from "~> 6.31.0" to support the Google Cloud NetApp Volumes (GCNV)
-      # iSCSI resources (google_netapp_storage_pool and google_netapp_volume
-      # block_devices), which are only available in provider >= 7.x. Hyperdisk
-      # behavior is unchanged; regression-test the Hyperdisk path on 7.x.
-      version = ">= 7.0.0, < 8.0.0"
-    }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.7.2"
+      source  = "hashicorp/google"
+      version = ">= 7.0.0"
     }
     time = {
       source  = "hashicorp/time"
-      version = "~> 0.9"
+      version = ">= 0.9.0"
     }
   }
 }
-

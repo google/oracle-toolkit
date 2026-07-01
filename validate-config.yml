@@ -70,6 +70,21 @@
           - ora_disk_management in ['asmlib', 'asmudev', 'udev', 'fs']
         fail_msg: "Invalid ora-disk-management '{{ ora_disk_management }}'. Must be one of: asmlib, asmudev, udev, fs."
 
+    - name: Validate storage_backend value
+      ansible.builtin.assert:
+        that:
+          - storage_backend in ['gce-pd', 'gcnv']
+        fail_msg: "Invalid storage-backend '{{ storage_backend }}'. Must be one of: gce-pd, gcnv."
+
+    - name: Validate GCNV fulfillment plan format
+      ansible.builtin.assert:
+        that:
+          - gcnv_fulfillment_json is defined
+          - (gcnv_fulfillment_json | type_debug) == 'list'
+          - gcnv_fulfillment_json | length > 0
+        fail_msg: "gcnv-fulfillment-json must be a non-empty list when using GCNV storage."
+      when: is_gcnv
+
     - name: Validate RAC is not used with FS
       ansible.builtin.assert:
         that:

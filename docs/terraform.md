@@ -149,6 +149,22 @@ Upload the ZIP file to your GCS bucket:
 gcloud storage cp /tmp/oracle-toolkit.zip gs://your-bucket-name/
 ```
 
+### 5. Deployer Principal Permissions
+
+The user or service account (such as the Infrastructure Manager service account) executing `terraform apply` requires permissions to manage the resources defined in the toolkit. For least-privilege deployments, grant the following roles:
+
+- `roles/compute.instanceAdmin.v1` (to manage VMs, templates, and disks)
+- `roles/compute.securityAdmin` (to manage firewall rules)
+- `roles/secretmanager.admin` (to manage secrets)
+- `roles/artifactregistry.admin` (to manage Artifact Registry repositories)
+- `roles/privateca.caManager` (to manage Private CA if TLS is enabled)
+- `roles/iam.serviceAccountUser` on the Control Node and Database VM service accounts (to allow assigning them to the VMs)
+
+#### Additional Roles for GCNV Storage Backend:
+If deploying with `storage_backend = "gcnv"`, the deployer also requires:
+- `roles/compute.networkAdmin` (to configure Private Service Access: reserve IP range and create peering)
+- `roles/netapp.admin` (to create NetApp storage pools and volumes)
+
 ---
 
 ## Project Directory Structure

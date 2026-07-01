@@ -30,6 +30,8 @@ secrets/
 terraform/*sh-key*
 vault_password_file
 terraform/terraform.tfvars
+**/*.tfstate
+**/*.tfstate.*
 # Python bytecode
 *.pyc
 __pycache__/

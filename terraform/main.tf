@@ -17,6 +17,20 @@ locals {
   is_fs              = upper(var.ora_disk_mgmt) == "FS"
   ora_disk_mgmt_flag = upper(var.ora_disk_mgmt)
 
+  # Storage backend helper. When "gcnv", the u01 (Oracle binaries) and DATA/RECO
+  # disk groups are served by Google Cloud NetApp Volumes iSCSI LUNs (presented
+  # as /dev/mapper/* by the iscsi-multipath role) instead of attached Hyperdisks.
+  # Only swap (and the GCE boot disk) remain on Hyperdisk in GCNV mode, since
+  # the OS must be running to reach an iSCSI LUN and swapping over the network is
+  # unsafe.
+  is_gcnv = lower(var.storage_backend) == "gcnv"
+
+  # GCNV LUNs are bound to deterministic DM-Multipath aliases of the form
+  # /dev/mapper/<deployment>_<name> (e.g. /dev/mapper/orcl_data). These
+  # device_names are sourced from GCNV; everything else (swap) stays on Hyperdisk.
+  gcnv_alias_prefix = replace(lower(local.deployment_id), "-", "_")
+  gcnv_lun_devices  = ["oracle_home", "data", "reco"]
+
   # Base disk definitions (do not change device_name values)
   _u01 = {
     auto_delete  = true
@@ -88,7 +102,7 @@ locals {
   data_mounts_config = [
     for i, d in local.fs_disks : {
       purpose     = d.disk_labels.purpose
-      blk_device  = "/dev/disk/by-id/google-${d.device_name}"
+      blk_device  = local.blk_device_for[d.device_name]
       name        = format("u%02d", i + 1)
       fstype      = "xfs"
       mount_point = format("/u%02d", i + 1)
@@ -102,15 +116,32 @@ locals {
       diskgroup = upper(g)
       disks = [
         for d in local.asm_disks : {
-          blk_device = "/dev/disk/by-id/google-${d.device_name}"
+          blk_device = local.blk_device_for[d.device_name]
           name       = d.device_name
         } if lookup(d.disk_labels, "diskgroup", null) == g
       ]
     }
   ]
 
-  # Concatenetes both lists to be passed down to the instance module
-  additional_disks = concat(local.fs_disks, local.asm_disks)
+  # Resolves the block-device path for every logical disk. GCNV DATA/RECO map to
+  # their deterministic /dev/mapper alias; all other disks (and the entire
+  # Hyperdisk backend) keep the existing /dev/disk/by-id/google-* path.
+  blk_device_for = {
+    for d in concat(local.fs_disks, local.asm_disks) :
+    d.device_name => (
+      (local.is_gcnv && contains(local.gcnv_lun_devices, d.device_name))
+      ? "/dev/mapper/${local.gcnv_alias_prefix}_${d.device_name}"
+      : "/dev/disk/by-id/google-${d.device_name}"
+    )
+  }
+
+  # Concatenetes both lists to be passed down to the instance module. In GCNV
+  # mode the u01/DATA/RECO devices live on iSCSI LUNs, so they are not attached
+  # as Hyperdisks (only swap remains; the boot disk is separate).
+  additional_disks = [
+    for d in concat(local.fs_disks, local.asm_disks) : d
+    if !(local.is_gcnv && contains(local.gcnv_lun_devices, d.device_name))
+  ]
 
   # Storage pool enabled if either auto-create is requested OR existing pools are mapped
   storage_pool_enabled = (var.create_storage_pool != null && try(var.create_storage_pool.enabled, false)) || length(var.existing_storage_pools) > 0
@@ -191,6 +222,13 @@ locals {
   network = local.subnetwork1_opt == null ? "projects/${var.project_id}/global/networks/default" : data.google_compute_subnetwork.subnetwork1_info.network
   # Derive region from zone1 (e.g., us-central1-b -> us-central1)
   region = join("-", slice(split("-", var.zone1), 0, 2))
+
+  # VPC network name for GCNV PSA / host groups. Prefer an explicit override,
+  # otherwise take the last path segment of the resolved network self_link.
+  gcnv_network_name = (
+    var.gcnv_network_name != "" ? var.gcnv_network_name :
+    element(split("/", local.network), length(split("/", local.network)) - 1)
+  )
 
   os_repo_types = ["baseos", "appstream"]
 
@@ -344,6 +382,60 @@ resource "google_compute_attached_disk" "pool_disks" {
   device_name = each.value.device_name
 }
 
+# -----------------------------------------------------------------------------
+# Google Cloud NetApp Volumes (GCNV) storage backend (storage_backend = "gcnv")
+# PSA peering + Flex pool + iSCSI LUNs + Host Groups, all provisioned in a
+# single Terraform run. Each Host Group is created with a placeholder IQN
+# (since a VM's real initiator IQN only exists after it boots) and its LUNs
+# are attached to it immediately. During host prep, the gcnv-provision Ansible
+# role reads each VM's real IQN and updates its Host Group via the NetApp API;
+# Terraform ignores drift on that field so the update sticks. All resources
+# are gated on local.is_gcnv, so the gce-pd path is untouched.
+# -----------------------------------------------------------------------------
+module "gcnv_psa" {
+  count  = (local.is_gcnv && var.gcnv_create_psa) ? 1 : 0
+  source = "./modules/gcnv_psa"
+
+  create_psa         = true
+  network_project_id = var.gcnv_network_project_id != "" ? var.gcnv_network_project_id : var.project_id
+  network_name       = local.gcnv_network_name
+  psa_range_name     = var.gcnv_psa_range_name
+  psa_prefix_length  = var.gcnv_psa_prefix_length
+  psa_reserved_cidr  = var.gcnv_psa_reserved_cidr
+}
+
+module "netapp_iscsi" {
+  count  = local.is_gcnv ? 1 : 0
+  source = "./modules/netapp_iscsi"
+
+  depends_on = [module.gcnv_psa]
+
+  name_prefix                = local.deployment_id
+  pool_name                  = var.gcnv_pool_name != "" ? var.gcnv_pool_name : "${local.deployment_id}-flex-pool"
+  pool_location              = var.gcnv_pool_location != "" ? var.gcnv_pool_location : var.zone1
+  pool_capacity_gib          = var.gcnv_pool_capacity_gib
+  pool_service_level         = var.gcnv_pool_service_level
+  pool_type                  = var.gcnv_pool_type
+  custom_performance_enabled = var.gcnv_custom_performance_enabled
+  total_throughput_mibps     = var.gcnv_total_throughput_mibps
+  total_iops                 = var.gcnv_total_iops
+  host_os_type               = var.gcnv_host_os_type
+
+  project_id         = var.project_id
+  network_name       = local.gcnv_network_name
+  network_project_id = var.gcnv_network_project_id != "" ? var.gcnv_network_project_id : var.project_id
+
+  # One u01/DATA/RECO LUN set per database node, keyed to match local.instances.
+  # Each node gets its own Host Group (placeholder IQN) with its LUNs attached;
+  # the gcnv-provision Ansible role authorizes the real IQN during host prep.
+  storage_node_keys = toset(keys(local.instances))
+  lun_layout = {
+    oracle_home = var.oracle_home_disk.size_gb
+    data        = var.data_disk.size_gb
+    reco        = var.reco_disk.size_gb
+  }
+}
+
 resource "random_id" "suffix" {
   byte_length = 4
 }
@@ -360,7 +452,56 @@ locals {
 
   ar_repo_url_prefix = var.enable_ar_repo ? "https://${local.region}-yum.pkg.dev/remote/${var.project_id}/${local.deployment_id}" : ""
 
+  # Per-host GCNV map consumed by the iscsi-multipath role, keyed by each DB
+  # VM's name (== Ansible inventory_hostname, via --instance-hostname). The
+  # gcnv-provision role (run just before iscsi-multipath) authorizes the host's
+  # real IQN on its Host Group first, so this role only needs to (1)
+  # discover/login the iSCSI portals and (2) bind each LUN's multipath WWID to
+  # its /dev/mapper alias. The NetApp LUN multipath WWID is "3600a0980" + the
+  # block device identifier (LUN serial).
+  gcnv_host_map = local.is_gcnv ? {
+    for k, v in local.instances :
+    google_compute_instance_from_template.database_vm[k].name => {
+      portals = distinct(flatten([
+        for vk, m in module.netapp_iscsi[0].iscsi_mount :
+        split(",", m.ip_address)
+        if startswith(vk, "${k}-") && try(m.ip_address, null) != null
+      ]))
+      multipath_aliases = [
+        for vk, m in module.netapp_iscsi[0].iscsi_mount : {
+          wwid  = "3600a0980${m.identifier}"
+          alias = "${local.gcnv_alias_prefix}_${trimprefix(vk, "${k}-")}"
+        } if startswith(vk, "${k}-") && try(m.identifier, null) != null
+      ]
+    }
+  } : {}
+
+  # Per-node GCNV fulfillment plan consumed by the gcnv-provision Ansible role.
+  # For each DB VM it carries everything the role needs to update that node's
+  # Host Group (already created by Terraform with a placeholder IQN, and
+  # already attached to the node's LUNs) with the VM's real initiator IQN.
+  gcnv_fulfillment = local.is_gcnv ? [
+    for k, v in local.instances : {
+      name          = google_compute_instance_from_template.database_vm[k].name
+      zone          = google_compute_instance_from_template.database_vm[k].zone
+      host_group    = module.netapp_iscsi[0].host_group_names[k]
+      region        = local.region
+      pool_location = module.netapp_iscsi[0].storage_pool_location
+      project       = var.project_id
+      os_type       = var.gcnv_host_os_type
+      block_devices = [
+        for vk, m in module.netapp_iscsi[0].iscsi_mount : {
+          volume       = m.volume_name
+          block_device = m.block_device_name
+        } if startswith(vk, "${k}-")
+      ]
+    }
+  ] : []
+
   common_flags = join(" ", compact([
+    "--storage-backend ${var.storage_backend}",
+    local.is_gcnv ? "--gcnv-host-map-json '${jsonencode(local.gcnv_host_map)}'" : "",
+    local.is_gcnv ? "--gcnv-fulfillment-json '${jsonencode(local.gcnv_fulfillment)}'" : "",
     local.ora_disk_mgmt_flag != "" ? "--ora-disk-mgmt ${local.ora_disk_mgmt_flag}" : "",
     length(local.asm_disk_config) > 0 ? "--ora-asm-disks-json '${jsonencode(local.asm_disk_config)}'" : "",
     length(local.data_mounts_config) > 0 ? "--ora-data-mounts-json '${jsonencode(local.data_mounts_config)}'" : "",
@@ -393,6 +534,7 @@ locals {
   ]))
 }
 
+# The control node runs install-oracle.sh.
 resource "google_compute_instance" "control_node" {
   project      = var.project_id
   name         = "${var.control_node_name_prefix}-${random_id.suffix.hex}"
@@ -478,6 +620,8 @@ resource "google_compute_instance" "control_node" {
     google_compute_attached_disk.pool_disks,
   ]
 }
+
+# -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
 # TLS Infrastructure & Identity (Data Guard / Secret Manager Architecture)
@@ -636,6 +780,11 @@ output "control_node_log_url" {
   value       = "https://console.cloud.google.com/logs/query;query=resource.labels.instance_id%3D${urlencode(google_compute_instance.control_node.instance_id)};duration=P30D?project=${urlencode(var.project_id)}"
 }
 
+output "project_id" {
+  description = "GCP project ID."
+  value       = var.project_id
+}
+
 output "database_vm_names" {
   description = "Names of the created database VMs from instance templates"
   value       = [for vm in google_compute_instance_from_template.database_vm : vm.name]
@@ -649,4 +798,19 @@ output "storage_pool_zone1_self_link" {
 output "storage_pool_zone2_self_link" {
   description = "Self-link of the Hyperdisk Storage Pool in zone2 (null if storage pool is not enabled or single-instance)"
   value       = length(google_compute_storage_pool.zone2) > 0 ? google_compute_storage_pool.zone2[0].id : null
+}
+
+output "storage_backend" {
+  description = "Active storage backend for the Oracle DATA/RECO disk groups."
+  value       = lower(var.storage_backend)
+}
+
+output "gcnv_host_map" {
+  description = "Per-host GCNV map (iSCSI portals + multipath WWID->alias) passed to the iscsi-multipath role. Empty unless storage_backend=gcnv."
+  value       = local.gcnv_host_map
+}
+
+output "gcnv_storage_pool_location" {
+  description = "Location of the provisioned GCNV Flex pool (null unless storage_backend=gcnv)."
+  value       = try(module.netapp_iscsi[0].storage_pool_location, null)
 }

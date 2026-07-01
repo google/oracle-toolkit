@@ -490,4 +490,118 @@ variable "enable_ar_repo" {
   default     = false
 }
 
+# -----------------------------------------------------------------------------
+# Storage backend selection (GCE Persistent Disk/Hyperdisk vs Google Cloud
+# NetApp Volumes / GCNV)
+# -----------------------------------------------------------------------------
+# The toolkit supports two peer storage backends for the Oracle u01 (binaries)
+# and DATA/RECO disk groups. "gce-pd" (default) is the existing, unchanged
+# behavior: those disks are attached as Persistent Disk/Hyperdisk volumes.
+# "gcnv" provisions Google Cloud NetApp Volumes iSCSI LUNs and presents them
+# to the host as DM-Multipath devices (/dev/mapper/*). The GCE boot disk and
+# swap always stay on gce-pd in both modes (the OS must be up to reach an
+# iSCSI LUN, and swapping over the network is unsafe).
+variable "storage_backend" {
+  description = "Storage backend for the Oracle DATA/RECO disk groups: 'gce-pd' (default, covers Persistent Disks and Hyperdisks) or 'gcnv' (Google Cloud NetApp Volumes over iSCSI)."
+  type        = string
+  default     = "gce-pd"
+  nullable    = false
+  validation {
+    condition     = contains(["gce-pd", "gcnv"], lower(var.storage_backend))
+    error_message = "storage_backend must be 'gce-pd' or 'gcnv'."
+  }
+}
+
+# --- GCNV: Private Service Access (PSA) -------------------------------------
+variable "gcnv_create_psa" {
+  description = "When storage_backend=gcnv, reserve a PSA range and create the netapp.servicenetworking.goog service-networking connection. Set false if PSA to GCNV already exists on the VPC."
+  type        = bool
+  default     = true
+}
+
+variable "gcnv_network_name" {
+  description = "VPC network name used for GCNV PSA and host groups. Defaults to the network derived from subnetwork1 (or 'default')."
+  type        = string
+  default     = ""
+}
+
+variable "gcnv_network_project_id" {
+  description = "Project that owns the VPC network for GCNV (Shared VPC host project if applicable). Defaults to project_id."
+  type        = string
+  default     = ""
+}
+
+variable "gcnv_psa_range_name" {
+  description = "Name of the reserved PSA address range for GCNV."
+  type        = string
+  default     = "netapp-psa-range"
+}
+
+variable "gcnv_psa_prefix_length" {
+  description = "Prefix length of the reserved PSA range for GCNV."
+  type        = number
+  default     = 24
+}
+
+variable "gcnv_psa_reserved_cidr" {
+  description = "Optional explicit base address for the reserved PSA range; leave null to let GCP choose."
+  type        = string
+  default     = null
+}
+
+# --- GCNV: storage pool ------------------------------------------------------
+variable "gcnv_pool_name" {
+  description = "Name of the GCNV storage pool. Defaults to '<deployment>-flex-pool'."
+  type        = string
+  default     = ""
+}
+
+variable "gcnv_pool_location" {
+  description = "Zonal location for the GCNV Flex pool (e.g. us-central1-b). Defaults to zone1."
+  type        = string
+  default     = ""
+}
+
+variable "gcnv_pool_capacity_gib" {
+  description = "Capacity of the GCNV storage pool, in GiB."
+  type        = number
+  default     = 2048
+}
+
+variable "gcnv_pool_service_level" {
+  description = "GCNV pool service level (FLEX, STANDARD, PREMIUM, EXTREME)."
+  type        = string
+  default     = "FLEX"
+}
+
+variable "gcnv_pool_type" {
+  description = "GCNV pool type."
+  type        = string
+  default     = "UNIFIED"
+}
+
+variable "gcnv_custom_performance_enabled" {
+  description = "Enable explicit throughput/IOPS on the GCNV Flex pool."
+  type        = bool
+  default     = true
+}
+
+variable "gcnv_total_throughput_mibps" {
+  description = "GCNV Flex pool total throughput, in MiB/s (when custom performance is enabled)."
+  type        = number
+  default     = 64
+}
+
+variable "gcnv_total_iops" {
+  description = "GCNV Flex pool total IOPS (when custom performance is enabled)."
+  type        = number
+  default     = 1024
+}
+
+variable "gcnv_host_os_type" {
+  description = "OS type for GCNV host groups."
+  type        = string
+  default     = "LINUX"
+}
+
 

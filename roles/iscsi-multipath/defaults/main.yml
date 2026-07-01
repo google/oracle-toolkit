@@ -1,0 +1,54 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+# iSCSI portal IPs that front the Google Cloud NetApp Volumes (GCNV) LUNs.
+# Provide either as a YAML list, or as a comma-separated string when passed
+# through install-oracle.sh --iscsi-portals (the role normalizes both forms).
+# When empty, the role is a no-op (preserves the default Hyperdisk/PD flow).
+iscsi_portals: []
+
+# Optional per-host override, e.g. for cross-zone Data Guard where the primary
+# and standby hosts attach to zone-local pools:
+#   iscsi_portals_by_host:
+#     orcl-1: [10.0.0.10, 10.0.0.11]
+#     orcl-2: [10.0.1.10, 10.0.1.11]
+iscsi_portals_by_host: {}
+
+# Optional stable multipath aliases (bind WWID -> friendly name) so the ASM /
+# data-mount JSON can reference deterministic /dev/mapper/<alias> paths:
+#   iscsi_multipath_aliases:
+#     - { wwid: "3600a0980...", alias: "ora_data" }
+#     - { wwid: "3600a0980...", alias: "ora_reco" }
+iscsi_multipath_aliases: []
+
+# Retry tuning for the initial iSCSI login (GCNV LUN authorization, just
+# performed by the gcnv-provision role, can take a short while to become
+# visible to the initiator on first login).
+iscsi_login_retries: 6
+iscsi_login_delay: 10
+
+# Per-host GCNV map, normally rendered by Terraform and delivered via
+# install-oracle.sh --gcnv-host-map-json. Keyed by hostname (== inventory_hostname):
+#   gcnv_host_map:
+#     "db-node-1":
+#       portals: ["10.0.0.10", "10.0.0.11"]
+#       multipath_aliases:
+#         - { wwid: "3600a0980<lun-serial>", alias: "orcl_data" }
+#         - { wwid: "3600a0980<lun-serial>", alias: "orcl_reco" }
+# When set, its values take precedence over the explicit vars above for the
+# matching host. Empty = fall back to iscsi_portals* / iscsi_multipath_aliases.
+# The gcnv-provision role (run just before this one) already authorized this
+# host's real IQN on its Host Group, so this role does not set/override it.
+gcnv_host_map: {}

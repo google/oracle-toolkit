@@ -1,0 +1,146 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+# Attaches Google Cloud NetApp Volumes (GCNV) block LUNs over iSCSI and presents
+# them to the OS as DM-Multipath devices (/dev/mapper/*). Downstream roles
+# (host-storage, ora-host udev rules, gi-setup) already understand /dev/mapper
+# paths, so no changes are required there.
+#
+# By the time this role runs, the gcnv-provision role (which runs immediately
+# before it in prep-host.yml) has already authorized this host's real
+# initiator IQN on its NetApp Host Group. So this role only logs in to the
+# iSCSI portals and binds the multipath WWIDs to /dev/mapper aliases — it does
+# NOT change the host's initiator IQN.
+#
+# Inputs (any of):
+#   * gcnv_host_map / gcnv_host_map_json : per-host map keyed by hostname, normally
+#     rendered by Terraform when storage_backend=gcnv. Each entry provides
+#     {portals, multipath_aliases}.
+#   * iscsi_portals / iscsi_portals_by_host / iscsi_multipath_aliases : manual
+#     overrides for bring-your-own-host runs.
+#
+# This role is a no-op unless iSCSI portals are resolved for the host, so it is
+# safe to include unconditionally in prep-host.yml without affecting
+# Hyperdisk/PD runs.
+
+- name: iscsi-multipath | Resolve effective iSCSI settings (shared logic)
+  ansible.builtin.include_tasks: resolve.yml
+  tags: iscsi-multipath
+
+- name: iscsi-multipath | Skip when no iSCSI portals are configured
+  ansible.builtin.debug:
+    msg: >-
+      No iSCSI portals resolved for {{ inventory_hostname }}
+      (gcnv_host_map / iscsi_portals); skipping GCNV iSCSI setup and using
+      attached block devices as-is.
+  when: iscsi_portals_effective | length == 0
+  tags: iscsi-multipath
+
+- name: iscsi-multipath | Configure GCNV iSCSI + DM-Multipath
+  when: iscsi_portals_effective | length > 0
+  become: true
+  become_user: root
+  tags: iscsi-multipath
+  block:
+    - name: iscsi-multipath | Install iSCSI initiator and multipath packages
+      ansible.builtin.package:
+        name:
+          - iscsi-initiator-utils
+          - device-mapper-multipath
+          - sg3_utils
+        state: present
+        lock_timeout: "{{ pkg_mgr_lock_timeout | default(180) }}"
+
+    - name: iscsi-multipath | Deploy multipath.conf (NetApp ONTAP / GCNV personality)
+      ansible.builtin.template:
+        src: multipath.conf.j2
+        dest: /etc/multipath.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart multipathd
+
+    - name: iscsi-multipath | Enable and start iscsid
+      ansible.builtin.systemd:
+        name: iscsid
+        enabled: true
+        state: started
+
+    - name: iscsi-multipath | Enable and start multipathd
+      ansible.builtin.systemd:
+        name: multipathd
+        enabled: true
+        state: started
+
+    - name: iscsi-multipath | Apply multipath.conf now
+      ansible.builtin.meta: flush_handlers
+
+    - name: iscsi-multipath | Discover iSCSI targets on each portal
+      ansible.builtin.command: "iscsiadm -m discovery -t sendtargets -p {{ item }}"
+      loop: "{{ iscsi_portals_effective }}"
+      register: iscsi_discovery
+      changed_when: false
+      failed_when: false
+
+    # Log in and confirm the authorized LUNs appear. Retried because GCNV LUN
+    # authorization (just performed by the gcnv-provision role) can take a
+    # short while to be visible to the initiator on first login.
+    - name: iscsi-multipath | Log in to all automatic iSCSI nodes
+      ansible.builtin.command: iscsiadm -m node --loginall=automatic
+      register: iscsi_login
+      changed_when: iscsi_login.rc == 0
+      failed_when: false
+      retries: "{{ iscsi_login_retries | default(6) }}"
+      delay: "{{ iscsi_login_delay | default(10) }}"
+      until: iscsi_login.rc == 0
+
+    - name: iscsi-multipath | Reload multipath maps
+      ansible.builtin.command: multipath -r
+      changed_when: false
+
+    - name: iscsi-multipath | Gather multipath topology
+      ansible.builtin.command: multipath -ll
+      register: iscsi_mpath_ll
+      changed_when: false
+
+    - name: iscsi-multipath | Show multipath topology
+      ansible.builtin.debug:
+        var: iscsi_mpath_ll.stdout_lines
+
+    # Verify the deterministic /dev/mapper aliases the disk config relies on are
+    # present. Non-fatal: a missing alias is surfaced loudly here (and the real
+    # failure, if any, comes from host-storage) so the WWID mapping can be checked.
+    - name: iscsi-multipath | Verify expected /dev/mapper aliases exist
+      ansible.builtin.stat:
+        path: "/dev/mapper/{{ item.alias }}"
+      loop: "{{ iscsi_multipath_aliases_effective }}"
+      loop_control:
+        label: "{{ item.alias }}"
+      register: _alias_stat
+      when: iscsi_multipath_aliases_effective | length > 0
+
+    - name: iscsi-multipath | Warn about any missing multipath aliases
+      ansible.builtin.debug:
+        msg: >-
+          WARNING: expected multipath device /dev/mapper/{{ item.item.alias }}
+          (wwid {{ item.item.wwid }}) was not found. Verify the LUN WWID matches
+          '3600a0980<lun-serial>' and that login succeeded. Current topology is
+          shown above.
+      loop: "{{ _alias_stat.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.alias }}"
+      when:
+        - iscsi_multipath_aliases_effective | length > 0
+        - not (item.stat.exists | default(false))

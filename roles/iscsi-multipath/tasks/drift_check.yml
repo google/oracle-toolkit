@@ -1,0 +1,82 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+# Read-only GCNV drift detection for a single host. Makes NO changes. Reports
+# whether each expected /dev/mapper alias (LUN) is still present as a multipath
+# map. If a host's initiator IQN changed after provisioning, its LUNs stop being
+# visible and surface here as missing aliases. Host-group drift (the GCP API
+# side) is reconciled by re-running the gcnv-provision role; see
+# docs/gcnv-storage-backend.md.
+#
+# Set gcnv_drift_fail=true to make drift a hard failure (CI/gating); default is
+# report-only so operators can run it safely against live clusters.
+
+- name: iscsi-multipath | drift | Resolve effective iSCSI settings (shared logic)
+  ansible.builtin.include_tasks: resolve.yml
+  tags: [iscsi-multipath, gcnv-drift]
+
+- name: iscsi-multipath | drift | Check expected multipath aliases
+  ansible.builtin.stat:
+    path: "/dev/mapper/{{ item.alias }}"
+  loop: "{{ iscsi_multipath_aliases_effective | default([]) }}"
+  loop_control:
+    label: "{{ item.alias | default(item) }}"
+  register: _drift_alias_stat
+  when: iscsi_multipath_aliases_effective | length > 0
+  tags: [iscsi-multipath, gcnv-drift]
+
+- name: iscsi-multipath | drift | Build drift report
+  ansible.builtin.set_fact:
+    _gcnv_drift:
+      host: "{{ inventory_hostname }}"
+      missing_aliases: >-
+        {{
+          (_drift_alias_stat.results | default([]))
+          | rejectattr('stat.exists', 'defined')
+          | map(attribute='item.alias') | list
+          +
+          (_drift_alias_stat.results | default([]))
+          | selectattr('stat.exists', 'defined')
+          | rejectattr('stat.exists')
+          | map(attribute='item.alias') | list
+        }}
+  when: iscsi_multipath_aliases_effective | length > 0
+  tags: [iscsi-multipath, gcnv-drift]
+
+- name: iscsi-multipath | drift | Report
+  ansible.builtin.debug:
+    msg: >-
+      GCNV drift [{{ inventory_hostname }}]:
+      missing multipath aliases={{ _gcnv_drift.missing_aliases | default([]) }}
+  when: iscsi_multipath_aliases_effective | length > 0
+  tags: [iscsi-multipath, gcnv-drift]
+
+- name: iscsi-multipath | drift | Fail on drift (when gcnv_drift_fail=true)
+  ansible.builtin.fail:
+    msg: |
+      GCNV configuration drift detected on {{ inventory_hostname }}.
+
+        Missing multipath aliases: {{ _gcnv_drift.missing_aliases | default([]) }}
+
+      A missing LUN usually means the host's initiator IQN changed since
+      provisioning, so the GCNV host group no longer authorizes it. Remediation:
+      re-run the gcnv-provision role (tag: gcnv-provision) to re-discover the
+      IQN and reconcile the host group, then re-run this check. See
+      docs/gcnv-storage-backend.md.
+  when:
+    - gcnv_drift_fail | default(false) | bool
+    - iscsi_multipath_aliases_effective | length > 0
+    - (_gcnv_drift.missing_aliases | default([]) | length > 0)
+  tags: [iscsi-multipath, gcnv-drift]
