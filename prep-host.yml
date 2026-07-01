@@ -37,6 +37,8 @@
   become_user: root
   roles:
     - { role: base-provision, tags: base-provision }
+    - { role: gcnv-provision, tags: gcnv-provision, when: is_gcnv }
+    - { role: iscsi-multipath, tags: iscsi-multipath, when: is_gcnv }
     - { role: host-storage, tags: host-storage }
     - { role: ora-host, tags: ora-host }
 

@@ -1,0 +1,51 @@
+---
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: GCNV | Install iSCSI initiator package
+  ansible.builtin.package:
+    name: iscsi-initiator-utils
+    state: present
+    lock_timeout: "{{ pkg_mgr_lock_timeout | default(180) }}"
+
+- name: GCNV | Read iSCSI initiator IQN
+  ansible.builtin.shell: awk -F= '/^InitiatorName=/{print $2; exit}' /etc/iscsi/initiatorname.iscsi
+  register: db_iqn
+  changed_when: false
+
+- name: GCNV | Configure GCP Storage Attachment
+  delegate_to: localhost
+  become: false
+  block:
+    - name: GCNV | Load fulfillment plan
+      ansible.builtin.set_fact:
+        fulfillment: "{{ gcnv_fulfillment_json }}"
+
+    - name: GCNV | Find node config in plan
+      ansible.builtin.set_fact:
+        node_config: "{{ item }}"
+      loop: "{{ fulfillment }}"
+      when: item.name == inventory_hostname
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: GCNV | Update Host Group with real IQN on GCP
+      ansible.builtin.command: >
+        gcloud netapp host-groups update {{ node_config.host_group }}
+        --location={{ node_config.region }}
+        --project={{ node_config.project }}
+        --hosts={{ db_iqn.stdout }}
+        --quiet
+      register: hg_update
+      changed_when: hg_update.rc == 0

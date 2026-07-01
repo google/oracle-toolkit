@@ -118,6 +118,8 @@ oracle_sid: "{% if db_config_type == 'SI' %}{{ db_name }}{% else %}{{ db_name }}
 ################################################################################
 
 ora_disk_management: "{{ 'fs' if free_edition else (ora_disk_mgmt | default('udev',true)) | lower }}"
+storage_backend: "{{ (ora_storage_backend | default('gce-pd', true)) | lower }}"
+is_gcnv: "{{ storage_backend == 'gcnv' }}"
 role_separation: "{{ false if ora_disk_management == 'fs' else (ora_role_separation | default(true, true)) | lower | bool }}"
 data_destination: "{{ ora_data_destination | default('DATA',true) }}"
 reco_destination: "{{ ora_reco_destination | default('RECO',true) }}"
