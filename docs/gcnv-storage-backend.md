@@ -1,163 +1,81 @@
 # GCNV Storage Backend
 
-Google Cloud NetApp Volumes (GCNV) iSCSI storage is available as a peer storage
-backend to GCE Persistent Disk/Hyperdisk, selected with one Terraform variable
-and with no change to the default path.
+Google Cloud NetApp Volumes (GCNV) iSCSI storage backs Oracle's `u01`
+(binaries) and DATA/RECO storage. Enable it with one Terraform variable:
 
 ```hcl
-storage_backend = "gce-pd"   # default, existing behavior (unchanged)
-# or
-storage_backend = "gcnv"     # Oracle u01 + DATA/RECO on GCNV iSCSI LUNs
+storage_backend = "gcnv"
 ```
 
-`u01` (binaries) and the DATA/RECO disk groups are served by GCNV LUNs; only
-`swap` and the GCE boot disk stay on `gce-pd` (the OS must be up to reach an
-iSCSI LUN, and swapping over the network is unsafe). GCNV mode targets ASM disk
-management (`ora_disk_mgmt` = `ASMUDEV`/`ASMLIB`).
+Deployment is a **single `terraform apply`** — the same workflow and the
+same toolkit entrypoints (`install-oracle.sh`, `prep-host.yml`) you'd
+otherwise use, with no separate provisioning step and no provisioning
+control node.
 
-## Single-pass deployment
+## What GCNV backs
 
-Unlike an earlier iteration of this feature, GCNV deployment is a **single
-`terraform apply`** — there is no separate provisioning step and no
-provisioning control node:
+* **`u01` (Oracle binaries) and DATA/RECO** (ASM disk groups, or `/u02`,
+  `/u03` in FS mode) are served by GCNV iSCSI LUNs.
+* **Boot disk and swap always stay on standard Compute Engine disk**,
+  regardless of this setting — the OS must already be up to reach an iSCSI
+  LUN, and swapping over the network is unsafe.
+* **No restriction on Oracle version.** For `ora_disk_mgmt`, **`ASMUDEV`**
+  is the supported mode.
 
-```bash
-cd terraform && terraform apply
-```
+## How to enable
 
-This works because host-group authorization is handled entirely at the
-Ansible layer, at the point in host prep where the DB VM's real initiator IQN
-first becomes available — not by a separate Terraform pass or helper script.
+* **Base setup:** follow [`docs/terraform.md`](terraform.md) for the
+  service accounts, state bucket, and toolkit source bucket.
+* **IAM:** the deployer's `roles/compute.networkAdmin` and
+  `roles/netapp.admin` roles are already covered in
+  [deployer principal permissions](terraform.md#5-deployer-principal-permissions).
+  GCNV adds one more: grant `roles/netapp.admin` to
+  **`control_node_service_account`** as well, so the `gcnv-provision`
+  Ansible role can update each Host Group with the VM's real IQN during
+  host prep.
+  * *If missed:* `terraform apply` still succeeds, but the Host Group is
+    left on its placeholder IQN and the DB VM never sees its
+    `/dev/mapper/*` devices.
+* **Variables:** create `terraform/terraform.tfvars` — start from
+  `terraform/ora121-gcnv.template` or `terraform/ora26-gcnv.template` for a
+  working example — and set:
 
-## Architecture: placeholder IQN + Ansible-led authorization
+  ```hcl
+  storage_backend = "gcnv"
+  ora_disk_mgmt   = "ASMUDEV"  # not ASMLIB — see Known limitations below
+  ```
 
-A GCNV Host Group must authorize a host's **initiator IQN**, but a Linux host
-only generates that IQN after it boots — so it can't be known at `terraform
-apply` time. To keep the whole deployment in one Terraform run, each Host
-Group is created with a **placeholder IQN** and its LUNs are attached to it
-immediately:
+* **Deploy:**
 
-```hcl
-resource "google_netapp_host_group" "host_group" {
-  ...
-  hosts = ["iqn.1994-05.com.redhat:dummy"]  # placeholder
-  lifecycle {
-    ignore_changes = [hosts]  # Ansible updates this in place; don't revert it
-  }
-}
-```
+  ```bash
+  cd terraform && terraform apply
+  terraform output control_node_log_url  # follow the Ansible logs
+  ```
 
-During host prep (`prep-host.yml`), the new `gcnv-provision` Ansible role runs
-immediately before `iscsi-multipath`:
+## Verifying GCNV provisioning
 
-1. Installs `iscsi-initiator-utils` and reads the VM's real initiator IQN from
-   `/etc/iscsi/initiatorname.iscsi`.
-2. Looks up this host's entry in the fulfillment plan (`gcnv_fulfillment_json`,
-   rendered by Terraform) to find its Host Group name, region, and project.
-3. Runs `gcloud netapp host-groups update --hosts=<real IQN>` (delegated to
-   `localhost`, i.e. the control node, which has `gcloud` and the right
-   credentials) to authorize the real IQN.
+* **Check the OS/iSCSI layer:**
 
-By the time `iscsi-multipath` runs, the LUNs are already authorized, so that
-role only logs in to the iSCSI portals and binds the multipath WWIDs to
-`/dev/mapper/*` aliases — it never touches the host group.
+  ```bash
+  sudo iscsiadm -m session
+  ls -l /dev/mapper/<DEPLOY>_oracle_home /dev/mapper/<DEPLOY>_data /dev/mapper/<DEPLOY>_reco
+  ```
 
-Because Terraform owns the Host Group (including its LUN attachment) end to
-end, `terraform destroy` cleanly removes it — there's no NetApp-API-only state
-left dangling outside Terraform's view.
+  * *Success indicator:* one or more iSCSI sessions listed, and all three
+    `/dev/mapper/<DEPLOY>_*` aliases exist and resolve (not dangling).
 
-## IAM roles
+* **Check the Host Group directly:**
 
-See [`docs/terraform.md`](terraform.md#5-deployer-principal-permissions) for
-the general deployer and VM service account roles. GCNV adds:
+  ```bash
+  gcloud netapp host-groups describe <host-group> --location=<REGION>
+  ```
 
-* **Deployer principal** (the one running `terraform apply`): `roles/compute.networkAdmin`
-  (Private Service Access: reserve IP range + peering) and `roles/netapp.admin`
-  (storage pools, volumes, host groups).
-* **Control node service account** (`control_node_service_account`): `roles/netapp.admin`,
-  so the `gcnv-provision` role can update each Host Group with the VM's real IQN.
-
-## Terraform variables
-
-| Variable | Default | Notes |
-| --- | --- | --- |
-| `storage_backend` | `gce-pd` | `gce-pd` (Persistent Disk/Hyperdisk) or `gcnv`. |
-| `gcnv_create_psa` | `true` | Create PSA; `false` if it already exists on the VPC. |
-| `gcnv_network_name` / `gcnv_network_project_id` | `""` | Default to the `subnetwork1` network / `project_id` (set for Shared VPC). |
-| `gcnv_psa_range_name` / `gcnv_psa_prefix_length` / `gcnv_psa_reserved_cidr` | `netapp-psa-range` / `24` / `null` | PSA range. |
-| `gcnv_pool_name` / `gcnv_pool_location` | `""` | Default to `<deployment>-flex-pool` / `zone1`. |
-| `gcnv_pool_capacity_gib` / `gcnv_pool_service_level` / `gcnv_pool_type` | `2048` / `FLEX` / `UNIFIED` | Flex pool. |
-| `gcnv_custom_performance_enabled` / `gcnv_total_throughput_mibps` / `gcnv_total_iops` | `true` / `64` / `1024` | Pool performance. |
-| `gcnv_host_os_type` | `LINUX` | LUN + host group OS type. |
-
-LUN sizes reuse `oracle_home_disk.size_gb` (u01), `data_disk.size_gb`,
-`reco_disk.size_gb`.
-
-`install-oracle.sh --gcnv-host-map-json '<json>'` and `--gcnv-fulfillment-json
-'<json>'` (Ansible vars `gcnv_host_map_json` / `gcnv_fulfillment_json`) are
-generated by Terraform; you should not need to set these by hand.
-
-## Files
-
-| Path | Role |
-| --- | --- |
-| `terraform/modules/gcnv_psa/` | PSA range + `netapp.servicenetworking.goog` connection. |
-| `terraform/modules/netapp_iscsi/` | Flex pool + iSCSI LUNs + Host Groups (placeholder IQN); exposes host-group/volume names. |
-| `terraform/main.tf` / `variables.tf` | `is_gcnv` gating, host map / fulfillment locals, provider `>= 7.0.0`. |
-| `terraform/ora121-gcnv.template` / `ora26-gcnv.template` | Example Infra Manager `.tfvars` templates for GCNV deployments. |
-| `roles/gcnv-provision/` | Reads the VM's real IQN and authorizes it on the Host Group via `gcloud`. |
-| `roles/iscsi-multipath/` | iSCSI login + multipath aliases; `drift_check.yml` for read-only checks. |
-| `install-oracle.sh` / `prep-host.yml` / `group_vars/all.yml` | `--storage-backend` / `--gcnv-host-map-json` / `--gcnv-fulfillment-json` flags; `is_gcnv`; `gcnv-provision` + `iscsi-multipath` ordering. |
-| `validate-config.yml` | Validates `storage_backend` and (when `gcnv`) that the fulfillment plan is non-empty. |
-
-## Runbook
-
-### 0. Prerequisites
-
-Follow [`docs/terraform.md`](terraform.md) for the base setup (service
-accounts, state bucket, toolkit source bucket), then grant the GCNV-specific
-roles from [IAM roles](#iam-roles) above to your deployer principal and to
-`control_node_service_account`.
-
-Create `terraform/terraform.tfvars` — you can start from
-`terraform/ora121-gcnv.template` or `terraform/ora26-gcnv.template` — and set
-at least `project_id`, `vm_service_account`, `control_node_service_account`,
-`gcs_source`, `ora_swlib_bucket`, `zone1` (+ `subnetwork1`),
-**`storage_backend = "gcnv"`**, and **`ora_disk_mgmt = "ASMUDEV"`** (or
-`ASMLIB`).
-
-### 1. Static checks (no GCP)
-
-```bash
-cd terraform
-terraform fmt -check
-terraform init && terraform validate
-```
-
-### 2. Deploy (live)
-
-```bash
-cd terraform && terraform apply
-terraform output control_node_log_url  # follow the Ansible logs
-```
-
-Verify on a DB VM:
-
-```bash
-sudo iscsiadm -m session
-ls -l /dev/mapper/<DEPLOY>_oracle_home /dev/mapper/<DEPLOY>_data /dev/mapper/<DEPLOY>_reco
-```
-
-then confirm the ASM disk groups and the database are open. You can also
-verify the Host Group directly:
-
-```bash
-gcloud netapp host-groups describe <host-group> --location=<REGION>   # hosts = [<real IQN>], not the placeholder
-```
+  * *Success indicator:* `hosts` shows the VM's real initiator IQN, not
+    `iqn.1994-05.com.redhat:dummy`.
 
 ## Failure / recovery
 
-* **`gcnv-provision` fails or a VM is replaced**: re-run just that role to
+* If `gcnv-provision` fails, or a VM is replaced, re-run that role to
   re-discover the IQN and reconcile the Host Group, then re-run
   `iscsi-multipath`:
 
@@ -165,17 +83,50 @@ gcloud netapp host-groups describe <host-group> --location=<REGION>   # hosts = 
   ansible-playbook -i <inventory> prep-host.yml --tags gcnv-provision,iscsi-multipath
   ```
 
-* **Drift detection**: `roles/iscsi-multipath/tasks/drift_check.yml` is a
-  read-only check for missing `/dev/mapper` aliases on a running host (set
-  `-e gcnv_drift_fail=true` to make drift a hard failure, e.g. in CI/gating).
+## Troubleshooting (common)
+
+* **Host Group still shows the placeholder IQN**
+  (`iqn.1994-05.com.redhat:dummy`)
+  → `gcnv-provision` didn't run or failed. Check that the control node
+  service account has `roles/netapp.admin`, then re-run the fix from
+  [Failure / recovery](#failure--recovery) above.
+
+* **No iSCSI sessions** (`iscsiadm -m session` is empty)
+  → The LUN isn't authorized yet (see previous point), or the VM can't
+  reach the GCNV pool's network path — check PSA peering / firewall rules
+  between the VM's subnet and the pool.
+
+* **`/dev/mapper/<DEPLOY>_*` aliases missing** despite active iSCSI sessions
+  → `iscsi-multipath` hasn't run yet, or ran before authorization
+  completed — re-run `prep-host.yml --tags gcnv-provision,iscsi-multipath`.
+
+* **ASM doesn't discover the DATA/RECO disks** despite `/dev/mapper` aliases
+  existing
+  → With `ASMUDEV`, ASM discovers disks via `/dev/asmdisks/*` udev
+  symlinks, not `/dev/mapper/*` directly. Check that the udev rule created
+  the symlink for each mapper device before assuming ASM itself is
+  misconfigured.
 
 ## Known limitations
 
-* Provider floor moves to `>= 7.0.0` for **all** deployments — regression-test
-  the `gce-pd` path on 7.x.
+* Only `ora_disk_mgmt = ASMUDEV` is supported with GCNV today.
+* Supports single-instance and Data Guard primary/standby topologies only —
+  no RAC support (no shared LUNs across nodes; each node gets its own
+  private Host Group and LUN set).
 * Single zonal Flex pool in `zone1`/`gcnv_pool_location` (dual-zone
   per-DG-node pools are a future enhancement).
-* The Host Group's placeholder IQN (`iqn.1994-05.com.redhat:dummy`) is
-  intentionally never a real initiator; if `gcnv-provision` never runs
-  successfully for a node, its Host Group is left authorizing only that
-  placeholder and the node's LUNs will not be reachable.
+
+## Behind the scenes: how it works
+
+* A GCNV Host Group must authorize a host's initiator IQN, but a Linux host
+  only generates that IQN after it boots — so it can't be known at
+  `terraform apply` time.
+* To keep the whole deployment in one Terraform run, each Host Group is
+  created with a placeholder IQN, with its LUNs attached to it immediately.
+* During host prep, before `iscsi-multipath` logs in, the `gcnv-provision`
+  Ansible role discovers the VM's real IQN and updates the Host Group in
+  place — so authorization always completes before anything tries to use
+  the LUNs, with no separate provisioning pass or control node required.
+* Each database node gets its own private Host Group and LUN set; this is
+  why the backend supports single-instance and Data Guard primary/standby
+  today, but not RAC (which needs shared LUNs across nodes).
