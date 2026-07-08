@@ -154,6 +154,26 @@ variable "ora_redo_log_size" {
   }
 }
 
+variable "ora_redo_log_count" {
+  type        = string
+  default     = ""
+  description = "Number of redo log groups to create (e.g., '4'). Requires ora_redo_log_location to be set. Leave empty to use the toolkit default."
+  validation {
+    condition     = var.ora_redo_log_count == "" || can(regex("^[0-9]+$", var.ora_redo_log_count))
+    error_message = "Invalid redo log count. Specify a number (e.g., '2', '4')."
+  }
+}
+
+variable "ora_redo_log_location" {
+  type        = string
+  default     = ""
+  description = "Comma-separated redo log member destination(s). ASM diskgroup (e.g., '+RECO') or filesystem path(s) (e.g., '/u03/.../onlinelog,/u04/.../onlinelog'). Leave empty to use the toolkit default."
+  validation {
+    condition     = var.ora_redo_log_location == "" || can(regex("^(\\+[A-Za-z0-9_.-]+|/[A-Za-z0-9_./-]+)(\\s*,\\s*(\\+[A-Za-z0-9_.-]+|/[A-Za-z0-9_./-]+))*$", var.ora_redo_log_location))
+    error_message = "Invalid redo log location. Use an ASM diskgroup (e.g., '+RECO') or filesystem path(s), comma-separated (e.g., '/u03/redo,/u04/redo')."
+  }
+}
+
 variable "ora_swlib_bucket" {
   type        = string
   description = "GCS bucket location for Oracle software library"

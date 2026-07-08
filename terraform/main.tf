@@ -521,6 +521,8 @@ locals {
     var.ora_edition != "" ? "--ora-edition ${var.ora_edition}" : "",
     var.ora_listener_port != "" ? "--ora-listener-port ${var.ora_listener_port}" : "",
     var.ora_redo_log_size != "" ? "--ora-redo-log-size ${var.ora_redo_log_size}" : "",
+    var.ora_redo_log_count != "" ? "--ora-redo-log-count ${var.ora_redo_log_count}" : "",
+    var.ora_redo_log_location != "" ? "--ora-redo-log-location '${var.ora_redo_log_location}'" : "",
     var.db_password_secret != "" ? "--db-password-secret ${var.db_password_secret}" : "",
     var.oracle_metrics_secret != "" ? "--oracle-metrics-secret ${var.oracle_metrics_secret}" : "",
     var.install_workload_agent ? "--install-workload-agent" : "",
@@ -596,6 +598,11 @@ resource "google_compute_instance" "control_node" {
         var.swap_disk_type == var.create_storage_pool.storage_pool_type
       )
       error_message = "When storage_pool is enabled, oracle_home_disk.type, data_disk.type, reco_disk.type, and swap_disk_type must all match storage_pool.storage_pool_type."
+    }
+
+    precondition {
+      condition     = var.ora_redo_log_count == "" || var.ora_redo_log_location != ""
+      error_message = "ora_redo_log_count is set, so ora_redo_log_location must also be set (e.g., '+RECO' or '/u03/redo,/u04/redo')."
     }
   }
 
