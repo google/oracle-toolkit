@@ -1,0 +1,50 @@
+#!/bin/bash
+# /usr/local/bin/rotate_tls_certs.sh
+# Rotates Oracle TLS certificates by polling Google Secret Manager for new versions.
+
+set -e
+
+# Ansible Templated Variables
+SECRET_NAME="{{ ansible_hostname }}-tls-secret"
+WALLET_DIR="{{ tls_wallet_dir }}"
+ORACLE_HOME="{{ oracle_home }}"
+VERSION_TRACKER="${WALLET_DIR}/.current_secret_version"
+
+export PATH="${ORACLE_HOME}/bin:/usr/local/bin:/usr/bin:/bin"
+
+# 1. Check for the latest secret version
+LATEST_VERSION_PATH=$(gcloud --quiet secrets versions describe latest --secret="${SECRET_NAME}" --format='value(name)')
+
+# 2. Compare with currently deployed version
+if [ -f "$VERSION_TRACKER" ]; then
+    CURRENT_VERSION=$(cat "$VERSION_TRACKER")
+else
+    CURRENT_VERSION="none"
+fi
+
+if [ "$LATEST_VERSION_PATH" == "$CURRENT_VERSION" ]; then
+    exit 0
+fi
+
+echo "New certificate version detected: $LATEST_VERSION_PATH. Initiating rotation..."
+
+# 3. Fetch the new payload and parse with Python
+SECRET_PAYLOAD=$(gcloud --quiet secrets versions access latest --secret="${SECRET_NAME}")
+WALLET_PWD=$(echo "$SECRET_PAYLOAD" | python3 -c "import sys, json; print(json.load(sys.stdin).get('pwd', ''))")
+
+echo "$SECRET_PAYLOAD" | python3 -c "import sys, json; print(json.load(sys.stdin).get('key', ''))" > "${WALLET_DIR}/key.pem"
+echo "$SECRET_PAYLOAD" | python3 -c "import sys, json; print(json.load(sys.stdin).get('cert', ''))" > "${WALLET_DIR}/cert.pem"
+
+# 4. Rebuild the PKCS12 and Wallet
+cd "$WALLET_DIR"
+openssl pkcs12 -export -in cert.pem -inkey key.pem -out intermediate.p12 -name "oracle-db-server" -passout pass:"$WALLET_PWD"
+rm -f ewallet.p12 cwallet.sso
+orapki wallet create -wallet . -pwd "$WALLET_PWD"
+orapki wallet import_pkcs12 -wallet . -pkcs12file intermediate.p12 -pwd "$WALLET_PWD" -pkcs12pwd "$WALLET_PWD"
+orapki wallet create -wallet . -auto_login -pwd "$WALLET_PWD"
+chmod 0600 *
+
+# 5. Reload the Listener & Update Tracker
+export ORACLE_HOME=${ORACLE_HOME}
+${ORACLE_HOME}/bin/lsnrctl reload LISTENER_TCPS
+echo "$LATEST_VERSION_PATH" > "$VERSION_TRACKER"
