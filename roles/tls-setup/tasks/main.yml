@@ -205,11 +205,167 @@
   debug:
     var: listener_status.stdout_lines
     
-- name: tls-setup | Generate Client Bundle Zip for easy download
-  archive:
-    path: 
-      - "{{ tls_wallet_dir }}/root-ca.pem"
-    dest: "/home/oracle/client_bundle.zip"
-    format: zip
+- name: tls-setup | Create Extract Script
+  copy:
+    content: |
+      import sys
+      import re
+
+      with open(sys.argv[1]) as f:
+          content = f.read()
+
+      blocks = re.findall(r"-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----", content, re.DOTALL)
+
+      if blocks:
+          print(blocks[-1].strip())
+      else:
+          sys.exit("No certificates found in " + sys.argv[1])
+    dest: "{{ tls_wallet_dir }}/extract_root_ca.py"
     owner: "{{ oracle_user }}"
     group: "{{ oracle_group }}"
+    mode: '0700'
+  become: true
+  become_user: "{{ oracle_user }}"
+
+- name: tls-setup | Extract Root CA Certificate from cert.pem
+  shell: "python3 {{ tls_wallet_dir }}/extract_root_ca.py {{ tls_wallet_dir }}/cert.pem > {{ tls_wallet_dir }}/root-ca.pem"
+  become: true
+  become_user: "{{ oracle_user }}"
+  args:
+    creates: "{{ tls_wallet_dir }}/root-ca.pem"
+
+- name: tls-setup | Delete Extract Script
+  file:
+    path: "{{ tls_wallet_dir }}/extract_root_ca.py"
+    state: absent
+  become: true
+  become_user: "{{ oracle_user }}"
+
+- name: tls-setup | Create Temporary Client Bundle Staging Directory
+  file:
+    path: "{{ tls_wallet_dir }}/client_bundle_staging"
+    state: directory
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
+    mode: '0700'
+  become: true
+  become_user: "{{ oracle_user }}"
+
+- name: tls-setup | Copy Root CA to Staging Directory
+  copy:
+    src: "{{ tls_wallet_dir }}/root-ca.pem"
+    dest: "{{ tls_wallet_dir }}/client_bundle_staging/root-ca.pem"
+    remote_src: yes
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
+    mode: '0600'
+  become: true
+  become_user: "{{ oracle_user }}"
+
+- name: tls-setup | Create Empty Secure Client Oracle Wallet
+  shell: >
+    orapki wallet create -wallet "{{ tls_wallet_dir }}/client_bundle_staging" -auto_login -pwd "$WALLET_PWD"
+  become: true
+  become_user: "{{ oracle_user }}"
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/usr/bin:/bin"
+    WALLET_PWD: "{{ (tls_secret_raw.stdout | from_json).pwd }}"
+  no_log: true
+
+- name: tls-setup | Import Root CA as Trusted Certificate into Client Oracle Wallet
+  shell: >
+    orapki wallet add -wallet "{{ tls_wallet_dir }}/client_bundle_staging"
+    -trusted_cert -cert "{{ tls_wallet_dir }}/client_bundle_staging/root-ca.pem"
+    -pwd "$WALLET_PWD"
+  become: true
+  become_user: "{{ oracle_user }}"
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/usr/bin:/bin"
+    WALLET_PWD: "{{ (tls_secret_raw.stdout | from_json).pwd }}"
+  no_log: true
+
+- name: tls-setup | Create Zip Script
+  copy:
+    content: |
+      import zipfile
+      import os
+      import sys
+
+      files = ["root-ca.pem", "cwallet.sso", "ewallet.p12"]
+      staging_dir = sys.argv[1]
+      zip_path = sys.argv[2]
+
+      try:
+          with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+              for f in files:
+                  full_path = os.path.join(staging_dir, f)
+                  if os.path.exists(full_path):
+                      zf.write(full_path, f)
+                      print(f"Added {f} to zip")
+                  else:
+                      raise FileNotFoundError(f"Required file missing: {full_path}")
+          print(f"Successfully generated {zip_path}")
+      except Exception as e:
+          if os.path.exists(zip_path):
+              os.remove(zip_path)
+          sys.exit(str(e))
+    dest: "{{ tls_wallet_dir }}/generate_client_zip.py"
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
+    mode: '0700'
+  become: true
+  become_user: "{{ oracle_user }}"
+
+- name: tls-setup | Pre-emptively Remove Existing Client Bundle Zip
+  file:
+    path: "/home/oracle/client_bundle.zip"
+    state: absent
+  become: true
+  become_user: root
+
+- name: tls-setup | Generate Client Bundle Zip for easy download
+  shell: "python3 {{ tls_wallet_dir }}/generate_client_zip.py {{ tls_wallet_dir }}/client_bundle_staging /home/oracle/client_bundle.zip"
+  become: true
+  become_user: "{{ oracle_user }}"
+  register: client_bundle_zip_result
+
+- name: tls-setup | Delete Zip Script
+  file:
+    path: "{{ tls_wallet_dir }}/generate_client_zip.py"
+    state: absent
+  become: true
+  become_user: "{{ oracle_user }}"
+
+- name: tls-setup | Explicitly Secure Client Bundle Zip
+  file:
+    path: "/home/oracle/client_bundle.zip"
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
+    mode: '0600'
+  become: true
+  become_user: root
+
+- name: tls-setup | Clean Up Temporary Staging Directory
+  file:
+    path: "{{ tls_wallet_dir }}/client_bundle_staging"
+    state: absent
+  become: true
+  become_user: "{{ oracle_user }}"
+
+- name: tls-setup | Verify Client Bundle Zip Exists
+  stat:
+    path: "/home/oracle/client_bundle.zip"
+  register: client_bundle_stat
+  become: true
+  become_user: root
+
+- name: tls-setup | Fail if Client Bundle Zip is Missing or Empty
+  fail:
+    msg: "Expected /home/oracle/client_bundle.zip to be present and non-empty."
+  when: >
+    not client_bundle_stat.stat.exists or
+    not client_bundle_stat.stat.isreg or
+    client_bundle_stat.stat.size == 0
+
