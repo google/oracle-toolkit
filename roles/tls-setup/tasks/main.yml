@@ -205,48 +205,12 @@
   debug:
     var: listener_status.stdout_lines
     
-- name: tls-setup | Create Extract Script
-  copy:
-    content: |
-      import sys
-      import re
-
-      with open(sys.argv[1]) as f:
-          content = f.read()
-
-      blocks = re.findall(r"-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----", content, re.DOTALL)
-
-      if blocks:
-          print(blocks[-1].strip())
-      else:
-          sys.exit("No certificates found in " + sys.argv[1])
-    dest: "{{ tls_wallet_dir }}/extract_root_ca.py"
-    owner: "{{ oracle_user }}"
-    group: "{{ oracle_group }}"
-    mode: '0700'
-  become: true
-  become_user: "{{ oracle_user }}"
-
-- name: tls-setup | Extract Root CA Certificate from cert.pem
-  shell: "python3 {{ tls_wallet_dir }}/extract_root_ca.py {{ tls_wallet_dir }}/cert.pem > {{ tls_wallet_dir }}/root-ca.pem"
-  become: true
-  become_user: "{{ oracle_user }}"
-  args:
-    creates: "{{ tls_wallet_dir }}/root-ca.pem"
-
-- name: tls-setup | Apply Strict Permissions to Extracted Root CA
-  file:
-    path: "{{ tls_wallet_dir }}/root-ca.pem"
-    owner: "{{ oracle_user }}"
-    group: "{{ oracle_group }}"
-    mode: '0600'
-  become: true
-  become_user: root
-
-- name: tls-setup | Delete Extract Script
-  file:
-    path: "{{ tls_wallet_dir }}/extract_root_ca.py"
-    state: absent
+- name: tls-setup | Extract Root CA from Server Certificate
+  shell: |
+    awk '/BEGIN CERTIFICATE/ { seg="" } { seg=seg $0 "\n" } END { printf "%s", seg }' \
+    "{{ tls_wallet_dir }}/cert.pem"
+  register: extracted_root_ca
+  changed_when: false
   become: true
   become_user: "{{ oracle_user }}"
 
@@ -260,11 +224,10 @@
   become: true
   become_user: "{{ oracle_user }}"
 
-- name: tls-setup | Copy Root CA to Staging Directory
+- name: tls-setup | Stage Extracted Root CA
   copy:
-    src: "{{ tls_wallet_dir }}/root-ca.pem"
+    content: "{{ extracted_root_ca.stdout }}"
     dest: "{{ tls_wallet_dir }}/client_bundle_staging/root-ca.pem"
-    remote_src: yes
     owner: "{{ oracle_user }}"
     group: "{{ oracle_group }}"
     mode: '0600'
@@ -272,8 +235,9 @@
   become_user: "{{ oracle_user }}"
 
 - name: tls-setup | Create Empty Client Oracle Wallet
-  shell: >
-    orapki wallet create -wallet "{{ tls_wallet_dir }}/client_bundle_staging" -pwd "$WALLET_PWD"
+  command: >
+    orapki wallet create -wallet "{{ tls_wallet_dir }}/client_bundle_staging"
+    -pwd "$WALLET_PWD"
   args:
     creates: "{{ tls_wallet_dir }}/client_bundle_staging/ewallet.p12"
   become: true
@@ -284,8 +248,8 @@
     WALLET_PWD: "{{ (tls_secret_raw.stdout | from_json).pwd }}"
   no_log: true
 
-- name: tls-setup | Import Root CA as Trusted Certificate into Client Oracle Wallet
-  shell: >
+- name: tls-setup | Import Root CA as Trusted Certificate
+  command: >
     orapki wallet add -wallet "{{ tls_wallet_dir }}/client_bundle_staging"
     -trusted_cert -cert "{{ tls_wallet_dir }}/client_bundle_staging/root-ca.pem"
     -pwd "$WALLET_PWD"
@@ -297,9 +261,10 @@
     WALLET_PWD: "{{ (tls_secret_raw.stdout | from_json).pwd }}"
   no_log: true
 
-- name: tls-setup | Create Client Auto Login Wallet
-  shell: >
-    orapki wallet create -wallet "{{ tls_wallet_dir }}/client_bundle_staging" -auto_login -pwd "$WALLET_PWD"
+- name: tls-setup | Create Client Auto Login Wallet Snapshot
+  command: >
+    orapki wallet create -wallet "{{ tls_wallet_dir }}/client_bundle_staging"
+    -auto_login -pwd "$WALLET_PWD"
   args:
     creates: "{{ tls_wallet_dir }}/client_bundle_staging/cwallet.sso"
   become: true
@@ -310,37 +275,18 @@
     WALLET_PWD: "{{ (tls_secret_raw.stdout | from_json).pwd }}"
   no_log: true
 
-- name: tls-setup | Create Zip Script
-  copy:
-    content: |
-      import zipfile
-      import os
-      import sys
-
-      files = ["root-ca.pem", "cwallet.sso", "ewallet.p12"]
-      staging_dir = sys.argv[1]
-      zip_path = sys.argv[2]
-
-      try:
-          with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-              for f in files:
-                  full_path = os.path.join(staging_dir, f)
-                  if os.path.exists(full_path):
-                      zf.write(full_path, f)
-                      print(f"Added {f} to zip")
-                  else:
-                      raise FileNotFoundError(f"Required file missing: {full_path}")
-          print(f"Successfully generated {zip_path}")
-      except Exception as e:
-          if os.path.exists(zip_path):
-              os.remove(zip_path)
-          sys.exit(str(e))
-    dest: "{{ tls_wallet_dir }}/generate_client_zip.py"
+- name: tls-setup | Apply Strict Permissions to Staged Files
+  file:
+    path: "{{ tls_wallet_dir }}/client_bundle_staging/{{ item }}"
     owner: "{{ oracle_user }}"
     group: "{{ oracle_group }}"
-    mode: '0700'
+    mode: '0600'
+  with_items:
+    - "root-ca.pem"
+    - "ewallet.p12"
+    - "cwallet.sso"
   become: true
-  become_user: "{{ oracle_user }}"
+  become_user: root
 
 - name: tls-setup | Pre-emptively Remove Existing Client Bundle Zip
   file:
@@ -350,15 +296,10 @@
   become_user: root
 
 - name: tls-setup | Generate Client Bundle Zip for easy download
-  shell: "python3 {{ tls_wallet_dir }}/generate_client_zip.py {{ tls_wallet_dir }}/client_bundle_staging /home/oracle/client_bundle.zip"
-  become: true
-  become_user: "{{ oracle_user }}"
-  register: client_bundle_zip_result
-
-- name: tls-setup | Delete Zip Script
-  file:
-    path: "{{ tls_wallet_dir }}/generate_client_zip.py"
-    state: absent
+  command: "zip -j /home/oracle/client_bundle.zip cwallet.sso ewallet.p12 root-ca.pem"
+  args:
+    chdir: "{{ tls_wallet_dir }}/client_bundle_staging"
+    creates: "/home/oracle/client_bundle.zip"
   become: true
   become_user: "{{ oracle_user }}"
 
