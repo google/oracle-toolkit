@@ -205,123 +205,124 @@
   debug:
     var: listener_status.stdout_lines
     
-- name: tls-setup | Extract Root CA from Server Certificate
-  shell: |
-    awk '/BEGIN CERTIFICATE/ { seg="" } { seg=seg $0 "\n" } END { printf "%s", seg }' \
-    "{{ tls_wallet_dir }}/cert.pem"
-  register: extracted_root_ca
-  changed_when: false
-  become: true
-  become_user: "{{ oracle_user }}"
+- block:
+    - name: tls-setup | Extract Root CA from Server Certificate
+      shell: |
+        awk '/BEGIN CERTIFICATE/ { seg="" } { seg=seg $0 "\n" } END { printf "%s", seg }' \
+        "{{ tls_wallet_dir }}/cert.pem"
+      register: extracted_root_ca
+      changed_when: false
+      become: true
+      become_user: "{{ oracle_user }}"
 
-- name: tls-setup | Create Temporary Client Bundle Staging Directory
-  file:
-    path: "{{ tls_wallet_dir }}/client_bundle_staging"
-    state: directory
-    owner: "{{ oracle_user }}"
-    group: "{{ oracle_group }}"
-    mode: '0700'
-  become: true
-  become_user: "{{ oracle_user }}"
+    - name: tls-setup | Create Temporary Client Bundle Staging Directory
+      file:
+        path: "{{ tls_wallet_dir }}/client_bundle_staging"
+        state: directory
+        owner: "{{ oracle_user }}"
+        group: "{{ oracle_group }}"
+        mode: '0700'
+      become: true
+      become_user: "{{ oracle_user }}"
 
-- name: tls-setup | Stage Extracted Root CA
-  copy:
-    content: "{{ extracted_root_ca.stdout }}"
-    dest: "{{ tls_wallet_dir }}/client_bundle_staging/root-ca.pem"
-    owner: "{{ oracle_user }}"
-    group: "{{ oracle_group }}"
-    mode: '0600'
-  become: true
-  become_user: "{{ oracle_user }}"
+    - name: tls-setup | Stage Extracted Root CA
+      copy:
+        content: "{{ extracted_root_ca.stdout }}"
+        dest: "{{ tls_wallet_dir }}/client_bundle_staging/root-ca.pem"
+        owner: "{{ oracle_user }}"
+        group: "{{ oracle_group }}"
+        mode: '0600'
+      become: true
+      become_user: "{{ oracle_user }}"
 
-- name: tls-setup | Create Empty Client Oracle Wallet
-  command: >
-    orapki wallet create -wallet "{{ tls_wallet_dir }}/client_bundle_staging"
-    -pwd "$WALLET_PWD"
-  args:
-    creates: "{{ tls_wallet_dir }}/client_bundle_staging/ewallet.p12"
-  become: true
-  become_user: "{{ oracle_user }}"
-  environment:
-    ORACLE_HOME: "{{ oracle_home }}"
-    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/usr/bin:/bin"
-    WALLET_PWD: "{{ (tls_secret_raw.stdout | from_json).pwd }}"
-  no_log: true
+    - name: tls-setup | Create Empty Client Oracle Wallet
+      command: >
+        orapki wallet create -wallet "{{ tls_wallet_dir }}/client_bundle_staging"
+        -pwd "$WALLET_PWD"
+      args:
+        creates: "{{ tls_wallet_dir }}/client_bundle_staging/ewallet.p12"
+      become: true
+      become_user: "{{ oracle_user }}"
+      environment:
+        ORACLE_HOME: "{{ oracle_home }}"
+        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/usr/bin:/bin"
+        WALLET_PWD: "{{ (tls_secret_raw.stdout | from_json).pwd }}"
+      no_log: true
 
-- name: tls-setup | Import Root CA as Trusted Certificate
-  command: >
-    orapki wallet add -wallet "{{ tls_wallet_dir }}/client_bundle_staging"
-    -trusted_cert -cert "{{ tls_wallet_dir }}/client_bundle_staging/root-ca.pem"
-    -pwd "$WALLET_PWD"
-  become: true
-  become_user: "{{ oracle_user }}"
-  environment:
-    ORACLE_HOME: "{{ oracle_home }}"
-    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/usr/bin:/bin"
-    WALLET_PWD: "{{ (tls_secret_raw.stdout | from_json).pwd }}"
-  no_log: true
+    - name: tls-setup | Import Root CA as Trusted Certificate
+      command: >
+        orapki wallet add -wallet "{{ tls_wallet_dir }}/client_bundle_staging"
+        -trusted_cert -cert "{{ tls_wallet_dir }}/client_bundle_staging/root-ca.pem"
+        -pwd "$WALLET_PWD"
+      become: true
+      become_user: "{{ oracle_user }}"
+      environment:
+        ORACLE_HOME: "{{ oracle_home }}"
+        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/usr/bin:/bin"
+        WALLET_PWD: "{{ (tls_secret_raw.stdout | from_json).pwd }}"
+      no_log: true
 
-- name: tls-setup | Create Client Auto Login Wallet Snapshot
-  command: >
-    orapki wallet create -wallet "{{ tls_wallet_dir }}/client_bundle_staging"
-    -auto_login -pwd "$WALLET_PWD"
-  args:
-    creates: "{{ tls_wallet_dir }}/client_bundle_staging/cwallet.sso"
-  become: true
-  become_user: "{{ oracle_user }}"
-  environment:
-    ORACLE_HOME: "{{ oracle_home }}"
-    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/usr/bin:/bin"
-    WALLET_PWD: "{{ (tls_secret_raw.stdout | from_json).pwd }}"
-  no_log: true
+    - name: tls-setup | Create Client Auto Login Wallet Snapshot
+      command: >
+        orapki wallet create -wallet "{{ tls_wallet_dir }}/client_bundle_staging"
+        -auto_login -pwd "$WALLET_PWD"
+      args:
+        creates: "{{ tls_wallet_dir }}/client_bundle_staging/cwallet.sso"
+      become: true
+      become_user: "{{ oracle_user }}"
+      environment:
+        ORACLE_HOME: "{{ oracle_home }}"
+        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/usr/bin:/bin"
+        WALLET_PWD: "{{ (tls_secret_raw.stdout | from_json).pwd }}"
+      no_log: true
 
-- name: tls-setup | Apply Strict Permissions to Staged Files
-  file:
-    path: "{{ tls_wallet_dir }}/client_bundle_staging/{{ item }}"
-    owner: "{{ oracle_user }}"
-    group: "{{ oracle_group }}"
-    mode: '0600'
-  with_items:
-    - "root-ca.pem"
-    - "ewallet.p12"
-    - "cwallet.sso"
-  become: true
-  become_user: root
+    - name: tls-setup | Apply Strict Permissions to Staged Files
+      file:
+        path: "{{ tls_wallet_dir }}/client_bundle_staging/{{ item }}"
+        owner: "{{ oracle_user }}"
+        group: "{{ oracle_group }}"
+        mode: '0600'
+      with_items:
+        - "root-ca.pem"
+        - "ewallet.p12"
+        - "cwallet.sso"
+      become: true
+      become_user: root
 
-- name: tls-setup | Clean Up Lock Files in Staging Directory
-  file:
-    path: "{{ tls_wallet_dir }}/client_bundle_staging/{{ item }}"
-    state: absent
-  with_items:
-    - "cwallet.sso.lck"
-    - "ewallet.p12.lck"
-  become: true
-  become_user: "{{ oracle_user }}"
+    - name: tls-setup | Clean Up Lock Files in Staging Directory
+      file:
+        path: "{{ tls_wallet_dir }}/client_bundle_staging/{{ item }}"
+        state: absent
+      with_items:
+        - "cwallet.sso.lck"
+        - "ewallet.p12.lck"
+      become: true
+      become_user: "{{ oracle_user }}"
 
-- name: tls-setup | Pre-emptively Remove Existing Client Bundle Zip
-  file:
-    path: "/home/oracle/client_bundle.zip"
-    state: absent
-  become: true
-  become_user: root
+    - name: tls-setup | Pre-emptively Remove Existing Client Bundle Zip
+      file:
+        path: "/home/oracle/client_bundle.zip"
+        state: absent
+      become: true
+      become_user: root
 
-- name: tls-setup | Generate Client Bundle Zip for easy download
-  community.general.archive:
-    path: "{{ tls_wallet_dir }}/client_bundle_staging/"
-    dest: "/home/oracle/client_bundle.zip"
-    format: zip
-    owner: "{{ oracle_user }}"
-    group: "{{ oracle_group }}"
-    mode: '0600'
-  become: true
-  become_user: root
-
-- name: tls-setup | Clean Up Temporary Staging Directory
-  file:
-    path: "{{ tls_wallet_dir }}/client_bundle_staging"
-    state: absent
-  become: true
-  become_user: "{{ oracle_user }}"
+    - name: tls-setup | Generate Client Bundle Zip for easy download
+      community.general.archive:
+        path: "{{ tls_wallet_dir }}/client_bundle_staging/"
+        dest: "/home/oracle/client_bundle.zip"
+        format: zip
+        owner: "{{ oracle_user }}"
+        group: "{{ oracle_group }}"
+        mode: '0600'
+      become: true
+      become_user: root
+  always:
+    - name: tls-setup | Clean Up Temporary Staging Directory
+      file:
+        path: "{{ tls_wallet_dir }}/client_bundle_staging"
+        state: absent
+      become: true
+      become_user: "{{ oracle_user }}"
 
 - name: tls-setup | Verify Client Bundle Zip Exists
   stat:
