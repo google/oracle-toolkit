@@ -288,6 +288,16 @@
   become: true
   become_user: root
 
+- name: tls-setup | Clean Up Lock Files in Staging Directory
+  file:
+    path: "{{ tls_wallet_dir }}/client_bundle_staging/{{ item }}"
+    state: absent
+  with_items:
+    - "cwallet.sso.lck"
+    - "ewallet.p12.lck"
+  become: true
+  become_user: "{{ oracle_user }}"
+
 - name: tls-setup | Pre-emptively Remove Existing Client Bundle Zip
   file:
     path: "/home/oracle/client_bundle.zip"
