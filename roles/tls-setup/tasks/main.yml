@@ -296,23 +296,10 @@
   become_user: root
 
 - name: tls-setup | Generate Client Bundle Zip for easy download
-  command: >
-    python3 -c "
-    import zipfile, os;
-    files = ['cwallet.sso', 'ewallet.p12', 'root-ca.pem'];
-    with zipfile.ZipFile('/home/oracle/client_bundle.zip', 'w', zipfile.ZIP_DEFLATED) as zf:
-        for f in files:
-            zf.write(os.path.join('.', f), f)
-    "
-  args:
-    chdir: "{{ tls_wallet_dir }}/client_bundle_staging"
-    creates: "/home/oracle/client_bundle.zip"
-  become: true
-  become_user: "{{ oracle_user }}"
-
-- name: tls-setup | Apply Strict Permissions to Client Bundle Zip
-  file:
-    path: "/home/oracle/client_bundle.zip"
+  community.general.archive:
+    path: "{{ tls_wallet_dir }}/client_bundle_staging/"
+    dest: "/home/oracle/client_bundle.zip"
+    format: zip
     owner: "{{ oracle_user }}"
     group: "{{ oracle_group }}"
     mode: '0600'
