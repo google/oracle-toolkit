@@ -234,6 +234,15 @@
   args:
     creates: "{{ tls_wallet_dir }}/root-ca.pem"
 
+- name: tls-setup | Apply Strict Permissions to Extracted Root CA
+  file:
+    path: "{{ tls_wallet_dir }}/root-ca.pem"
+    owner: "{{ oracle_user }}"
+    group: "{{ oracle_group }}"
+    mode: '0600'
+  become: true
+  become_user: root
+
 - name: tls-setup | Delete Extract Script
   file:
     path: "{{ tls_wallet_dir }}/extract_root_ca.py"
@@ -262,9 +271,11 @@
   become: true
   become_user: "{{ oracle_user }}"
 
-- name: tls-setup | Create Empty Secure Client Oracle Wallet
+- name: tls-setup | Create Empty Client Oracle Wallet
   shell: >
-    orapki wallet create -wallet "{{ tls_wallet_dir }}/client_bundle_staging" -auto_login -pwd "$WALLET_PWD"
+    orapki wallet create -wallet "{{ tls_wallet_dir }}/client_bundle_staging" -pwd "$WALLET_PWD"
+  args:
+    creates: "{{ tls_wallet_dir }}/client_bundle_staging/ewallet.p12"
   become: true
   become_user: "{{ oracle_user }}"
   environment:
@@ -278,6 +289,19 @@
     orapki wallet add -wallet "{{ tls_wallet_dir }}/client_bundle_staging"
     -trusted_cert -cert "{{ tls_wallet_dir }}/client_bundle_staging/root-ca.pem"
     -pwd "$WALLET_PWD"
+  become: true
+  become_user: "{{ oracle_user }}"
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/usr/bin:/bin"
+    WALLET_PWD: "{{ (tls_secret_raw.stdout | from_json).pwd }}"
+  no_log: true
+
+- name: tls-setup | Create Client Auto Login Wallet
+  shell: >
+    orapki wallet create -wallet "{{ tls_wallet_dir }}/client_bundle_staging" -auto_login -pwd "$WALLET_PWD"
+  args:
+    creates: "{{ tls_wallet_dir }}/client_bundle_staging/cwallet.sso"
   become: true
   become_user: "{{ oracle_user }}"
   environment:
@@ -338,7 +362,7 @@
   become: true
   become_user: "{{ oracle_user }}"
 
-- name: tls-setup | Explicitly Secure Client Bundle Zip
+- name: tls-setup | Apply Strict Permissions to Client Bundle Zip
   file:
     path: "/home/oracle/client_bundle.zip"
     owner: "{{ oracle_user }}"
