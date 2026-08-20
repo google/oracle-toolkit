@@ -1,0 +1,502 @@
+diff --git a/brute-cleanup.yml b/brute-cleanup.yml
+index f4d6de7ce..c769b0f4c 100644
+--- a/brute-cleanup.yml
++++ b/brute-cleanup.yml
+@@ -24,3 +24,10 @@
+         success_msg: "Ansible version is {{ ansible_version.full }}, continuing"
+   roles:
+     - brute-ora-cleanup
++  post_tasks: 
++    - name: Remove gcs auto bucket
++      include_role:
++        name: db-backups
++        tasks_from: gcsautorm.yml
++      when: lookup('env', 'REMOVE_AUTOGCS_BUCKET') == 'delete_bucket_and_data'
++
+diff --git a/cleanup-oracle.sh b/cleanup-oracle.sh
+index 35c28da49..bb4732802 100755
+--- a/cleanup-oracle.sh
++++ b/cleanup-oracle.sh
+@@ -18,7 +18,7 @@ echo "$0 $@"
+ echo
+ 
+ GETOPT_MANDATORY="ora-version:,inventory-file:,yes-i-am-sure"
+-GETOPT_OPTIONAL="ora-edition:,ora-role-separation:,ora-disk-mgmt:,ora-swlib-path:,ora-staging:,ora-asm-disks:"
++GETOPT_OPTIONAL="ora-edition:,ora-role-separation:,ora-disk-mgmt:,ora-swlib-path:,ora-staging:,ora-asm-disks:,remove-autogcs-bucket:"
+ GETOPT_OPTIONAL="${GETOPT_OPTIONAL},ora-asm-disks-json:,ora-data-mounts:,ora-data-mounts-json:,help"
+ GETOPT_LONG="${GETOPT_MANDATORY},${GETOPT_OPTIONAL}"
+ GETOPT_SHORT="yh"
+@@ -57,6 +57,10 @@ ORA_DATA_MOUNTS_PARAM="^.+\.json$"
+ ORA_DATA_MOUNTS_JSON="${ORA_DATA_MOUNTS_JSON}"
+ ORA_DATA_MOUNTS_JSON_PARAM="^\[.+purpose.+\]$"
+ 
++REMOVE_AUTOGCS_BUCKET="${REMOVE_AUTOGCS_BUCKET}"
++REMOVE_AUTOGCS_BUCKET_PARAM="^delete_bucket_and_data$"
++
++
+ options="$(getopt --longoptions "$GETOPT_LONG" --options "$GETOPT_SHORT" -- "$@")"
+ 
+ [ $? -eq 0 ] || {
+@@ -123,6 +127,10 @@ while true; do
+         ORA_DATA_MOUNTS_JSON="$2"
+         shift
+         ;;
++    --remove-autogcs-bucket)
++        REMOVE_AUTOGCS_BUCKET="$2"
++        shift
++        ;;
+     --help | -h)
+         echo -e "\tUsage: $(basename $0)" >&2
+         echo "${GETOPT_MANDATORY}" | sed 's/,/\n/g' | sed 's/:/ <value>/' | sed 's/\(.\+\)/\t --\1/'
+@@ -206,6 +214,10 @@ fi
+     echo "Incorrect parameter provided for ora-data-mounts-json: $ORA_DATA_MOUNTS_JSON"
+     exit 1
+ }
++[[ ! "$REMOVE_AUTOGCS_BUCKET" =~ $REMOVE_AUTOGCS_BUCKET_PARAM ]] && {
++    echo "Incorrect parameter provided for remove-autogcs-bucket: $REMOVE_AUTOGCS_BUCKET"
++    exit 1
++}
+ 
+ ORA_STAGING=${ORA_STAGING%/}
+ ORA_SWLIB_PATH=${ORA_SWLIB_PATH%/}
+@@ -220,6 +232,7 @@ export ORA_DATA_MOUNTS
+ export ORA_DATA_MOUNTS_JSON
+ export ORA_STAGING
+ export ORA_SWLIB_PATH
++export REMOVE_AUTOGCS_BUCKET
+ 
+ echo -e "Running with parameters from command line or environment variables:\n"
+ set | grep -E '^(ORA_|INVENTORY_)' | grep -v '_PARAM='
+diff --git a/docs/user-guide.md b/docs/user-guide.md
+index fefe5ccfc..33337ab22 100644
+--- a/docs/user-guide.md
++++ b/docs/user-guide.md
+@@ -1889,6 +1889,17 @@ directory does not have to exist, but initial backups will fail if the
+ destination is not available or writeable.</td>
+ </tr>
+ <tr>
++<td>GCS backup configuration</td>
++<td><p><pre>
++GCS_BACKUP_CONFIG
++--gcs-backup-config
++</pre></p></td>
++<td>user defined - no default<br>
++Example: auto</td>
++<td>The auto is the only option currently available. The auto option creates a new gcs bucket identified by the gce instance_id, 
++it creates the service account and service account keys.<br>
++</tr>
++<tr>
+ <td>RMAN full DB backup redundancy</td>
+ <td><p><pre>
+ BACKUP_REDUNDANCY
+diff --git a/install-oracle.sh b/install-oracle.sh
+index 2b25c8843..2ab28b14a 100755
+--- a/install-oracle.sh
++++ b/install-oracle.sh
+@@ -181,6 +181,9 @@ CLUSTER_CONFIG_JSON_PARAM="^\[.+cluster_name.+\]$"
+ BACKUP_DEST="${BACKUP_DEST}"
+ BACKUP_DEST_PARAM="^(\/|\+)?.*$"
+ 
++GCS_BACKUP_CONFIG="${GCS_BACKUP_CONFIG}"
++GCS_BACKUP_CONFIG_PARAM="^[a-zA-Z0-9]+$"
++
+ BACKUP_REDUNDANCY="${BACKUP_REDUNDANCY:-2}"
+ BACKUP_REDUNDANCY_PARAM="^[0-9]+$"
+ 
+@@ -242,7 +245,7 @@ COMPATIBLE_RDBMS_PARAM="^[0-9][0-9]\.[0-9].*"
+ export ANSIBLE_DISPLAY_SKIPPED_HOSTS=false
+ ###
+ GETOPT_MANDATORY="ora-swlib-bucket:"
+-GETOPT_OPTIONAL="backup-dest:,ora-version:,no-patch,ora-edition:,cluster-type:,cluster-config:,cluster-config-json:"
++GETOPT_OPTIONAL="gcs-backup-config:,backup-dest:,ora-version:,no-patch,ora-edition:,cluster-type:,cluster-config:,cluster-config-json:"
+ GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-staging:,ora-db-name:,ora-db-domain:,ora-db-charset:,ora-disk-mgmt:,ora-role-separation:"
+ GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-data-destination:,ora-data-diskgroup:,ora-reco-destination:,ora-reco-diskgroup:"
+ GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-asm-disks:,ora-asm-disks-json:,ora-data-mounts:,ora-data-mounts-json:,ora-listener-port:,ora-listener-name:"
+@@ -407,6 +410,10 @@ while true; do
+     BACKUP_DEST="$2"
+     shift
+     ;;
++  --gcs-backup-config)
++    GCS_BACKUP_CONFIG="$2"
++    shift
++    ;;
+   --backup-redundancy)
+     BACKUP_REDUNDANCY="$2"
+     shift
+@@ -667,6 +674,10 @@ shopt -s nocasematch
+   echo "Incorrect parameter provided for backup-dest: $BACKUP_DEST"
+   exit 1
+ }
++[[ ! "$GCS_BACKUP_CONFIG" =~ $GCS_BACKUP_CONFIG_PARAM ]] && {
++  echo "Incorrect parameter provided for gcs-backup-config: $GCS_BACKUP_CONFIG"
++  exit 1
++}
+ [[ ! "$BACKUP_REDUNDANCY" =~ $BACKUP_REDUNDANCY_PARAM ]] && {
+   echo "Incorrect parameter provided for backup-redundancy: $BACKUP_REDUNDANCY"
+   exit 1
+@@ -910,6 +921,7 @@ export ARCHIVE_BACKUP_MIN
+ export ARCHIVE_ONLINE_DAYS
+ export ARCHIVE_REDUNDANCY
+ export BACKUP_DEST
++export GCS_BACKUP_CONFIG
+ export BACKUP_LEVEL0_DAYS
+ export BACKUP_LEVEL1_DAYS
+ export BACKUP_LOG_LOCATION
+@@ -954,7 +966,7 @@ export PRIMARY_IP_ADDR
+ export SWAP_BLK_DEVICE
+ 
+ echo -e "Running with parameters from command line or environment variables:\n"
+-set | grep -E '^(ORA_|BACKUP_|ARCHIVE_|INSTANCE_|PB_|ANSIBLE_|CLUSTER|PRIMARY)' | grep -v '_PARAM='
++set | grep -E '^(ORA_|BACKUP_|GCS_|ARCHIVE_|INSTANCE_|PB_|ANSIBLE_|CLUSTER|PRIMARY)' | grep -v '_PARAM='
+ echo
+ 
+ ANSIBLE_PARAMS="-i ${INVENTORY_FILE} ${ANSIBLE_PARAMS}"
+diff --git a/roles/db-backups/defaults/main.yml b/roles/db-backups/defaults/main.yml
+index d6c0ccf5b..86f7e5afe 100644
+--- a/roles/db-backups/defaults/main.yml
++++ b/roles/db-backups/defaults/main.yml
+@@ -26,5 +26,11 @@ full_bu_start_hour: "01"
+ full_bu_start_min: "00"
+ arch_bu_start_min: "30"
+ 
++gcsfuse_backup_temp_path: "/mnt"
++gcsfuse_backup_temp_prefix: "gcsfusetmp"
++gcsfuse_backup_mount_path: "/mnt"
++gcsfuse_backup_mount_prefix: "gcsfuse"
++gcsfuse_bucket_prefix: "fusebackup"
++
+ # backup_mount_src: ""
+ # backup_mount_path: ""
+diff --git a/roles/db-backups/tasks/gcs.yml b/roles/db-backups/tasks/gcs.yml
+new file mode 100644
+index 000000000..6e62f7e40
+--- /dev/null
++++ b/roles/db-backups/tasks/gcs.yml
+@@ -0,0 +1,18 @@
++# Copyright 2025 Google LLC
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#      http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++---
++- name: gcsfuse | gcsfuse install
++  include_tasks: gcsfuse.yml
++
+diff --git a/roles/db-backups/tasks/gcsauto.yml b/roles/db-backups/tasks/gcsauto.yml
+new file mode 100644
+index 000000000..8695207c5
+--- /dev/null
++++ b/roles/db-backups/tasks/gcsauto.yml
+@@ -0,0 +1,151 @@
++# Copyright 2025 Google LLC
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#      http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++---
++- name: gcsfuse | gcsfuse install
++  include_tasks: gcsfuse.yml
++
++- name: gcsfuse enable resource manager API | Enable resource manager API auto creation of bucket
++  shell:
++    cmd: "gcloud services enable cloudresourcemanager.googleapis.com || true"
++  register: services_cloudresourcemanager
++  changed_when: not services_cloudresourcemanager.failed
++
++- name: gcsfuse extract project number | GCE instance project number value
++  shell:
++    cmd: "gcloud projects describe $(gcloud config get-value project) --format=\"value(projectNumber)\""
++  register: gce_project_number
++  changed_when: not gce_project_number.failed
++
++- name: gcsfuse project number results | GCE instance project number value
++  debug:
++    var: gce_project_number.stdout
++    verbosity: 1
++
++- name: gcsfuse extract instance_id number | GCE instance_id value
++  shell:
++    cmd: "curl -s http://metadata.google.internal/computeMetadata/v1/instance/id -H Metadata-Flavor:Google"
++  register: gce_instance_id
++  changed_when: not gce_instance_id.failed
++
++- name: gcsfuse instance_id results | GCE instance instance_id value results
++  debug:
++    var: gce_instance_id.stdout
++    verbosity: 1
++
++- name: gcsfuse service account verification | GCE gcsfuse service account verification
++  shell:
++    cmd: "gcloud iam service-accounts list --format json|egrep -i gcsfuse-{{ gce_instance_id.stdout }}|egrep -i email |awk -F'\"' '{print $4}'"
++  register: gcsfuse_backup_service_account_verification
++  failed_when: gcsfuse_backup_service_account_verification.rc not in [0, 1]
++  changed_when: false
++  check_mode: false
++
++- name: gcsfuse create service account | GCE gcsfuse service account
++  shell:
++    cmd: "gcloud iam service-accounts create gcsfuse-{{ gce_instance_id.stdout }}"
++  register: gcsfuse_backup_service_account
++  when:
++    - gcsfuse_backup_service_account_verification.stdout | length == 0
++  changed_when: not gcsfuse_backup_service_account.failed
++
++- name: gcsfuse wait for service account propagation
++  pause:
++    seconds: 15
++  when: not ansible_check_mode
++
++- name: gcsfuse service account verification | GCE gcsfuse service account verification
++  shell:
++    cmd: "gcloud iam service-accounts list --format json|egrep -i gcsfuse-{{ gce_instance_id.stdout }}|egrep -i email |awk -F'\"' '{print $4}'"
++  register: gcsfuse_backup_service_account_verification
++  failed_when: gcsfuse_backup_service_account_verification.rc not in [0, 1]
++  changed_when: false
++  check_mode: false
++
++- name: gcsfuse service account verification results | GCE gcsfuse service account results
++  debug:
++    var: gcsfuse_backup_service_account_verification.stdout
++    verbosity: 1
++
++- name: gcsfuse service account keys verification | GCE gcsfuse service account keys verification
++  shell:
++    cmd: "gcloud iam service-accounts keys list  --managed-by=user --iam-account={{ gcsfuse_backup_service_account_verification.stdout }}"
++  register: gcsfuse_backup_service_account_keys_verification
++  failed_when: gcsfuse_backup_service_account_keys_verification.stderr != "Listed 0 items."
++  changed_when: false
++  check_mode: false
++
++- name: gcsfuse create temp directory| GCE gcsfuse create temp directory
++  become: true
++  file:
++    path: "{{ gcsfuse_backup_temp_path }}/{{ gcsfuse_backup_temp_prefix }}{{ gce_instance_id.stdout }}"
++    state: directory
++    mode: 0760
++    owner: "{{ oracle_user }}"
++    group: "{{ oracle_group }}"
++
++- name: gcsfuse create bucket mount directory| GCE gcsfuse create bucket mount directory
++  become: true
++  file:
++    path: "{{ gcsfuse_backup_mount_path }}/{{ gcsfuse_backup_mount_prefix }}{{ gce_instance_id.stdout }}"
++    state: directory
++    mode: 0760
++    owner: "{{ oracle_user }}"
++    group: "{{ oracle_group }}"
++
++- name: gcsfuse create bucket| GCE gcsfuse create bucket
++  shell:
++    cmd: "gcloud storage buckets create gs://{{ gcsfuse_bucket_prefix }}-{{ gce_instance_id.stdout }} --pap"
++  register: gcsfuse_create_bucket
++
++- name: gcsfuse wait for gcsbucket propagation
++  pause:
++    seconds: 15
++  when: not ansible_check_mode
++
++- name: gcsfuse set bucket service account iam policy| GCE set bucket service account iam policy
++  shell:
++    cmd: "gcloud storage buckets add-iam-policy-binding gs://{{ gcsfuse_bucket_prefix }}-{{ gce_instance_id.stdout }}/ --member=\"serviceAccount:{{ gcsfuse_backup_service_account_verification.stdout }}\" --role=roles/storage.legacyBucketOwner"
++  register: gcsfuse_service_account_iam
++  changed_when: not gcsfuse_service_account_iam.failed
++
++- name: gcsfuse wait for gcsbucket iam-policy propagation
++  pause:
++    seconds: 15
++  when: not ansible_check_mode
++
++- name: gcsfuse create service account key | GCE gcsfuse service account key
++  shell:
++    cmd: "gcloud iam service-accounts keys create {{ gcsfuse_backup_temp_path }}/{{ gcsfuse_backup_temp_prefix }}{{ gce_instance_id.stdout }}/{{ gce_instance_id.stdout }}.json --iam-account={{ gcsfuse_backup_service_account_verification.stdout }}"
++  register: gcsfuse_backup_service_account_json_key
++  when: gcsfuse_backup_service_account_keys_verification.stderr == "Listed 0 items."
++  changed_when: not gcsfuse_backup_service_account_json_key.failed
++
++- name: gcsfuse wait for service account keys propagation
++  pause:
++    seconds: 15
++  when: not ansible_check_mode
++
++- name: gcsfuse mount bucket  GCE gcsfuse mount directory
++  mount:
++    path: "{{ gcsfuse_backup_mount_path }}/{{ gcsfuse_backup_mount_prefix }}{{ gce_instance_id.stdout }}"
++    src: "{{ gcsfuse_bucket_prefix }}-{{ gce_instance_id.stdout }}"
++    fstype: gcsfuse
++    opts: temp_dir={{ gcsfuse_backup_temp_path }}/{{ gcsfuse_backup_temp_prefix }}{{ gce_instance_id.stdout }},rw,dir_mode=777,uid={{ oracle_user }},gid={{ oracle_group }},noexec,nodev,allow_other,key_file={{ gcsfuse_backup_temp_path }}/{{ gcsfuse_backup_temp_prefix }}{{ gce_instance_id.stdout }}/{{ gce_instance_id.stdout }}.json
++    state: mounted
++  when: gcsfuse_backup_service_account_verification is defined
++
++- name: gcsfuse set backup directory | GCE gcsfuse service account key
++  set_fact:
++    backup_dest: "{{ gcsfuse_backup_mount_path }}/{{ gcsfuse_backup_mount_prefix }}{{ gce_instance_id.stdout }}"
+diff --git a/roles/db-backups/tasks/gcsautorm.yml b/roles/db-backups/tasks/gcsautorm.yml
+new file mode 100644
+index 000000000..a61dc969a
+--- /dev/null
++++ b/roles/db-backups/tasks/gcsautorm.yml
+@@ -0,0 +1,92 @@
++# Copyright 2025 Google LLC
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#      http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++---
++- name: gcsfuse extract instance_id number | GCE instance_id value
++  shell:
++    cmd: "curl -s http://metadata.google.internal/computeMetadata/v1/instance/id -H Metadata-Flavor:Google"
++  register: gce_instance_id
++  changed_when: not gce_instance_id.failed
++
++- name: gcsfuse instance_id results | GCE instance instance_id value results
++  debug:
++    var: gce_instance_id.stdout
++    verbosity: 1
++
++- name: gcsfuse service account verification | GCE gcsfuse service account verification
++  shell:
++    cmd: "gcloud iam service-accounts list --format json|egrep -i gcsfuse-{{ gce_instance_id.stdout }}|egrep -i email |awk -F'\"' '{print $4}'"
++  register: gcsfuse_backup_service_account_verification
++  failed_when: gcsfuse_backup_service_account_verification.rc not in [0, 1]
++  changed_when: false
++
++- name: gcsfuse service account verification results | GCE gcsfuse service account results
++  debug:
++    var: gcsfuse_backup_service_account_verification.stdout
++    verbosity: 1
++
++- name: Lazy unmount gcsfuse bucket
++  shell:
++    cmd: "umount -f -l '{{ gcsfuse_backup_mount_path }}/{{ gcsfuse_backup_mount_prefix }}{{ gce_instance_id.stdout }}'"
++  ignore_errors: true
++
++- name: gcsfuse remove bucket files| GCE gcsfuse remove bucket files
++  shell:
++    cmd: "gcloud storage rm -r gs://{{ gcsfuse_bucket_prefix }}-{{ gce_instance_id.stdout }}"
++  ignore_errors: true
++
++- name: gcsfuse remove bucket| GCE gcsfuse remove bucket
++  shell:
++    cmd: "gcloud storage buckets delete gs://{{ gcsfuse_bucket_prefix }}-{{ gce_instance_id.stdout }}"
++  ignore_errors: true
++
++- name: gcsfuse service account verification | GCE gcsfuse service account verification
++  shell:
++    cmd: "gcloud iam service-accounts list --format json|egrep -i gcsfuse-{{ gce_instance_id.stdout }}|egrep -i email |awk -F'\"' '{print $4}'"
++  register: gcsfuse_backup_service_account_verification
++  failed_when: gcsfuse_backup_service_account_verification.rc != 0 and gcsfuse_backup_service_account_verification.rc != 1
++  changed_when: false
++
++- name: gcsfuse delete service account | GCE gcsfuse delete service account
++  shell:
++    cmd: "gcloud iam service-accounts delete {{ gcsfuse_backup_service_account_verification.stdout }}"
++  ignore_errors: true
++  register: gcsfuse_backup_service_account_delete
++  when: gcsfuse_backup_service_account_verification.stdout | length == 0
++
++- name: gcsfuse wait for delete propagation
++  pause:
++    seconds: 15
++  when: not ansible_check_mode
++
++- name: Remove gcsfuse service account keys
++  become: true
++  become_user: root
++  file:
++    path: "{{ gcsfuse_backup_temp_path }}/{{ gcsfuse_backup_temp_prefix }}{{ gce_instance_id.stdout }}/{{ gce_instance_id.stdout }}.json"
++    state: absent
++
++- name: gcsfuse remove temp directory| GCE gcsfuse remove temp directory
++  become: true
++  become_user: root
++  file:
++    path: "{{ gcsfuse_backup_temp_path }}/{{ gcsfuse_backup_temp_prefix }}{{ gce_instance_id.stdout }}"
++    state: absent
++
++- name: gcsfuse remove bucket mount directory| GCE gcsfuse remove bucket mount directory
++  become: true
++  become_user: root
++  file:
++    path: "{{ gcsfuse_backup_mount_path }}/{{ gcsfuse_backup_mount_prefix }}{{ gce_instance_id.stdout }}"
++    state: absent
+diff --git a/roles/db-backups/tasks/gcsfuse.yml b/roles/db-backups/tasks/gcsfuse.yml
+new file mode 100644
+index 000000000..2f79b9363
+--- /dev/null
++++ b/roles/db-backups/tasks/gcsfuse.yml
+@@ -0,0 +1,32 @@
++# Copyright 2025 Google LLC
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#      http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++---
++- name: gcsfuse | Add Google Cloud gcsfuse repo
++  yum_repository:
++    name: gcsfuse
++    description: Google cloud gcsfuse    
++    baseurl: https://packages.cloud.google.com/yum/repos/gcsfuse-el7-x86_64
++    gpgkey:
++      - https://packages.cloud.google.com/yum/doc/yum-key.gpg
++      - https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
++    gpgcheck: true
++  when: ansible_os_family == "RedHat"
++
++- name: gcloud | Install latest gcloud gcsfuse package
++  package:
++    name: gcsfuse
++    state: present
++    lock_timeout: "{{ pkg_mgr_lock_timeout }}"
++  when: ansible_os_family == "RedHat"
+diff --git a/roles/db-backups/tasks/main.yml b/roles/db-backups/tasks/main.yml
+index 7e4c20221..89557dea7 100644
+--- a/roles/db-backups/tasks/main.yml
++++ b/roles/db-backups/tasks/main.yml
+@@ -33,6 +33,11 @@
+     - backup_mount_src is defined
+     - backup_mount_path is defined
+ 
++- name: gcs backup location | gcs backup
++  include_tasks: gcsauto.yml
++  when:
++    - lookup('env', 'GCS_BACKUP_CONFIG') is defined
++
+ - name: Copy backup scripts to target server
+   become: true
+   become_user: "{{ oracle_user }}"
