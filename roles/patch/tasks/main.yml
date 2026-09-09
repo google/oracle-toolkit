@@ -107,6 +107,7 @@
     set heading off
     select database_role from v\$database;
     EOF
+  when: not (oracle_edition | lower == 'client')
   environment:
     ORACLE_HOME: "{{ oracle_home }}"
     ORACLE_SID: "{{ oracle_sid }}"
@@ -120,6 +121,7 @@
 - name: (RDBMS) Set boolean standby_db variable
   set_fact:
     standby_db: "{{ db_role.stdout is search('PHYSICAL STANDBY') | bool }}"
+  when: not (oracle_edition | lower == 'client')
   tags: patch-grid,patch-rdbms
 
 - name: (GI) Apply patch
@@ -220,7 +222,9 @@
     ORACLE_HOME: "{{ oracle_home }}"
     ORACLE_SID: "{{ oracle_sid }}"
     PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
-  when: not gi_install
+  when:
+    - not gi_install
+    - not (oracle_edition | lower == 'client')
   register: stop_home
   become: true
   become_user: "{{ oracle_user }}"
@@ -231,6 +235,7 @@
   debug:
     msg: "{{ stop_home }}"
     verbosity: 1
+  when: stop_home is defined
   tags: patch-rdbms,stop-home
 
 - name: (RDBMS) Apply patch
@@ -283,7 +288,8 @@
     PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
   when:
     - not gi_install
-    - not standby_db
+    - not (standby_db | default(false) | bool)
+    - not (oracle_edition | lower == 'client')
   register: start_home
   become: true
   become_user: "{{ oracle_user }}"
@@ -313,4 +319,5 @@
   debug:
     msg: "{{ start_home }}"
     verbosity: 1
+  when: start_home is defined
   tags: patch-rdbms,start-home

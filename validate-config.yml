@@ -22,8 +22,8 @@
     - name: Validate ora_edition value
       ansible.builtin.assert:
         that:
-          - ora_edition in ['EE', 'SE', 'SE2', 'FREE']
-        fail_msg: "Invalid ora-edition '{{ ora_edition }}'. Must be one of: EE, SE, SE2, FREE."
+          - ora_edition in ['EE', 'SE', 'SE2', 'FREE', 'CLIENT']
+        fail_msg: "Invalid ora-edition '{{ ora_edition }}'. Must be one of: EE, SE, SE2, FREE, CLIENT."
       when: ora_edition is defined
 
     - name: Validate cluster_type value
@@ -109,7 +109,7 @@
       when: cluster_type == "DG"
       ansible.builtin.assert:
         that:
-          - oracle_edition == 'EE'
+          - oracle_edition in ['EE', 'CLIENT']
           - primary_ip_addr is defined
           - primary_ip_addr | length > 0
         fail_msg: "Data Guard deployments require Enterprise Edition and a defined primary-ip-addr."

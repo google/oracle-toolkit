@@ -117,10 +117,10 @@ variable "ora_db_domain" {
 variable "ora_edition" {
   type        = string
   default     = "EE"
-  description = "Oracle Edition: EE, SE, SE2, or FREE."
+  description = "Oracle Edition: EE, SE, SE2, FREE, or CLIENT."
   validation {
-    condition     = var.ora_edition == "" || contains(["EE", "SE", "SE2", "FREE"], var.ora_edition)
-    error_message = "Invalid Oracle edition. Allowed values: EE, SE, SE2, FREE."
+    condition     = var.ora_edition == "" || contains(["EE", "SE", "SE2", "FREE", "CLIENT"], var.ora_edition)
+    error_message = "Invalid Oracle edition. Allowed values: EE, SE, SE2, FREE, CLIENT."
   }
 }
 

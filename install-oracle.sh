@@ -56,7 +56,7 @@ write_yaml_value() {
 
 GETOPT_MANDATORY="ora-swlib-bucket:"
 GETOPT_OPTIONAL="gcs-backup-config:,gcs-backup-bucket:,gcs-backup-temp-path:,nfs-backup-config:,nfs-backup-mount:,backup-dest:,ora-version:,ora-release:"
-GETOPT_OPTIONAL="$GETOPT_OPTIONAL,no-patch,ora-edition:,cluster-type:,cluster-config:,cluster-config-json:"
+GETOPT_OPTIONAL="$GETOPT_OPTIONAL,no-patch,ora-edition:,cluster-type:,cluster-config:,cluster-config-json:,config-observer"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-staging:,ora-db-name:,ora-db-domain:,ora-db-charset:,ora-disk-mgmt:,ora-role-separation:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-data-destination:,ora-data-diskgroup:,ora-reco-destination:,ora-reco-diskgroup:"
 GETOPT_OPTIONAL="$GETOPT_OPTIONAL,ora-asm-disks:,ora-asm-disks-json:,ora-data-mounts:,ora-data-mounts-json:,ora-listener-port:,ora-listener-name:"
@@ -84,6 +84,7 @@ PREP_HOST_ONLY=false
 INSTALL_SW_ONLY=false
 CONFIG_DB_ONLY=false
 SKIP_DATABASE_CONFIG=false
+CONFIG_OBSERVER=false
 declare -A YAML_VARS
 ANSIBLE_ARGS=()
 
@@ -97,6 +98,7 @@ while true; do
     --install-sw) INSTALL_SW_ONLY=true; shift ;;
     --no-patch) YAML_VARS["ora_release"]="base"; shift ;;
     --config-db) CONFIG_DB_ONLY=true; shift ;;
+    --config-observer) CONFIG_OBSERVER=true; shift ;;
     --skip-database-config) SKIP_DATABASE_CONFIG=true; shift ;;
     --ora-version) YAML_VARS["ora_version"]="$2"; shift 2 ;;
     --ora-release) YAML_VARS["ora_release"]="$2"; shift 2 ;;
@@ -197,6 +199,13 @@ if [[ -z "${YAML_VARS[cluster_config_json]}" && -n "${YAML_VARS[cluster_config]}
   YAML_VARS["cluster_config_json"]="${JSON_CONTENT}"
   unset YAML_VARS["cluster_config"]
 fi
+if [ "$CONFIG_OBSERVER" = true ] && [[ -z "${YAML_VARS[ora_edition]}" ]]; then
+  YAML_VARS["ora_edition"]="CLIENT"
+fi
+if [[ "${YAML_VARS[ora_edition]^^}" == "CLIENT" ]]; then
+  YAML_VARS["ora_role_separation"]="false"
+  SKIP_DATABASE_CONFIG=true
+fi
 
 
 # If a custom inventory file is provided, use it directly.
@@ -226,6 +235,7 @@ PB_PREP_HOST="prep-host.yml"
 PB_INSTALL_SW="install-sw.yml"
 PB_TLS_SETUP="tls-setup.yml"
 PB_CONFIG_DB="config-db.yml"
+PB_CONFIG_OBSERVER="config-observer.yml"
 PB_CONFIG_RAC_DB="config-rac-db.yml"
 PB_COMPATIBLE="compatibility-tests.yml"
 
@@ -241,11 +251,12 @@ if [ "$HELP_ONLY" = true ]; then
   echo "  --install-sw                 Run only the software installation playbook and exit."
   echo "  --no-patch                   Set Oracle release to 'base' (skip patching)."
   echo "  --config-db                  Run only the database configuration playbook and exit."
+  echo "  --config-observer            Run the Data Guard Observer installation and configuration playbooks."
   echo "  --skip-database-config       Skip database configuration."
   echo "  --install-workload-agent     Install the workload agent."
   echo "  --ora-version <version>      Oracle version (e.g., 19, 23, 26)."
   echo "  --ora-release <release>      Oracle release (e.g., 19.0.0.0.0)."
-  echo "  --ora-edition <edition>      Oracle edition (EE, SE, SE2, FREE)."
+  echo "  --ora-edition <edition>      Oracle edition (EE, SE, SE2, FREE, CLIENT)."
   echo "  --cluster-type <type>        Cluster type (NONE, RAC, DG)."
   echo "  --ora-swlib-bucket <bucket>  GCS bucket for Oracle software library."
   echo "  --ora-swlib-type <type>      Software library type (gcs, gcsfuse, nfs, gcsdirect, gcstransfer)."
@@ -329,6 +340,8 @@ elif [ "$INSTALL_SW_ONLY" = true ]; then
   PB_LIST="${PB_INSTALL_SW}"
 elif [ "$CONFIG_DB_ONLY" = true ]; then
   PB_LIST="${PB_CONFIG_DB}"
+elif [ "$CONFIG_OBSERVER" = true ]; then
+  PB_LIST="${PB_VALIDATE} ${PB_CHECK_INSTANCE} ${PB_PREP_HOST} ${PB_INSTALL_SW} ${PB_PATCH} ${PB_CONFIG_OBSERVER}"
 else
   PB_LIST="${PB_VALIDATE} ${PB_CHECK_INSTANCE} ${PB_PREP_HOST} ${PB_INSTALL_SW} ${PB_PATCH} ${PB_CONFIG_DB} ${PB_COMPATIBLE}"
 fi

@@ -201,8 +201,8 @@ minimum_ansible_version: 2.9
 os_supported_architecture: "x86_64"
 os_family_supported: "RedHat"
 os_min_supported_version: "{% if free_edition %}8{% else %}7.3{% endif %}"
-os_minimum_memory_mb: 2560
-os_minimum_swap_mb: 8192
+os_minimum_memory_mb: "{% if oracle_edition | lower == 'client' %}256{% else %}2560{% endif %}"
+os_minimum_swap_mb: "{% if oracle_edition | lower == 'client' %}256{% else %}8192{% endif %}"
 
 
 ################################################################################

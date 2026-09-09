@@ -2,14 +2,16 @@
 
 This Oracle Toolkit for Google Cloud document will support Disaster Recovery (DR) through the provisioning of Oracle Data Guard configurations, with a [physical standby](https://docs.oracle.com/en/database/oracle/oracle-database/26/sbydb/introduction-to-oracle-data-guard-concepts.html#GUID-C49AC6F4-C89B-4487-BC18-428D65865B9A) using the [Data Guard Broker](https://docs.oracle.com/en/database/oracle/oracle-database/26/sbydb/introduction-to-oracle-data-guard-concepts.html#GUID-538B9DDD-1553-479D-8E1D-0B5C6848403E).
 
-Implementation involves two similar steps:
+Base Data Guard implementation involves two similar steps:
 
 1. Deployment of a Data Guard **primary** database instance via the normal toolkit deployment steps (for details on this see the [main toolkit user guide](user-guide.md) or the [Compute Engine deployment user guide](compute-vm-user-guide.md)).
 2. Deployment of a Data Guard physical **standby** instance via a similar toolkit command, with additional parameters: `--cluster-type DG`, `--primary-ip-addr [IP ADDRESS]`, and `--ora-db-unique-name [UNIQUE NAME]`.
 
 You can provision multiple Data Guard instances in a star topology by repeating step #2.
 Once provisioned, more advanced Oracle Data Guard High Availability (HA) and Disaster Recovery (DR) configurations can then be manually added. 
-This includes [cascading](https://docs.oracle.com/en/database/oracle/oracle-database/19/sbydb/oracle-data-guard-redo-transport-services.html#SBYDB-GUID-34BCB162-D996-4678-97F1-497805764950) or [far sync](https://docs.oracle.com/en/database/oracle/oracle-database/19/sbydb/creating-oracle-data-guard-far-sync-instance.html) topologies. Also, [Fast-Start Failover](https://docs.oracle.com/en/database/oracle/oracle-database/19/dgbkr/using-data-guard-broker-to-manage-switchovers-failovers.html#DGBKR-GUID-995CED84-BEA1-4675-9C68-B37CB996924F) can be enabled in the broker to support automatic failover.
+This includes [cascading](https://docs.oracle.com/en/database/oracle/oracle-database/19/sbydb/oracle-data-guard-redo-transport-services.html#SBYDB-GUID-34BCB162-D996-4678-97F1-497805764950) or [far sync](https://docs.oracle.com/en/database/oracle/oracle-database/19/sbydb/creating-oracle-data-guard-far-sync-instance.html) topologies.
+
+An optional [Fast-Start Failover](https://docs.oracle.com/en/database/oracle/oracle-database/19/dgbkr/using-data-guard-broker-to-manage-switchovers-failovers.html#DGBKR-GUID-995CED84-BEA1-4675-9C68-B37CB996924F) can be deployed by provisioning an **observer** machine and running toolkit with `--config-observer` option.
 
 ## Example Toolkit Invocations
 
@@ -45,6 +47,25 @@ export STANDBY_IP_ADDR=10.0.10.102
   --backup-dest "+RECO" \
   --primary-ip-addr ${PRIMARY_IP_ADDR} \
   --cluster-type DG
+```
+
+<a name="create-data-guard-standby"></a>Create the Data Guard Observer:
+
+```bash
+# this is the Observer IP address
+export STANDBY_IP_ADDR=10.0.10.103
+export PRIMARY_IP_ADDRESS=10.0.10.101
+
+./install-oracle.sh \
+  --config-observer \
+  --cluster-type DG \
+  --instance-ip-addr ${STANDBY_IP_ADDR} \
+  --primary-ip-addr ${PRIMARY_IP_ADDRESS} \
+  --instance-hostname standby-server-19c \
+  --ora-version 19 --ora-edition CLIENT \
+  --ora-disk-mgmt FS \
+  --ora-swlib-bucket gs://[BUCKET_NAME] \
+  --ora-data-mounts-json '[{"purpose":"software","blk_device":"/dev/disk/by-id/google-oracle-disk-1","name":"u01","fstype":"xfs","mount_point":"/u01","mount_opts":"nofail"}]'
 ```
 
 The above toolkit invocations are examples only. Customize your actual commands as required.
@@ -141,6 +162,12 @@ Customize the Oracle databases and Data Guard configurations provisioned using t
 8. <a name="test-switchover-and-failover"></a>**Test the Switchover and Failover scenarios**
 
    - Ensuring the implemented Data Guard configuration remains operable is critical for providing business continuity and database DR. Performing database DR exercises by switching over and/or failing over the database Data Guard DR configuration (and usually reverting back) is typically performed proactively on a regular cadence such as quarterly or semi-annually.
+
+## Fast-Start Failover Deployment Limitations
+
+1. Supported for Oracle Database versions 19c and above.
+
+2. The playbook creates a user with `SYSDG` privilege, and its password is stored in an auto-login wallet on the FSFO host.
 
 ## Troubleshooting Overview
 
