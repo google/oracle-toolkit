@@ -551,19 +551,19 @@ locals {
     var.ntp_pref != "" ? "--ntp-pref ${var.ntp_pref}" : "",
     var.ora_release != "" ? "--ora-release ${var.ora_release}" : "",
     var.ora_edition != "" ? "--ora-edition ${var.ora_edition}" : "",
-    var.ora_listener_port != "" ? "--ora-listener-port ${var.ora_listener_port}" : "",
+    try(tonumber(var.ora_listener_port) > 0, false) ? "--ora-listener-port ${var.ora_listener_port}" : "",
     var.ora_redo_log_size != "" ? "--ora-redo-log-size ${var.ora_redo_log_size}" : "",
-    var.ora_redo_log_count != "" ? "--ora-redo-log-count ${var.ora_redo_log_count}" : "",
+    try(tonumber(var.ora_redo_log_count) > 0, false) ? "--ora-redo-log-count ${var.ora_redo_log_count}" : "",
     var.ora_redo_log_location != "" ? "--ora-redo-log-location '${var.ora_redo_log_location}'" : "",
     var.db_password_secret != "" ? "--db-password-secret ${var.db_password_secret}" : "",
     var.oracle_metrics_secret != "" ? "--oracle-metrics-secret ${var.oracle_metrics_secret}" : "",
     var.install_workload_agent ? "--install-workload-agent" : "",
     var.skip_database_config ? "--skip-database-config" : "",
-    var.ora_pga_target_mb != "" ? "--ora-pga-target-mb ${var.ora_pga_target_mb}" : "",
-    var.ora_sga_target_mb != "" ? "--ora-sga-target-mb ${var.ora_sga_target_mb}" : "",
+    try(tonumber(var.ora_pga_target_mb) > 0, false) ? "--ora-pga-target-mb ${var.ora_pga_target_mb}" : "",
+    try(tonumber(var.ora_sga_target_mb) > 0, false) ? "--ora-sga-target-mb ${var.ora_sga_target_mb}" : "",
     var.data_guard_protection_mode != "" ? "--data-guard-protection-mode '${var.data_guard_protection_mode}'" : "",
     var.enable_tls ? "--tls-secret DYNAMIC_MAPPED" : "",
-    var.enable_tls && var.tls_listener_port != "" ? "--tls-listener-port ${var.tls_listener_port}" : "",
+    var.enable_tls && try(tonumber(var.tls_listener_port) > 0, false) ? "--tls-listener-port ${var.tls_listener_port}" : "",
     local.ar_repo_url_prefix != "" ? "--ar-repo-url '${local.ar_repo_url_prefix}'" : ""
   ]))
 }
@@ -656,7 +656,7 @@ resource "google_compute_instance" "control_node" {
     }
 
     precondition {
-      condition     = var.ora_redo_log_count == "" || var.ora_redo_log_location != ""
+      condition     = try(tonumber(var.ora_redo_log_count) > 0, false) == false || var.ora_redo_log_location != ""
       error_message = "ora_redo_log_count is set, so ora_redo_log_location must also be set (e.g., '+RECO' or '/u03/redo,/u04/redo')."
     }
   }
@@ -809,7 +809,7 @@ resource "google_compute_firewall" "db_sync" {
   description = "Deployment ${local.deployment_id}: Allows inter-database communication on the Oracle listener port for Data Guard synchronization."
   allow {
     protocol = "tcp"
-    ports    = [var.enable_tls ? var.tls_listener_port : var.ora_listener_port]
+    ports    = [tostring(var.enable_tls ? var.tls_listener_port : var.ora_listener_port)]
   }
   allow {
     protocol = "icmp"
