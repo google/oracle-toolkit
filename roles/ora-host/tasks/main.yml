@@ -65,6 +65,7 @@
     fstype: tmpfs
     opts: rw,nosuid,nodev
     state: mounted
+  when: not (oracle_edition | lower == 'client')
 
 - name: Enterprise Linux 7 specific package manager steps
   when:
@@ -175,7 +176,9 @@
   with_items:
     - "{{ asm_groups }}"
     - "{{ extra_asm_groups }}"
-  when: not free_edition
+  when:
+    - not free_edition
+    - not (oracle_edition | lower == 'client')
   tags: os-users,os-groups
 
 - name: Add necessary groups to the oracle user
@@ -191,6 +194,7 @@
     file: kernel_parameters.yml
     apply:
       tags: kernel_parameters
+  when: not (oracle_edition | lower == 'client')
   tags: kernel_parameters
 
 - name: Check and adjust Linux hugepages settings
@@ -198,6 +202,7 @@
     file: hugepages.yml
     apply:
       tags: hugepages
+  when: not (oracle_edition | lower == 'client')
   tags: hugepages
 
 - name: Adjust kernel limits for users
@@ -209,6 +214,7 @@
   with_nested:
     - ["{{ oracle_user }}", "{{ grid_user }}"]
     - "{{ resource_limits }}"
+  when: not (oracle_edition | lower == 'client')
   tags: kernel-setup
 
 - name: Create required directories

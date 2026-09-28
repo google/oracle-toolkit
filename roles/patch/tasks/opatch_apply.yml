@@ -102,4 +102,5 @@
   when:
     - home_type == 'DB' or patch.method == 'opatch apply'
     - not (standby_db | default(false) | bool)
+    - not (oracle_edition | lower == 'client')
   tags: patch-rdbms,opatch-apply

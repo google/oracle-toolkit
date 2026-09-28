@@ -117,10 +117,10 @@ variable "ora_db_domain" {
 variable "ora_edition" {
   type        = string
   default     = "EE"
-  description = "Oracle Edition: EE, SE, SE2, or FREE."
+  description = "Oracle Edition: EE, SE, SE2, FREE, or CLIENT."
   validation {
-    condition     = var.ora_edition == "" || contains(["EE", "SE", "SE2", "FREE"], var.ora_edition)
-    error_message = "Invalid Oracle edition. Allowed values: EE, SE, SE2, FREE."
+    condition     = var.ora_edition == "" || contains(["EE", "SE", "SE2", "FREE", "CLIENT"], var.ora_edition)
+    error_message = "Invalid Oracle edition. Allowed values: EE, SE, SE2, FREE, CLIENT."
   }
 }
 
@@ -129,8 +129,8 @@ variable "ora_listener_port" {
   default     = 1521
   description = "TCP port for the Oracle default internal listener."
   validation {
-    condition     = var.ora_listener_port >= 1 && var.ora_listener_port <= 65535
-    error_message = "The port number must be between 1 and 65535."
+    condition     = var.ora_listener_port == null || (var.ora_listener_port >= 1 && var.ora_listener_port <= 65535)
+    error_message = "The port number must be between 1 and 65535, or null."
   }
 }
 
@@ -139,8 +139,8 @@ variable "tls_listener_port" {
   default     = 2484
   description = "TCP port for the encrypted TCPS listener (used if TLS is enabled)."
   validation {
-    condition     = var.tls_listener_port >= 1 && var.tls_listener_port <= 65535
-    error_message = "The port number must be between 1 and 65535."
+    condition     = var.tls_listener_port == null || (var.tls_listener_port >= 1 && var.tls_listener_port <= 65535)
+    error_message = "The port number must be between 1 and 65535, or null."
   }
 }
 
@@ -155,12 +155,12 @@ variable "ora_redo_log_size" {
 }
 
 variable "ora_redo_log_count" {
-  type        = string
+  type        = any
   default     = ""
-  description = "Number of redo log groups to create (e.g., '4'). Requires ora_redo_log_location to be set. Leave empty to use the toolkit default."
+  description = "Number of redo log groups to create (e.g., 2, 4). Requires ora_redo_log_location to be set. Leave empty or null to use the toolkit default."
   validation {
-    condition     = var.ora_redo_log_count == "" || can(regex("^[0-9]+$", var.ora_redo_log_count))
-    error_message = "Invalid redo log count. Specify a number (e.g., '2', '4')."
+    condition     = var.ora_redo_log_count == null || var.ora_redo_log_count == "" || try(tonumber(var.ora_redo_log_count) >= 2, false)
+    error_message = "Invalid redo log count. Specify a number >= 2, or leave empty/null for default."
   }
 }
 
@@ -438,15 +438,23 @@ variable "subnetwork2" {
 }
 
 variable "ora_pga_target_mb" {
-  description = "Oracle session private memory aggregate target, in MB."
+  description = "Oracle session private memory aggregate target (PGA) in MB. Default is 0 (toolkit auto-tunes PGA to 150 MB or workload baseline). Set to a positive integer to override."
   type        = number
   default     = 0
+  validation {
+    condition     = var.ora_pga_target_mb == null || var.ora_pga_target_mb >= 0
+    error_message = "ora_pga_target_mb must be null or greater than or equal to 0."
+  }
 }
 
 variable "ora_sga_target_mb" {
-  description = "Oracle shared memory target, in MB."
+  description = "Oracle shared memory target (SGA) in MB. Default is 0 (toolkit auto-calculates SGA as 45% of VM memory and provisions HugePages). Set to a positive integer to override."
   type        = number
   default     = 0
+  validation {
+    condition     = var.ora_sga_target_mb == null || var.ora_sga_target_mb >= 0
+    error_message = "ora_sga_target_mb must be null or greater than or equal to 0."
+  }
 }
 
 variable "deployment_name" {

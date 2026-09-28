@@ -36,6 +36,11 @@ rdbms_software:
     files:
       - { name: "https://yum.oracle.com/repo/OracleLinux/OL8/appstream/x86_64/getPackage/oracle-ai-database-preinstall-26ai-1.0-1.el8.x86_64.rpm", sha256sum: "050f1c3f3214f5979519147d08661d5670317288bd9a09d0863f3419206158e4", md5sum: "UOPNQ+SCxZpWRbxt61N4NQ=="}
       - { name: "https://download.oracle.com/otn-pub/otn_software/db-free/oracle-ai-database-free-26ai-23.26.3-1.el8.x86_64.rpm", sha256sum: "879eb7ffc9c8c797dafc42974afaff7714c4069b27cc4adc0827291244f05d97", md5sum: "piOpOx/1YRYSmvT9ypFspw=="}
+  - name: 26ai_base_client
+    version: 23.26.1.0.0
+    edition: CLIENT
+    files: { name: "LINUX.X64_2326100_client_home.zip", sha256sum: "55B8D08F9AB77C0BCEA1CD51DAE6F4EE306112E02B44063468CC2EF3D8AD4BCE", md5sum: "qEkZ99edVeO2lr7+LAzwXg==",
+             alt_name: "V1054586-01.zip", alt_sha256sum: "55B8D08F9AB77C0BCEA1CD51DAE6F4EE306112E02B44063468CC2EF3D8AD4BCE", alt_md5sum: "qEkZ99edVeO2lr7+LAzwXg==" }
   - name: 26ai_free_23_26
     version: 23.26.0.0.0
     edition: FREE
@@ -129,6 +134,11 @@ rdbms_software:
     files:
       - { name: "V982063-01.zip", sha256sum: "BA8329C757133DA313ED3B6D7F86C5AC42CD9970A28BF2E6233F3235233AA8D8", md5sum: "GFi9DSgcYPTdq9h7HCFKTw==",
           alt_name: "LINUX.X64_193000_db_home.zip", alt_sha256sum: "BA8329C757133DA313ED3B6D7F86C5AC42CD9970A28BF2E6233F3235233AA8D8", alt_md5sum: "GFi9DSgcYPTdq9h7HCFKTw==" }
+  - name: 19c_base_client
+    version: 19.3.0.0.0
+    edition: CLIENT
+    files: { name: "LINUX.X64_193000_client_home.zip", sha256sum: "DF3EF12BC19D03CB3331CCDF3490EC361B6ED5D243DA32DF583F02F0774E2315", md5sum: "RK/fo6UMN2JxbXVpchC4/w==",
+             alt_name: "V982065-01.zip", alt_sha256sum: "DF3EF12BC19D03CB3331CCDF3490EC361B6ED5D243DA32DF583F02F0774E2315", alt_md5sum: "RK/fo6UMN2JxbXVpchC4/w==" }
   - name: 18c_base
     version: 18.0.0.0.0
     edition:

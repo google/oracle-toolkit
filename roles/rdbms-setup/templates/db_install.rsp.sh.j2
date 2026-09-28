@@ -1,16 +1,22 @@
 #!/bin/bash
 
+RSP_FILE={% if oracle_edition | lower == "client" %}"clientsetup.rsp"{% else %}"db_install.rsp"{% endif %}
+
 # Define source and destination for the response file
 {% if oracle_ver == "11.2.0.4.0" or oracle_ver == "12.1.0.2.0" or oracle_ver == "12.2.0.1.0" %}
 RSP_SRC="{{ swlib_unzip_path }}/database/response/db_install.rsp"
 {% else %}
-RSP_SRC="{{ oracle_home }}/install/response/db_install.rsp"
+RSP_SRC="{{ oracle_home }}/install/response/${RSP_FILE}"
 {% endif %}
 
 RSP_DEST="{{ swlib_unzip_path }}/db_install.rsp"
 
 [[ -r "$RSP_SRC" ]] || { echo "db_install.rsp.sh: cannot read $RSP_SRC"; exit 1; }
 cp "$RSP_SRC" "$RSP_DEST"
+
+{% if oracle_edition | lower == "client" %}
+echo "oracle.install.client.installType=Administrator" >> "$RSP_DEST"
+{% endif %}
 
 # 1. Installation Options and Edition (Handling modern and legacy keys)
 # Use [# ]* to match optional comment characters or spaces at the start of the line

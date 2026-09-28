@@ -1,0 +1,250 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- name: TNS setup
+  become: true
+  become_user: "{{ oracle_user }}"
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  block:
+    - name: Extract DB names from Primary
+      delegate_to: primary1
+      shell: |        
+        sqlplus -S / as sysdba<<EOF
+          set head off pagesize 0 feed off echo off trimspool on
+          select listagg(database, ' ') from v\$dg_broker_config 
+          where enabled='TRUE' and dataguard_role in ('PRIMARY', 'PHYSICAL STANDBY', 'LOGICAL STANDBY')
+          order by decode(dataguard_role, 'PRIMARY', 0, 'PHYSICAL STANDBY', 1, 2);
+        EOF
+      changed_when: false
+      register: db_names
+
+    - name: Set Primary DB name
+      set_fact:
+        dg_primary: "{{ db_names.stdout.split()[0] }}"
+
+    - name: Extract TNS entries from Primary
+      delegate_to: primary1
+      shell: |
+        set -o pipefail
+        for x in {{ db_names.stdout }}; do
+          echo ${x}=$(dgmgrl / as sysdba "show database verbose $x" | 
+                        grep -i staticconnectidentifier | awk -F' = ' '{print $2}' | sed "s/'//g")         
+        done
+      changed_when: false
+      register: tns_names
+
+    - name: Update tnsnames.ora
+      blockinfile:
+        path: "{{ oracle_home }}/network/admin/tnsnames.ora"
+        block: | 
+          {{ tns_names.stdout }}
+        marker: "# {mark} ANSIBLE MANAGED BLOCK"
+        insertafter: EOF
+        create: yes
+        mode: '0640'
+
+    - name: Update sqlnet.ora
+      blockinfile:
+        path: "{{ oracle_home }}/network/admin/sqlnet.ora"
+        block: |
+          WALLET_LOCATION = (SOURCE = (METHOD = FILE) (METHOD_DATA = (DIRECTORY = {{ wallet_dir }})))
+          SQLNET.WALLET_OVERRIDE = TRUE
+          SSL_CLIENT_AUTHENTICATION = FALSE
+        marker: "# {mark} ANSIBLE MANAGED BLOCK"
+        insertafter: EOF
+
+- name: Create the DG observer user
+  become: true
+  become_user: "{{ oracle_user }}"
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  block:
+    - name: Generate random password for the DG observer user
+      set_fact:
+        dg_observer_pass: "{{ lookup('password', '/dev/null length=16 chars=ascii_letters,digits') }}0#_"
+      no_log: true
+
+    - name: Set the DG observer username
+      set_fact:
+        dg_observer_user: "{{ 'c##toolkit_dg_observer' if container_db | bool else 'toolkit_dg_observer' }}"
+
+    - name: Create a user for the Data Guard observer
+      delegate_to: primary1
+      shell: |
+        set -o pipefail
+        {{ oracle_home }}/bin/sqlplus -S -L / as sysdba <<EOF
+          whenever sqlerror exit failure
+          CREATE USER IF NOT EXISTS {{ dg_observer_user }};
+          ALTER USER {{ dg_observer_user }} IDENTIFIED BY "${OBSERVER_PWD}";
+          GRANT sysdg TO {{ dg_observer_user }};
+          GRANT CREATE SESSION to {{ dg_observer_user }};
+        EOF
+      environment:
+        OBSERVER_PWD: "{{ dg_observer_pass }}"
+
+- name: Create a wallet with observer user password
+  become: true
+  become_user: "{{ oracle_user }}"
+  block:
+    - name: Delete Wallet Directory if exists
+      file:
+        path: "{{ wallet_dir }}"
+        state: absent
+
+    - name: Create Wallet Directory
+      file:
+        path: "{{ wallet_dir }}"
+        state: directory
+        owner: "{{ oracle_user }}"
+        group: "{{ oracle_group }}"
+        mode: '0700'
+
+    - name: Generate random password for wallet
+      set_fact:
+        dg_wallet_pass: "{{ lookup('password', '/dev/null length=16 chars=ascii_letters,digits') }}0#_"
+
+    - name: Create a wallet
+      shell: |
+        set -o pipefail
+        mkstore -wrl "{{ wallet_dir }}" -create<<EOF
+        ${WALLET_PWD}
+        ${WALLET_PWD}
+        EOF
+        for x in {{ db_names.stdout }}; do
+          mkstore -wrl "{{ wallet_dir }}" -createCredential "${x^^}" "{{ dg_observer_user }}"<<EOF
+        ${OBSERVER_PWD}
+        ${OBSERVER_PWD}
+        ${WALLET_PWD}
+        EOF
+        done
+        orapki wallet create -wallet "{{ wallet_dir }}" -auto_login_local<<EOF
+        ${WALLET_PWD}
+        EOF
+        chmod 600 "{{ wallet_dir }}"/*
+      environment:
+        ORACLE_HOME: "{{ oracle_home }}"
+        ORACLE_SID: "{{ oracle_sid }}"
+        PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+        WALLET_PWD: "{{ dg_wallet_pass }}"
+        OBSERVER_PWD: "{{ dg_observer_pass }}"
+
+- name: Update Data Guard FSFO properties
+  delegate_to: primary1
+  become: true
+  become_user: "{{ oracle_user }}"
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  block:
+    - name: Update generic Data Guard properties
+      shell: |
+        set -o pipefail
+        dgmgrl / as sysdba<<EOF
+          edit configuration set property FastStartFailoverAutoReinstate = '{{ fsfo_auto_reinstate }}';
+          edit configuration set property FastStartFailoverThreshold = {{ fsfo_threshold }};
+          edit configuration set property FastStartFailoverLagLimit = {{ fsfo_lag_limit }};
+          edit configuration set property ObserverReconnect = {{ observer_reconnect }};
+        EOF
+
+    - name: Update ObserverConnectIdentifier of each member
+      shell: |
+        set -o pipefail
+        for x in {{ db_names.stdout }}; do
+          dgmgrl / as sysdba "edit database ${x} set property ObserverConnectIdentifier = '${x}'"
+        done
+
+- name: Enable FSFO
+  delegate_to: primary1
+  become: true
+  become_user: "{{ oracle_user }}"
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  shell: |
+    dgmgrl / as sysdba<<EOF
+      enable fast_start failover;
+      show fast_start failover;
+    EOF
+  register: fsfo_status
+
+- debug: msg="{{ fsfo_status.stdout_lines }}"
+
+- name: Start the observer
+  become: true
+  become_user: "{{ oracle_user }}"
+  environment:
+    ORACLE_HOME: "{{ oracle_home }}"
+    ORACLE_SID: "{{ oracle_sid }}"
+    PATH: "{{ oracle_home }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+  when: "'Fast-Start Failover: Enabled' in fsfo_status.stdout"
+  block:
+    - name: Make sure scripts and logs directories exist
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ oracle_user }}"
+        group: "{{ oracle_group }}"
+        mode: ug=wrx,o=
+      with_items:
+        - "{{ scripts_dir }}"
+        - "{{ logs_dir }}"
+
+    - name: Copy observer start script
+      template:
+        src: "{{ item }}.j2"
+        dest: "{{ scripts_dir }}/{{ item }}"
+        owner: "{{ oracle_user }}"
+        group: "{{ oracle_group }}"
+        mode: "ug=rwx,o="
+      with_items:
+        - start_observer.sh
+        - stop_observer.sh
+
+    - name: Copy service definition
+      become_user: root
+      template:
+        src: oracle-observer.j2
+        dest: /etc/systemd/system/oracle-observer.service
+        owner: root
+        group: root
+        mode: u=wr,g=r,o=r
+
+    - name: Reload systemd
+      become_user: root
+      systemd:
+        daemon_reload: true
+
+    - name: Enable automatic start and stop of Oracle observer
+      become_user: root
+      systemd:
+        name: oracle-observer.service
+        enabled: true
+        state: started
+
+    - name: Check FSFO status
+      shell: dgmgrl /@{{ dg_primary }} "show fast_start failover;"
+      register: fsfo_status
+
+    - debug: msg="{{ fsfo_status.stdout_lines }}"
+
+- debug: msg="An error in the Fast-Start Failover Data Guard configuration, observer is not started. Check the configuration."
+  when: "'Fast-Start Failover: Enabled' not in fsfo_status.stdout"

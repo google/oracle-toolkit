@@ -1573,7 +1573,7 @@ PRIMARY_IP_ADDR
 </td>
 <td>user defined - no default</td>
 <td>The IP address of the primary server to use as source of primary database
-for Data Guard configuration.<br>
+for Data Guard and Observer configuration.<br>
 Applicable for Oracle "single instance" installations.</td>
 </tr>
 <tr>
@@ -2426,6 +2426,14 @@ server.</td>
 <tr>
 <td></td>
 <td><p><pre>
+--config-observer
+</pre></p></td>
+<td></td>
+<td>Run the Data Guard Observer installation and configuration playbooks.</td>
+</tr>
+<tr>
+<td></td>
+<td><p><pre>
 --skip-database-config
 </pre></p></td>
 <td></td>
@@ -2831,7 +2839,8 @@ ORA_EDITION
 --ora-edition
 </pre></p></td>
 <td>FREE</td>
-<td>Specify "FREE" to install the free edition.</td>
+<td>Specify "FREE" to install the free edition.
+Specify "CLIENT" to install the client (for example, in a Fast-Start Failover configuration).</td>
 </tr>
 <tr>
 <td>Oracle version</td>
