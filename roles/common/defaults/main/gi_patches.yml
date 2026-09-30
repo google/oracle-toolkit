@@ -90,6 +90,7 @@ gi_patches:
   - { category: "RU", base: "19.3.0.0.0", release: "19.29.0.0.251021", patchnum: "38273558", patchfile: "p38273558_190000_Linux-x86-64.zip", patch_subdir: "/38298204", prereq_check: false, method: "opatchauto apply", ocm: false, upgrade: false, md5sum: "i09rWxlrLpdp4m4tGWTXWA==", minimum_opatch: "12.2.0.1.47" }
   - { category: "RU", base: "19.3.0.0.0", release: "19.30.0.0.260120", patchnum: "38658588", patchfile: "p38658588_190000_Linux-x86-64.zip", patch_subdir: "/38629535", prereq_check: false, method: "opatchauto apply", ocm: false, upgrade: false, md5sum: "OiwVAK9ag4pbCxXqvkxUpw==", minimum_opatch: "12.2.0.1.49" }
   - { category: "RU", base: "19.3.0.0.0", release: "19.31.0.0.260421", patchnum: "39062956", patchfile: "p39062956_190000_Linux-x86-64.zip", patch_subdir: "/39036936", prereq_check: false, method: "opatchauto apply", ocm: false, upgrade: false, md5sum: "Bdwa55EctMTsI/jKMDZo5A==", minimum_opatch: "12.2.0.1.51" }
+  - { category: "RU", base: "19.3.0.0.0", release: "19.32.0.0.260721", patchnum: "39618711", patchfile: "p39618711_190000_Linux-x86-64.zip", patch_subdir: "/39467003", prereq_check: false, method: "opatchauto apply", ocm: false, upgrade: false, md5sum: "Zj43DDoeXq/8XwQ5HBT93g==", minimum_opatch: "12.2.0.1.52" }
 # 21c GRID RU - 21.4 and 21.7 are available only via SR
 #     RDBMS RU - 21.4 - 21.7 are available only via SR
 #     so 21.5 and 21.6 are commented out here, even though available
@@ -112,3 +113,4 @@ gi_patches:
   - { category: "RU", base: "21.3.0.0.0", release: "21.22.0.0.0", patchnum: "39073631", patchfile: "p39073631_210000_Linux-x86-64.zip", patch_subdir: "/", prereq_check: false, method: "opatchauto apply", ocm: false, upgrade: false, md5sum: "UFRlBVwRLnF8AezvlDv1/Q==", minimum_opatch: "12.2.0.1.51" }
 # 26ai GI patches
   - { category: "RU", base: "23.26.1.0.0", release: "23.26.2.0.0", patchnum: "39088031", patchfile: "p39088031_230000_Linux-x86-64.zip", patch_subdir: "/", prereq_check: false, method: "opatchauto apply", ocm: false, upgrade: false, md5sum: "e+nX4oaavTE0MUy/izrO/Q==", minimum_opatch: "12.2.0.1.51" }
+  - { category: "RU", base: "23.26.1.0.0", release: "23.26.3.0.0", patchnum: "39568945", patchfile: "p39568945_230000_Linux-x86-64.zip", patch_subdir: "/", prereq_check: false, method: "opatchauto apply", ocm: false, upgrade: false, md5sum: "nPcOLp4i9sfFAbqQ8XyccQ==", minimum_opatch: "12.2.0.1.52" }
