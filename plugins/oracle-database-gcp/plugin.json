@@ -1,0 +1,8 @@
+{
+  "name": "oracle-database-gcp",
+  "version": "1.0.0",
+  "display_name": "Oracle Database@Google Cloud & Migration Suite",
+  "description": "Enterprise Agent Plugin for architecting, provisioning, and migrating Oracle Databases on GCP across ExaCS, Exascale, ADB-S, DBCS, GCE, BMS, and Zero Downtime Migration (ZDM).",
+  "vendor": "Google Cloud",
+  "categories": ["Database", "Migration", "Infrastructure", "Oracle"]
+}

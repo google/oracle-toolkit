@@ -1,0 +1,88 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ogg-trail-pvc
+  namespace: zdm-migration
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: goldengate-deployment
+  namespace: zdm-migration
+  labels:
+    app: goldengate
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: goldengate
+  template:
+    metadata:
+      labels:
+        app: goldengate
+    spec:
+      containers:
+        - name: goldengate
+          image: europe-west3-docker.pkg.dev/total-vertex-469513-r8/zdm-repo/goldengate:23.26.2.0.2
+          ports:
+            - containerPort: 9011
+              name: sm-admin
+            - containerPort: 9012
+              name: admin-server
+            - containerPort: 9013
+              name: dist-server
+            - containerPort: 9014
+              name: recv-server
+          env:
+            - name: OGG_ADMIN_USER
+              value: "oggadmin"
+            - name: OGG_ADMIN_PASSWORD
+              value: "OracleGoldenGate123#"
+            - name: OGG_DEPLOYMENT_NAME
+              value: "oggdep1"
+          volumeMounts:
+            - name: ogg-storage
+              mountPath: /u02
+          livenessProbe:
+            exec:
+              command:
+                - /usr/local/bin/healthcheck
+            initialDelaySeconds: 90
+            periodSeconds: 30
+          readinessProbe:
+            exec:
+              command:
+                - /usr/local/bin/healthcheck
+            initialDelaySeconds: 30
+            periodSeconds: 15
+      volumes:
+        - name: ogg-storage
+          persistentVolumeClaim:
+            claimName: ogg-trail-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: goldengate-service
+  namespace: zdm-migration
+spec:
+  ports:
+    - port: 9011
+      targetPort: 9011
+      name: sm-admin
+    - port: 9012
+      targetPort: 9012
+      name: admin-server
+    - port: 9013
+      targetPort: 9013
+      name: dist-server
+  selector:
+    app: goldengate
+  type: ClusterIP
+

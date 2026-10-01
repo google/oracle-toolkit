@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zdm-deployment
+  namespace: zdm-migration
+  labels:
+    app: zdm-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zdm-service
+  template:
+    metadata:
+      labels:
+        app: zdm-service
+    spec:
+      serviceAccountName: zdm-k8s-sa
+      securityContext:
+        fsGroup: 1000 # group 'zdm' (gid 1000 or group zdm's gid) to write to PV
+      containers:
+        - name: zdm-container
+          image: gcr.io/PROJECT_ID/zdm-service:latest
+          ports:
+            - containerPort: 8900
+              name: mysql-port
+            - containerPort: 8897
+              name: rmi-port
+            - containerPort: 8898
+              name: http-port
+          securityContext:
+            runAsUser: 1000 # run as zdmuser
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: zdm-base-volume
+              mountPath: /u01/zdm/zdmbase
+            - name: ssh-keys-volume
+              mountPath: /home/zdmuser/.ssh
+              readOnly: true
+      volumes:
+        - name: zdm-base-volume
+          persistentVolumeClaim:
+            claimName: zdm-base-pvc
+        - name: ssh-keys-volume
+          secret:
+            secretName: zdm-ssh-keys
+            defaultMode: 256 # 0400 octal (decimal 256) for ssh key permissions
