@@ -508,6 +508,18 @@ Support")</th>
 <td>Database Release Update 21.22.0.0.0</td>
 <td>p39073698_210000_Linux-x86-64.zip</td>
 </tr>
+<tr>
+<td></td>
+<td></td>
+<td>Database Release Update 21.23.0.0.0</td>
+<td>p39549189_210000_Linux-x86-64.zip</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>Database Release Update 21.24.0.0.0</td>
+<td>p40017330_210000_Linux-x86-64.zip</td>
+</tr>
 
 <tr>
 <td></td>
@@ -587,6 +599,12 @@ Support")</th>
 <td>GI Release Update 21.22.0.0.0</td>
 <td>p39073631_210000_Linux-x86-64.zip</td>
 </tr>
+<tr>
+<td></td>
+<td></td>
+<td>GI Release Update 21.24.0.0.0</td>
+<td>p40017336_210000_Linux-x86-64.zip</td>
+</tr>
 
 <tr>
 <td></td>
@@ -605,6 +623,18 @@ Support")</th>
 <td></td>
 <td>Oracle Grid Infrastructure 19.3.0.0.0 for Linux x86-64</td>
 <td>V982068-01.zip or LINUX.X64_193000_grid_home.zip</td>
+</tr>
+<tr>
+<td></td>
+<td>Patch - MOS</TD>
+<TD>COMBO OF OJVM RU COMPONENT 19.33.0.0.261020 + GI RU 19.33.0.0.261020</td>
+<td>p40121665_190000_Linux-x86-64.zip</td>
+</tr>
+<tr>
+<td></td>
+<td>Patch - MOS</TD>
+<TD>COMBO OF OJVM RU COMPONENT 19.32.0.0.260721 + GI RU 19.32.0.0.260721</td>
+<td>p39618711_190000_Linux-x86-64.zip</td>
 </tr>
 <tr>
 <td></td>
