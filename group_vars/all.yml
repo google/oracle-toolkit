@@ -106,7 +106,10 @@ redologlocation: "{{ ora_redo_log_location | default('') }}"
 charset: "{{ ora_db_charset | default('AL32UTF8',true) }}"
 ncharset: "{{ ora_db_ncharset | default('AL16UTF16',true) }}"
 db_config_type: "{% if cluster_type | default('NONE', true) in ('NONE', 'DG') %}SI{% elif cluster_type == 'RAC' %}RAC{% endif %}"
-instance_num: 1
+# RAC instance number for this host: its 1-based position in the dbasm group. This matches
+# the order of the DBCA -nodelist and of the serial root.sh runs, which determine the
+# database (<db_name>N) and ASM (+ASMN) instance numbers on each node.
+instance_num: "{{ (groups['dbasm'].index(inventory_hostname) + 1) if inventory_hostname in groups['dbasm'] | default([]) else 1 }}"
 memory_pct: 45
 pga_target_mb: "{{ (ora_pga_target_mb | default('150', true)) | int }}"
 sga_target_mb: "{{ ora_sga_target_mb | default((ansible_memory_mb.real.total*memory_pct)//100, true) | int }}"
