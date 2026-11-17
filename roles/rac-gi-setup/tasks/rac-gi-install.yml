@@ -208,6 +208,10 @@
   when: "'skipped' not in install_rac_gi.stdout"
   tags: rac-gi,root-scripts
 
+# Keep in sync: root.sh runs serially in dbasm group order, which sets the ASM instance
+# numbers (+ASMN). instance_num in group_vars/all.yml and the DBCA -nodelist in
+# roles/db-create/templates/rac-dbca.rsp*.sh.j2 assume this same order, so do not
+# reorder, sort or parallelize this loop.
 - name: rac-gi-install | Run script root.sh
   become: true
   become_user: root
