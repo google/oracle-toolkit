@@ -1,3 +1,6 @@
+{# Keep in sync: the -nodelist order (dbasm group order) sets the database instance numbers (<db_name>N).
+   instance_num in group_vars/all.yml and the root.sh loop in roles/rac-gi-setup/tasks/rac-gi-install.yml
+   assume this same order, so do not reorder or sort the hosts here. -#}
 {% macro domain() -%}{% if hostvars[groups['dbasm'].0]['cluster_domain'] is defined and hostvars[groups['dbasm'].0]['cluster_domain'] | length > 0 -%}.{{ hostvars[groups['dbasm'].0]['cluster_domain'] }}{% endif -%}{% endmacro -%}
 dbca -silent -createDatabase -gdbName {{ db_name }}{{ domain() }} \
 -databaseType {{ db_type }} \

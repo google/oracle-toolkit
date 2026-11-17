@@ -106,7 +106,12 @@ redologlocation: "{{ ora_redo_log_location | default('') }}"
 charset: "{{ ora_db_charset | default('AL32UTF8',true) }}"
 ncharset: "{{ ora_db_ncharset | default('AL16UTF16',true) }}"
 db_config_type: "{% if cluster_type | default('NONE', true) in ('NONE', 'DG') %}SI{% elif cluster_type == 'RAC' %}RAC{% endif %}"
-instance_num: 1
+# RAC instance number for this host: its 1-based position in the dbasm group.
+# Keep in sync: this relies on the same dbasm host order as the DBCA -nodelist in
+# roles/db-create/templates/rac-dbca.rsp*.sh.j2 (database instance <db_name>N) and the
+# serial root.sh loop in roles/rac-gi-setup/tasks/rac-gi-install.yml (ASM instance +ASMN).
+# Reordering or sorting hosts in any one of these places gives nodes the wrong SIDs.
+instance_num: "{{ (groups['dbasm'].index(inventory_hostname) + 1) if inventory_hostname in groups['dbasm'] | default([]) else 1 }}"
 memory_pct: 45
 pga_target_mb: "{{ (ora_pga_target_mb | default('150', true)) | int }}"
 sga_target_mb: "{{ ora_sga_target_mb | default((ansible_memory_mb.real.total*memory_pct)//100, true) | int }}"
