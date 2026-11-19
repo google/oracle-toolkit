@@ -1,0 +1,57 @@
+steps:
+  # 1. Download GoldenGate 23ai tarball from OCI ObjectStorage (using root context to write to /workspace)
+  - name: 'ubuntu:latest'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "=== [1/3] Downloading GoldenGate container archive ==="
+        echo "URL: ${_TAR_URL}"
+        apt-get update -qq && apt-get install -y -qq curl
+        curl -L -o /workspace/ora23ai-2326202.tar "${_TAR_URL}"
+        echo "Download complete. File size:"
+        ls -lh /workspace/ora23ai-2326202.tar
+
+  # 2. Load, Tag, and Push GoldenGate Image to GCP Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "=== [2/3] Loading GoldenGate image into Docker ==="
+        LOAD_OUT=$$(docker load -i /workspace/ora23ai-2326202.tar)
+        echo "$$LOAD_OUT"
+        
+        LOADED_IMG=$$(echo "$$LOAD_OUT" | grep -oE "Loaded image: [^ ]+" | awk '{print $$3}' | head -n1)
+        if [ -z "$$LOADED_IMG" ]; then
+          LOADED_IMG="localhost/oracle/goldengate:23.26.2.0.2"
+        fi
+        
+        REGISTRY_HOST="${_LOCATION}-docker.pkg.dev"
+        TARGET_IMG="$$REGISTRY_HOST/$PROJECT_ID/${_REPO_NAME}/goldengate:${_TAG}"
+        TARGET_LATEST="$$REGISTRY_HOST/$PROJECT_ID/${_REPO_NAME}/goldengate:latest"
+        
+        echo "=== [3/3] Tagging & Pushing to Artifact Registry ==="
+        echo "Target URI: $$TARGET_IMG"
+        docker tag "$$LOADED_IMG" "$$TARGET_IMG"
+        docker tag "$$LOADED_IMG" "$$TARGET_LATEST"
+        
+        docker push "$$TARGET_IMG"
+        docker push "$$TARGET_LATEST"
+
+images:
+  - '${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/goldengate:${_TAG}'
+  - '${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/goldengate:latest'
+
+substitutions:
+  _LOCATION: 'europe-west3'
+  _REPO_NAME: 'zdm-repo'
+  _TAG: '23.26.2.0.2'
+  _TAR_URL: 'https://objectstorage.eu-zurich-1.oraclecloud.com/p/_Rozg2bzsPyKLktcTVOc3jpPI9_h75fsGyMTAqUFFkR2kOa0-TM6lNFUPLZAtvkH/n/zrtpnntkgyvg/b/codina_aistudio/o/ora23ai-2326202.tar'
+
+options:
+  machineType: 'E2_HIGHCPU_8'
+  diskSizeGb: 50
+  logging: CLOUD_LOGGING_ONLY
+  substitutionOption: 'ALLOW_LOOSE'
+timeout: '1800s'

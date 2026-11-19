@@ -1,0 +1,25 @@
+{
+  "id": "oracle-database-gcp",
+  "name": "Oracle Database@Google Cloud & Migration Suite",
+  "version": "1.0.0",
+  "author": "Google Cloud Database Architecture Team",
+  "summary": "Full-lifecycle autonomous AI skills to deploy and migrate Oracle Databases on Google Cloud Platform across ExaCS, Exascale, ADB-S, DBCS, GCE IaaS, and Bare Metal Solution.",
+  "skills": [
+    "oracle-exacs-deployment",
+    "oracle-exascale-deployment",
+    "oracle-adbs-deployment",
+    "oracle-dbcs-deployment",
+    "oracle-gce-iaas-deployment",
+    "oracle-zdm-migration",
+    "oracle-cloud-lifecycle-ops"
+  ],
+  "supported_platforms": [
+    "Oracle Database@Google Cloud (ExaCS X11M)",
+    "Oracle Database@Google Cloud (ExaDB-D with Exascale)",
+    "Autonomous Database Serverless (ADB-S)",
+    "Base Database Service (DBCS)",
+    "Compute Engine (GCE Hyperdisk / GCNV iSCSI)",
+    "Bare Metal Solution (BMS RAC)"
+  ],
+  "tags": ["oracle", "database", "exadata", "exascale", "adbs", "zdm", "goldengate", "gcp", "terraform"]
+}

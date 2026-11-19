@@ -40,10 +40,10 @@ if [ -f "${ARTIFACT_PATH}" ]; then
 fi
 
 echo "Creating the initial ZIP package: ${ARTIFACT_PATH}."
-zip -r "${ARTIFACT_PATH}" . -x "${ARTIFACT_DIR}/*" -x "*.git*" -x "*.terraform*" -x "terraform/*"
+zip -r "${ARTIFACT_PATH}" . -x "${ARTIFACT_DIR}/*" -x "*.git*" -x "*.terraform*" -x "terraform/*" -x "*.DS_Store*" -x ".antigravity/*" -x ".gemini/*"
 
 echo "Adding terraform directory contents to the package root."
 cd terraform
-zip -r --grow "../${ARTIFACT_PATH}" . -x "*.example" -x "terraform.tfvars"
+zip -r --grow "../${ARTIFACT_PATH}" . -x "*.example" -x "terraform.tfvars" -x "*.DS_Store*" -x "*.terraform*"
 
 echo "Oracle Toolkit Terraform Blueprint generation process completed."
